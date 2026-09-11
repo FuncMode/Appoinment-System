@@ -707,8 +707,8 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
 .public-hero p { font-size: 16px; color: var(--text-secondary); margin: 0 0 24px; max-width: 480px; }
 .public-hero-actions { display: flex; gap: 10px; }
 .public-hero-badges { display: flex; gap: 16px; margin-top: 32px; }
-.public-hero-badge { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-muted); }
-.public-hero-badge svg { width: 16px; height: 16px; color: var(--success); }
+/* Trust badges are plain muted text — separated by the flex gap, no icon parade */
+.public-hero-badge { font-size: 13px; color: var(--text-muted); }
 
 /* Compact single-column hero variant used by the subpages
    (Services / Doctors / About / Contact / legal). Kept as a class instead of
@@ -1255,8 +1255,8 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
 }
 .public-notice-close:hover { opacity: 1; background: rgba(185, 28, 28, 0.08); }
 
-/* Sticky nav shadow once the page is scrolled */
-.public-nav.scrolled { box-shadow: var(--shadow-md); }
+/* Sticky nav: only a hairline shadow once scrolled — content stays calm */
+.public-nav.scrolled { box-shadow: var(--shadow-sm); }
 
 /* Live open/closed clinic status pill */
 .clinic-status {
@@ -1265,46 +1265,32 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
   border: 1px solid var(--border); background: var(--surface);
   font-size: 12.5px; font-weight: 500; color: var(--text-secondary);
 }
-.clinic-status-dot { width: 8px; height: 8px; border-radius: 50%; position: relative; flex-shrink: 0; }
+.clinic-status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .clinic-status.open .clinic-status-dot { background: var(--success); }
 .clinic-status.closed .clinic-status-dot { background: #9CA3AF; }
-.clinic-status.open .clinic-status-dot::after {
-  content: ''; position: absolute; inset: -3px; border-radius: 50%;
-  border: 2px solid var(--success); opacity: 0;
-  animation: statusPulse 2s ease-out infinite;
-}
-@keyframes statusPulse {
-  0% { transform: scale(0.5); opacity: 0.7; }
-  100% { transform: scale(1.4); opacity: 0; }
-}
 
-/* Feature cards: hover-lift micro-interaction (public pages only) */
-.feature-card {
-  transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
-}
-.feature-card:hover {
-  border-color: var(--primary);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
-}
+/* Feature cards: quiet border-color feedback on hover — no lift, no shadow.
+   Cards are normal content; elevation is reserved for overlays (Rule: shadows
+   only when they communicate hierarchy). */
+.feature-card { transition: border-color 120ms ease; }
+.feature-card:hover { border-color: var(--border-strong); }
 
-/* Department chips (Landing + Services) — clickable, hover-lift */
+/* Department chips (Landing + Services) — clickable, same quiet hover */
 .dept-chip {
   background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
   padding: 14px 16px; font-size: 14px; font-weight: 500;
   display: flex; align-items: center; gap: 10px;
-  transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+  transition: border-color 120ms ease;
   cursor: pointer; text-align: left; font-family: inherit; color: var(--text);
   width: 100%;
 }
-.dept-chip:hover { border-color: var(--primary); box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.dept-chip:hover { border-color: var(--primary); }
 .dept-chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); flex-shrink: 0; }
-.dept-chip .dept-arrow { margin-left: auto; color: var(--text-subtle); transition: color 120ms ease, transform 120ms ease; }
-.dept-chip:hover .dept-arrow { color: var(--primary); transform: translateX(2px); }
+.dept-chip .dept-arrow { margin-left: auto; color: var(--text-subtle); transition: color 120ms ease; }
+.dept-chip:hover .dept-arrow { color: var(--primary); }
 
-/* Scroll-reveal fade-up (applied via the <Reveal> wrapper) */
-.reveal { opacity: 0; transform: translateY(18px); transition: opacity 500ms ease, transform 500ms ease; }
-.reveal-visible { opacity: 1; transform: none; }
+/* Scroll-reveal: removed — decorative fade-ins don't communicate anything
+   (Rule: animation only when it explains a state change). */
 
 /* FAQ accordion */
 .faq-accordion { display: flex; flex-direction: column; gap: 10px; max-width: 760px; margin: 0 auto; }
@@ -1327,14 +1313,14 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
   animation: publicFadeIn 200ms ease;
 }
 
-/* "Find the right care" symptom-guide result panel */
+/* "Find the right care" symptom-guide result panel — left accent marks it as
+   a system response, no icon needed */
 .care-finder-panel {
-  margin-top: 16px; padding: 16px;
-  border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface);
-  display: flex; align-items: flex-start; gap: 12px;
+  margin-top: 16px; padding: 14px 16px;
+  border: 1px solid var(--border); border-left: 3px solid var(--primary);
+  border-radius: var(--r-sm); background: var(--surface);
   animation: publicFadeIn 200ms ease;
 }
-.care-finder-panel .feature-card-icon { margin-bottom: 0; flex-shrink: 0; }
 
 /* Testimonial carousel */
 .testimonial-carousel { position: relative; overflow: hidden; }
@@ -1357,14 +1343,13 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
   display: grid; place-items: center; cursor: pointer;
   transition: border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
 }
-.testimonial-arrow:hover { border-color: var(--primary); color: var(--primary); box-shadow: var(--shadow-sm); }
+.testimonial-arrow:hover { border-color: var(--primary); color: var(--primary); }
 
-/* Respect reduced-motion preferences for all new animations */
+/* Respect reduced-motion preferences for the remaining functional animations
+   (carousel slide, FAQ fade-in) */
 @media (prefers-reduced-motion: reduce) {
-  .reveal { opacity: 1; transform: none; transition: none; }
-  .feature-card:hover, .dept-chip:hover { transform: none; }
-  .clinic-status.open .clinic-status-dot::after { animation: none; }
   .testimonial-track { transition: none; }
+  .faq-answer, .care-finder-panel { animation: none; }
 }
 
 @media (max-width: 720px) {

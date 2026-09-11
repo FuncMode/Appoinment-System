@@ -5,7 +5,7 @@ import {
   Badge, StatusBadge, DoctorStatusBadge, DoctorAvatar,
   Modal, ToastLayer, Field, TextInput, TextArea, SelectInput,
   Pagination, SkeletonRows, EmptyState, ErrorState, ConfirmModal, MiniBarChart,
-  NoticeBar, ClinicStatus, CountUp, Reveal, FaqAccordion, TestimonialCarousel,
+  NoticeBar, ClinicStatus, FaqAccordion, TestimonialCarousel,
 } from './components.jsx';
 import {
   HOSPITAL, SPECIALTIES, DOCTORS, PATIENTS, CURRENT_PATIENT, CURRENT_ADMIN,
@@ -90,9 +90,9 @@ function Landing() {
               </div>
               <ClinicStatus />
             </div>
-            <h1>Care that fits your schedule, doctors you can trust.</h1>
-            <p>Book appointments with MedicaCare's board-certified specialists in cardiology,
-               OB-GYN, pediatrics, and more — right from your phone or laptop.</p>
+            <h1>Book a MedicaCare specialist online — no phone calls needed.</h1>
+            <p>Pick from {DOCTORS.length} board-certified doctors across {SPECIALTIES.length} departments,
+               view real-time availability, and get a confirmation in minutes. Reschedule anytime from your portal.</p>
             <div className="public-hero-actions">
               <a className="btn btn-primary lg" href="#/register">
                 Create patient account <Icon name="arrow-right" size={16} />
@@ -100,9 +100,9 @@ function Landing() {
               <a className="btn btn-secondary lg" href="#/login">Log in</a>
             </div>
             <div className="public-hero-badges">
-              <div className="public-hero-badge"><Icon name="check-circle-2" size={16} /> DOH accredited</div>
-              <div className="public-hero-badge"><Icon name="check-circle-2" size={16} /> HMO-friendly</div>
-              <div className="public-hero-badge"><Icon name="check-circle-2" size={16} /> 24/7 patient support</div>
+              <div className="public-hero-badge">DOH accredited</div>
+              <div className="public-hero-badge">HMO-friendly</div>
+              <div className="public-hero-badge">24/7 patient support</div>
             </div>
           </div>
 
@@ -136,17 +136,17 @@ function Landing() {
               </>
             )}
 
-            {/* mini stat cards — numbers count up when they scroll into view */}
+            {/* mini stat cards */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 }}>
               {[
-                { label: 'Specialists', el: <CountUp value={DOCTORS.length} /> },
-                { label: 'Avg. wait time', el: <CountUp value={12} prefix={'< '} suffix=" min" /> },
-                { label: 'Departments', el: <CountUp value={SPECIALTIES.length} /> },
-                { label: 'Patient rating', el: <CountUp value={4.8} decimals={1} suffix=" / 5" /> },
+                { label: 'Specialists', value: String(DOCTORS.length) },
+                { label: 'Avg. wait time', value: '< 12 min' },
+                { label: 'Departments', value: String(SPECIALTIES.length) },
+                { label: 'Patient rating', value: '4.8 / 5' },
               ].map(s => (
                 <div className="hero-stat" key={s.label}>
                   <div className="hero-stat-label">{s.label}</div>
-                  <div className="hero-stat-value">{s.el}</div>
+                  <div className="hero-stat-value">{s.value}</div>
                 </div>
               ))}
             </div>
@@ -156,7 +156,7 @@ function Landing() {
 
       <section className="public-section" style={{ background: 'var(--bg)' }}>
         <div className="public-section-inner">
-          <Reveal>
+          <div>
             <h2>Not sure where to go for care?</h2>
             <p className="public-section-sub">Pick the symptom closest to what you're feeling and we'll point you to the right specialist.</p>
             <div className="chip-group">
@@ -172,7 +172,6 @@ function Landing() {
             </div>
             {pickedGuide && (
               <div className="care-finder-panel">
-                <div className="feature-card-icon"><Icon name="stethoscope" size={18} /></div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 14, fontWeight: 600 }}>
                     We recommend our <span style={{ color: 'var(--primary)' }}>{pickedGuide.specialty}</span> department
@@ -191,29 +190,24 @@ function Landing() {
                 </div>
               </div>
             )}
-          </Reveal>
+          </div>
         </div>
       </section>
 
       <section className="public-section">
         <div className="public-section-inner">
-          <Reveal>
-            <h2>How it works</h2>
-            <p className="public-section-sub">Three straightforward steps to see a doctor at MedicaCare.</p>
-          </Reveal>
+          <h2>How it works</h2>
+          <p className="public-section-sub">Three straightforward steps to see a doctor at MedicaCare.</p>
           <div className="feature-grid">
             <div className="feature-card">
-              <div className="feature-card-icon"><Icon name="user-plus" size={18} /></div>
               <h3>1. Create your account</h3>
               <p>Register in under a minute with your name, email, and phone number. No paperwork.</p>
             </div>
             <div className="feature-card">
-              <div className="feature-card-icon"><Icon name="calendar-search" size={18} /></div>
               <h3>2. Find your doctor</h3>
               <p>Browse specialists by department, check real-time availability, and pick a time that works.</p>
             </div>
             <div className="feature-card">
-              <div className="feature-card-icon"><Icon name="check-circle-2" size={18} /></div>
               <h3>3. Get confirmed</h3>
               <p>Our staff confirms your booking within minutes, with reminders and easy rescheduling — all in your portal.</p>
             </div>
@@ -223,41 +217,33 @@ function Landing() {
 
       <section className="public-section" style={{ paddingTop: 32 }}>
         <div className="public-section-inner">
-          <Reveal>
-            <h2>Departments</h2>
-            <p className="public-section-sub">Tap a department to see its specialists.</p>
-            <div className="grid-4">
-              {SPECIALTIES.map(s => (
-                <button key={s} className="dept-chip" onClick={() => navigate(`/doctors?spec=${encodeURIComponent(s)}`)}>
-                  <span className="dot" />
-                  {s}
-                  <Icon name="arrow-right" size={14} className="dept-arrow" />
-                </button>
-              ))}
-            </div>
-          </Reveal>
+          <h2>Departments</h2>
+          <p className="public-section-sub">Tap a department to see its specialists.</p>
+          <div className="grid-4">
+            {SPECIALTIES.map(s => (
+              <button key={s} className="dept-chip" onClick={() => navigate(`/doctors?spec=${encodeURIComponent(s)}`)}>
+                <span className="dot" />
+                {s}
+                <Icon name="arrow-right" size={14} className="dept-arrow" />
+              </button>
+            ))}
+          </div>
         </div>
       </section>
 
       <section className="public-section" style={{ background: 'var(--bg)', paddingTop: 32 }}>
         <div className="public-section-inner">
-          <Reveal>
-            <h2>What patients say</h2>
-            <p className="public-section-sub">Convenience that people who book with us every week can vouch for.</p>
-            <TestimonialCarousel items={TESTIMONIALS} />
-          </Reveal>
+          <h2>What patients say</h2>
+          <p className="public-section-sub">Convenience that people who book with us every week can vouch for.</p>
+          <TestimonialCarousel items={TESTIMONIALS} />
         </div>
       </section>
 
       <section className="public-section">
         <div className="public-section-inner">
-          <Reveal>
-            <h2 style={{ textAlign: 'center' }}>Common questions</h2>
-            <p className="public-section-sub" style={{ textAlign: 'center' }}>
-              Quick answers before you create your account.
-            </p>
-            <FaqAccordion items={LANDING_FAQS} />
-          </Reveal>
+          <h2>Common questions</h2>
+          <p className="public-section-sub">Quick answers before you create your account.</p>
+          <FaqAccordion items={LANDING_FAQS} />
         </div>
       </section>
 
@@ -265,7 +251,7 @@ function Landing() {
         <div className="public-section-inner" style={{ textAlign: 'center' }}>
           <h2 style={{ marginBottom: 8 }}>Ready to book your first visit?</h2>
           <p className="public-section-sub" style={{ maxWidth: 520, margin: '0 auto 24px' }}>
-            Create a free patient account and see a MedicaCare specialist as early as this week.
+            Create a free account, pick a specialist, and choose a slot that fits your schedule.
           </p>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
             <a className="btn btn-primary lg" href="#/register">Create patient account <Icon name="arrow-right" size={16} /></a>
@@ -315,29 +301,25 @@ function ServicesPage() {
 
       <section className="public-section" style={{ background: 'var(--bg)', paddingTop: 32 }}>
         <div className="public-section-inner">
-          <Reveal>
-            <h2>Departments & specialties</h2>
-            <p className="public-section-sub">Tap a department to see its specialists.</p>
-            <div className="grid-4">
-              {SPECIALTIES.map(s => (
-                <button key={s} className="dept-chip" onClick={() => navigate(`/doctors?spec=${encodeURIComponent(s)}`)}>
-                  <span className="dot" />
-                  {s}
-                  <Icon name="arrow-right" size={14} className="dept-arrow" />
-                </button>
-              ))}
-            </div>
-          </Reveal>
+          <h2>Departments & specialties</h2>
+          <p className="public-section-sub">Tap a department to see its specialists.</p>
+          <div className="grid-4">
+            {SPECIALTIES.map(s => (
+              <button key={s} className="dept-chip" onClick={() => navigate(`/doctors?spec=${encodeURIComponent(s)}`)}>
+                <span className="dot" />
+                {s}
+                <Icon name="arrow-right" size={14} className="dept-arrow" />
+              </button>
+            ))}
+          </div>
         </div>
       </section>
 
       <section className="public-section">
         <div className="public-section-inner">
-          <Reveal>
-            <h2>Service FAQs</h2>
-            <p className="public-section-sub">Answers to what patients ask us most about our services.</p>
-            <FaqAccordion items={SERVICES_FAQS} />
-          </Reveal>
+          <h2>Service FAQs</h2>
+          <p className="public-section-sub">Answers to what patients ask us most about our services.</p>
+          <FaqAccordion items={SERVICES_FAQS} />
         </div>
       </section>
 
@@ -581,17 +563,16 @@ function DoctorsPage({ initialSpecialty = '' }) {
 
 // ---------- About page ----------
 function AboutPage() {
-  // Numbers animate (count up) when they scroll into view
   const stats = [
-    { value: 120, suffix: '+', label: 'Board-certified specialists' },
-    { value: 18, label: 'Departments & centers' },
-    { value: 35, suffix: ' yrs', label: 'Serving Quezon City' },
-    { value: 4.8, decimals: 1, suffix: ' / 5', label: 'Average patient rating' },
+    { value: '120+', label: 'Board-certified specialists' },
+    { value: '18', label: 'Departments & centers' },
+    { value: '35 yrs', label: 'Serving Quezon City' },
+    { value: '4.8 / 5', label: 'Average patient rating' },
   ];
   const values = [
-    { icon: 'shield-check', title: 'Patient safety first', desc: 'Evidence-based protocols, accredited facilities, and strict data privacy for every record.' },
-    { icon: 'stethoscope', title: 'Clinical excellence', desc: 'Board-certified doctors and continuous training across all 18 departments.' },
-    { icon: 'user-round', title: 'Compassionate care', desc: 'We treat people, not just charts — clear explanations and respect at every visit.' },
+    { title: 'Patient safety first', desc: 'Evidence-based protocols, accredited facilities, and strict data privacy for every record.' },
+    { title: 'Clinical excellence', desc: 'Board-certified doctors and continuous training across all 18 departments.' },
+    { title: 'Compassionate care', desc: 'We treat people, not just charts — clear explanations and respect at every visit.' },
   ];
   return (
     <div>
@@ -614,9 +595,7 @@ function AboutPage() {
           <div className="grid-4">
             {stats.map(s => (
               <div key={s.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 20 }}>
-                <div style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em' }}>
-                  <CountUp value={s.value} decimals={s.decimals || 0} suffix={s.suffix || ''} />
-                </div>
+                <div style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em' }}>{s.value}</div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{s.label}</div>
               </div>
             ))}
@@ -631,7 +610,6 @@ function AboutPage() {
           <div className="feature-grid">
             {values.map(v => (
               <div className="feature-card" key={v.title}>
-                <div className="feature-card-icon"><Icon name={v.icon} size={18} /></div>
                 <h3>{v.title}</h3>
                 <p>{v.desc}</p>
               </div>

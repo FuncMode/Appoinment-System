@@ -485,67 +485,6 @@ function ClinicStatus() {
   );
 }
 
-// ---------- Count-up number (animates when scrolled into view) ----------
-function CountUp({ value, decimals = 0, prefix = '', suffix = '', duration = 1200 }) {
-  const ref = useRef(null);
-  const [display, setDisplay] = useState(0);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)) {
-      setDisplay(value);
-      return;
-    }
-    let raf = 0;
-    let started = false;
-    const io = new IntersectionObserver(entries => {
-      entries.forEach(entry => {
-        if (!entry.isIntersecting || started) return;
-        started = true;
-        const start = performance.now();
-        const tick = (t) => {
-          const p = Math.min((t - start) / duration, 1);
-          setDisplay(value * (1 - Math.pow(1 - p, 3))); // ease-out cubic
-          if (p < 1) raf = requestAnimationFrame(tick);
-        };
-        raf = requestAnimationFrame(tick);
-        io.disconnect();
-      });
-    }, { threshold: 0.4 });
-    io.observe(el);
-    return () => { io.disconnect(); if (raf) cancelAnimationFrame(raf); };
-  }, [value, duration]);
-  return <span ref={ref}>{prefix}{display.toFixed(decimals)}{suffix}</span>;
-}
-
-// ---------- Scroll-reveal wrapper (fade-up on first viewport entry) ----------
-function Reveal({ children, delay = 0, className = '', ...rest }) {
-  const ref = useRef(null);
-  const [shown, setShown] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    if (!('IntersectionObserver' in window)) { setShown(true); return; }
-    const io = new IntersectionObserver(entries => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) { setShown(true); io.disconnect(); }
-      });
-    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-  return (
-    <div
-      ref={ref}
-      className={`reveal ${shown ? 'reveal-visible' : ''} ${className}`.trim()}
-      style={delay ? { transitionDelay: `${delay}ms` } : undefined}
-      {...rest}
-    >
-      {children}
-    </div>
-  );
-}
-
 // ---------- FAQ accordion (expand/collapse Q&A list) ----------
 function FaqAccordion({ items }) {
   const [openIdx, setOpenIdx] = useState(0);
@@ -584,7 +523,6 @@ function TestimonialCarousel({ items, interval = 6000 }) {
         {items.map(t => (
           <div className="testimonial-slide" key={t.who}>
             <div className="feature-card testimonial-card">
-              <div className="feature-card-icon"><Icon name="quote" size={18} /></div>
               <p className="testimonial-quote">"{t.quote}"</p>
               <div className="testimonial-who">— {t.who}</div>
             </div>
@@ -953,7 +891,7 @@ Object.assign(window, {
   Modal, ConfirmModal, ToastLayer,
   Field, TextInput, TextArea, SelectInput,
   Pagination, SkeletonRows, EmptyState, ErrorState, MiniBarChart,
-  NoticeBar, ClinicStatus, CountUp, Reveal, FaqAccordion, TestimonialCarousel,
+  NoticeBar, ClinicStatus, FaqAccordion, TestimonialCarousel,
 });
 
 export {
@@ -962,6 +900,6 @@ export {
   Badge, StatusBadge, DoctorStatusBadge, DoctorAvatar, PatientAvatar,
   Modal, ToastLayer, Field, TextInput, TextArea, SelectInput,
   Pagination, SkeletonRows, EmptyState, ErrorState, ConfirmModal, MiniBarChart,
-  NoticeBar, ClinicStatus, CountUp, Reveal, FaqAccordion, TestimonialCarousel,
+  NoticeBar, ClinicStatus, FaqAccordion, TestimonialCarousel,
 };
 

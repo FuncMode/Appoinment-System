@@ -104,6 +104,8 @@ function buildReceipt(appt, doctor, patient) {
 // ============================================================
 
 // ---------- Patient Dashboard ----------
+// Patient-specific, state-aware: the greeting subtitle, stats, and banner all
+// reflect this patient's actual schedule (no generic template copy).
 function PatientDashboard() {
   const store = useStore();
   const me = store.currentPatient || window.CURRENT_PATIENT;
@@ -116,18 +118,35 @@ function PatientDashboard() {
   const nextDoctor = next ? (window.findDoctor(next.doctorId) || { name: 'Unknown doctor', specialty: '—', room: '—' }) : null;
   const nextDate = next ? new Date(next.date + 'T00:00:00') : null;
 
-  const stats = {
-    upcoming: upcoming.length,
-    completed: myAppts.filter(a => a.status === 'completed').length,
-    cancelled: myAppts.filter(a => a.status === 'cancelled').length,
-  };
+  // Completed visits in the last 12 months — computed to match the label honestly
+  const yearAgo = new Date();
+  yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+  const yearAgoISO = `${yearAgo.getFullYear()}-${String(yearAgo.getMonth() + 1).padStart(2, '0')}-${String(yearAgo.getDate()).padStart(2, '0')}`;
+  const completed12mo = myAppts.filter(a => a.status === 'completed' && a.date >= yearAgoISO);
+  // Most recent completed visit — more useful to a patient than a lifetime cancelled count
+  const lastVisit = myAppts.filter(a => a.status === 'completed').sort((a, b) => b.date.localeCompare(a.date))[0] || null;
+  const lastVisitDoctor = lastVisit ? (window.findDoctor(lastVisit.doctorId) || { name: 'Unknown doctor' }) : null;
+  const lastVisitShort = lastVisit
+    ? new Date(lastVisit.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    : '—';
+
+  const stats = [
+    { label: 'Upcoming', value: upcoming.length, context: next ? `Next on ${window.formatDate(next.date)}` : 'No appointments booked' },
+    { label: 'Completed visits', value: completed12mo.length, context: 'In the last 12 months' },
+    { label: 'Last visit', value: lastVisitShort, context: lastVisitDoctor ? `With ${lastVisitDoctor.name}` : 'No past visits yet' },
+  ];
+
+  // Personal, state-aware subtitle instead of a static tagline
+  const subtitle = next
+    ? `You have ${upcoming.length} upcoming appointment${upcoming.length === 1 ? '' : 's'}. Your next visit is on ${window.formatDate(next.date)} at ${next.time}.`
+    : 'No upcoming appointments — your schedule is clear.';
 
   return (
     <AppShell current="dashboard">
       <div className="page">
         <PageHeader
           title={`${greeting()}, ${me.name.split(' ')[0]}`}
-          subtitle="Here's a snapshot of your care with MedicaCare."
+          subtitle={subtitle}
           actions={
             <button className="btn btn-primary" onClick={() => navigate('/patient/book')}>
               <Icon name="calendar-plus" size={14} /> Book appointment
@@ -213,21 +232,14 @@ function PatientDashboard() {
           </div>
 
           <div className="dashboard-stats">
-            <div className="card stat-card">
-              <div className="stat-label"><Icon name="calendar" size={14} /> Upcoming</div>
-              <div className="stat-value">{stats.upcoming}</div>
-              <div className="stat-delta">Across all doctors</div>
-            </div>
-            <div className="card stat-card">
-              <div className="stat-label"><Icon name="check-circle-2" size={14} /> Completed visits</div>
-              <div className="stat-value">{stats.completed}</div>
-              <div className="stat-delta">In the last 12 months</div>
-            </div>
-            <div className="card stat-card stat-card-span">
-              <div className="stat-label"><Icon name="x-circle" size={14} /> Cancelled</div>
-              <div className="stat-value">{stats.cancelled}</div>
-              <div className="stat-delta">Lifetime</div>
-            </div>
+            {stats.map((s, i) => (
+              // The third card spans the full 2×2 grid width (dashboard-stats layout)
+              <div key={i} className={'card stat-card' + (i === 2 ? ' stat-card-span' : '')}>
+                <div className="stat-label">{s.label}</div>
+                <div className="stat-value">{s.value}</div>
+                <div className="stat-delta">{s.context}</div>
+              </div>
+            ))}
           </div>
         </div>
 
