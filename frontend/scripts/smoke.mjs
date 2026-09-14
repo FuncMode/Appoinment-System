@@ -11,7 +11,7 @@ const routes = [
   '/patient/dashboard', '/patient/doctors', '/patient/availability/d1',
   '/patient/book', '/patient/confirmation', '/patient/status',
   '/patient/history', '/patient/appointment/ap1', '/patient/profile',
-  '/patient/records', '/patient/help', '/admin/help',
+  '/patient/records', '/patient/help',
   '/admin/dashboard', '/admin/patients', '/admin/doctors', '/admin/appointments',
   '/admin/reports', '/admin/settings',
   '/patient/availability/unknown-id', '/patient/appointment/unknown-id',

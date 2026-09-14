@@ -136,17 +136,24 @@ function Landing() {
               </>
             )}
 
-            {/* mini stat cards */}
+            {/* mini stat cards — icon chip on the right fills the card width and
+                aids recognition (guide §11/§13), same chip style as the
+                dashboard quick actions */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 }}>
               {[
-                { label: 'Specialists', value: String(DOCTORS.length) },
-                { label: 'Avg. wait time', value: '< 12 min' },
-                { label: 'Departments', value: String(SPECIALTIES.length) },
-                { label: 'Patient rating', value: '4.8 / 5' },
+                { label: 'Specialists', value: String(DOCTORS.length), icon: 'stethoscope' },
+                { label: 'Avg. wait time', value: '< 12 min', icon: 'clock' },
+                { label: 'Departments', value: String(SPECIALTIES.length), icon: 'layout-grid' },
+                { label: 'Patient rating', value: '4.8 / 5', icon: 'star' },
               ].map(s => (
-                <div className="hero-stat" key={s.label}>
-                  <div className="hero-stat-label">{s.label}</div>
-                  <div className="hero-stat-value">{s.value}</div>
+                <div className="hero-stat" key={s.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="hero-stat-label">{s.label}</div>
+                    <div className="hero-stat-value">{s.value}</div>
+                  </div>
+                  <div className="quick-action-icon" style={{ flexShrink: 0 }}>
+                    <Icon name={s.icon} size={16} />
+                  </div>
                 </div>
               ))}
             </div>
@@ -159,7 +166,7 @@ function Landing() {
           <div>
             <h2>Not sure where to go for care?</h2>
             <p className="public-section-sub">Pick the symptom closest to what you're feeling and we'll point you to the right specialist.</p>
-            <div className="chip-group">
+            <div className="chip-group care-chips">
               {CARE_GUIDE.map(g => (
                 <button
                   key={g.symptom}
@@ -344,6 +351,10 @@ const MOBILE_DOCTORS_QUERY = '(max-width: 720px)';
 const MOBILE_DOCTORS_PAGE_SIZE = 6;
 
 function DoctorsPage({ initialSpecialty = '' }) {
+  // Simulated fetch — skeleton cards while "loading", same 600ms pattern as
+  // the patient Doctor Listing
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setLoading(false), 600); return () => clearTimeout(t); }, []);
   const [page, setPage] = useState(1);
   const [query, setQuery] = useState('');
   // Pre-filtered when navigated here with a specialty (e.g. #/doctors?spec=Cardiology
@@ -433,7 +444,36 @@ function DoctorsPage({ initialSpecialty = '' }) {
             </div>
           </div>
 
-          {filtered.length === 0 ? (
+          {loading ? (
+            // Skeleton doctor cards mirroring the public card layout (32px
+            // avatar + name/specialty, rating + status badge, room, then the
+            // fee + "View profile" footer) so there is no layout shift when
+            // the data lands
+            <div className="doctor-grid" aria-hidden="true">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="doctor-card">
+                  <div className="doctor-card-head">
+                    <span className="skel" style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span className="skel" style={{ width: '75%', height: 13, display: 'block' }} />
+                      <span className="skel" style={{ width: '55%', height: 11, display: 'block', marginTop: 6 }} />
+                    </div>
+                  </div>
+                  <div className="doctor-card-meta">
+                    <span className="skel" style={{ width: 52, height: 12 }} />
+                    <span className="skel" style={{ width: 70, height: 18 }} />
+                  </div>
+                  <div className="doctor-card-meta">
+                    <span className="skel" style={{ width: '70%', height: 12 }} />
+                  </div>
+                  <div className="doctor-card-footer">
+                    <span className="skel" style={{ width: 78, height: 12 }} />
+                    <span className="skel" style={{ width: 78, height: 12 }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="card">
               <EmptyState
                 icon="search-x"
@@ -564,10 +604,10 @@ function DoctorsPage({ initialSpecialty = '' }) {
 // ---------- About page ----------
 function AboutPage() {
   const stats = [
-    { value: '120+', label: 'Board-certified specialists' },
-    { value: '18', label: 'Departments & centers' },
-    { value: '35 yrs', label: 'Serving Quezon City' },
-    { value: '4.8 / 5', label: 'Average patient rating' },
+    { value: '120+', label: 'Board-certified specialists', icon: 'stethoscope' },
+    { value: '18', label: 'Departments & centers', icon: 'layout-grid' },
+    { value: '35 yrs', label: 'Serving Quezon City', icon: 'map-pin' },
+    { value: '4.8 / 5', label: 'Average patient rating', icon: 'star' },
   ];
   const values = [
     { title: 'Patient safety first', desc: 'Evidence-based protocols, accredited facilities, and strict data privacy for every record.' },
@@ -594,9 +634,17 @@ function AboutPage() {
           </p>
           <div className="grid-4">
             {stats.map(s => (
-              <div key={s.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 20 }}>
-                <div style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em' }}>{s.value}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{s.label}</div>
+              // Value + icon chip side by side on top, label below at full
+              // width — works on both desktop and mobile without a restack
+              // rule (guide §11/§13, §31 chip reuse)
+              <div key={s.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                  <div style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em' }}>{s.value}</div>
+                  <div className="quick-action-icon" style={{ flexShrink: 0 }}>
+                    <Icon name={s.icon} size={16} />
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{s.label}</div>
               </div>
             ))}
           </div>
@@ -681,7 +729,13 @@ function ContactPage() {
       <section className="public-hero page-hero">
         <div className="public-hero-inner">
           <h1>Contact us</h1>
-          <p className="public-hero-sub">Questions about appointments, billing, or services? We're happy to help.</p>
+          {/* maxWidth 600 overrides the 480px hero-paragraph cap so the line
+              stays on one line, and the bottom margin restores the gap the
+              page-hero variant removes so the status pill doesn't touch the
+              text (Contact is the only page-hero with a pill after the sub) */}
+          <p className="public-hero-sub" style={{ maxWidth: 600, marginBottom: 14 }}>
+            Questions about appointments, billing, or services? We're happy to help.
+          </p>
           <ClinicStatus />
         </div>
       </section>
@@ -1056,7 +1110,7 @@ function Login() {
           <p className="sub">Log in to book appointments and view your records.</p>
 
           {authError && (
-            <div style={{ background: 'var(--error-soft)', border: '1px solid #FCA5A5', color: 'var(--error-text)', padding: '10px 12px', borderRadius: 8, fontSize: 13, marginBottom: 14, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+            <div role="alert" style={{ background: 'var(--error-soft)', border: '1px solid #FCA5A5', color: 'var(--error-text)', padding: '10px 12px', borderRadius: 8, fontSize: 13, marginBottom: 14, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
               <Icon name="alert-circle" size={16} style={{ marginTop: 1 }} />
               <div>{authError}</div>
             </div>
@@ -1165,7 +1219,7 @@ function ForgotPassword() {
 
           {sent ? (
             <div>
-              <div style={{ background: 'var(--success-soft, #ECFDF5)', border: '1px solid #6EE7B7', color: '#047857', padding: '12px 14px', borderRadius: 8, fontSize: 13, display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 16 }}>
+              <div role="status" style={{ background: 'var(--success-soft, #ECFDF5)', border: '1px solid #6EE7B7', color: '#047857', padding: '12px 14px', borderRadius: 8, fontSize: 13, display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 16 }}>
                 <Icon name="check-circle-2" size={16} style={{ marginTop: 1 }} />
                 <div>
                   If an account exists for <strong>{email}</strong>, a password reset link is on its way.

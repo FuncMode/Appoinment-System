@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   Icon, navigate, useHashRoute, useStore, StoreProvider,
-  Sidebar, Topbar, AppShell, PublicNav, PageHeader,
+  Sidebar, Topbar, AppShell, PublicNav, PageHeader, SortableTh, PageSpinner,
   Badge, StatusBadge, DoctorStatusBadge, DoctorAvatar, PatientAvatar,
   Modal, ToastLayer, Field, TextInput, TextArea, SelectInput,
-  Pagination, SkeletonRows, EmptyState, ErrorState, ConfirmModal, MiniBarChart,
+  Pagination, SkeletonRows, EmptyState, ErrorState, ConfirmModal, MiniBarChart, Sparkline,
 } from './components.jsx';
 import {
   HOSPITAL, SPECIALTIES, DOCTORS, PATIENTS, CURRENT_PATIENT, CURRENT_ADMIN,
@@ -33,18 +33,7 @@ function localToday() {
   return `${n.getFullYear()}-${pad(n.getMonth() + 1)}-${pad(n.getDate())}`;
 }
 
-// Sortable table header button (guideline 18 — table sorting)
-function SortableTh({ label, k, sortKey, sortDir, onSort }) {
-  const active = sortKey === k;
-  return (
-    <th aria-sort={active ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}>
-      <button type="button" className="th-sort" onClick={() => onSort(k)}>
-        {label}
-        <Icon name={active ? (sortDir === 'asc' ? 'chevron-up' : 'chevron-down') : 'chevrons-up-down'} size={12} />
-      </button>
-    </th>
-  );
-}
+// SortableTh now lives in components.jsx (shared with the patient History table)
 
 
 // ============================================================
@@ -59,11 +48,18 @@ function AdminDashboard() {
   const todayAppts = store.appointments.filter(a => a.date === today);
   const pending = store.appointments.filter(a => a.status === 'pending');
 
+  // Simulated fetch (same 600ms pattern as the other admin lists) so the
+  // dashboard shows skeletons before the data appears
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setLoading(false), 600); return () => clearTimeout(t); }, []);
+
+  // Trend lines are prototype data (same approach as the chart ranges below) —
+  // each series ends at the card's current value so line and number agree.
   const stats = [
-    { label: 'Today\'s appointments', value: todayAppts.length, delta: '+3 from yesterday', icon: 'calendar', kind: 'up' },
-    { label: 'Pending confirmation',   value: pending.length,   delta: '4 need review',      icon: 'clock',     kind: 'warn' },
-    { label: 'Total patients',         value: store.patients.length, delta: '+2 this week',  icon: 'users-round', kind: 'up' },
-    { label: 'Active doctors',         value: store.doctors.filter(d => d.status !== 'on-leave').length, delta: `${store.doctors.filter(d => d.status === 'on-leave').length} on leave`, icon: 'stethoscope', kind: 'neutral' },
+    { label: 'Today\'s appointments', value: todayAppts.length, delta: '+3 from yesterday', icon: 'calendar', kind: 'up', trend: [1, 3, 2, 4, 3, 1, 2] },
+    { label: 'Pending confirmation',   value: pending.length,   delta: '4 need review',      icon: 'clock',     kind: 'warn', trend: [5, 6, 4, 7, 8, 6, 9] },
+    { label: 'Total patients',         value: store.patients.length, delta: '+2 this week',  icon: 'users-round', kind: 'up', trend: [18, 19, 20, 20, 22, 23, 24] },
+    { label: 'Active doctors',         value: store.doctors.filter(d => d.status !== 'on-leave').length, delta: `${store.doctors.filter(d => d.status === 'on-leave').length} on leave`, icon: 'stethoscope', kind: 'neutral', trend: [16, 15, 16, 14, 15, 16, 16] },
   ];
 
   // Chart ranges for the dashboard activity card (prototype data per range)
@@ -74,7 +70,7 @@ function AdminDashboard() {
       data: [
         { label: 'Mon', value: 24 },
         { label: 'Tue', value: 31 },
-        { label: 'Wed', value: 28, highlight: true },
+        { label: 'Wed', value: 28 },
         { label: 'Thu', value: 35 },
         { label: 'Fri', value: 42 },
         { label: 'Sat', value: 18 },
@@ -109,6 +105,9 @@ function AdminDashboard() {
     },
   };
   const active = ranges[range];
+  // Highlight the peak bar of whichever range is active, instead of a
+  // hardcoded day
+  const peak = Math.max(...active.data.map(d => d.value));
 
   return (
     <AppShell current="a-dashboard">
@@ -136,12 +135,25 @@ function AdminDashboard() {
 
         <div className="stat-grid" style={{ marginBottom: 12 }}>
           {stats.map((s, i) => (
-            <div key={i} className="card stat-card">
-              <div className="stat-label"><Icon name={s.icon} size={14} /> {s.label}</div>
-              <div className="stat-value">{s.value}</div>
-              <div className={'stat-delta ' + (s.kind === 'up' ? 'up' : '')}>
-                {s.delta}
-              </div>
+            <div key={i} className={'card stat-card' + (s.trend ? ' stat-card-spark' : '')}>
+              {loading ? (
+                <>
+                  <span className="skel" style={{ height: 12, width: '70%' }} />
+                  <span className="skel" style={{ height: 26, width: '32%' }} />
+                  <span className="skel" style={{ height: 10, width: '55%' }} />
+                </>
+              ) : (
+                <>
+                  <div className="stat-label"><Icon name={s.icon} size={14} /> {s.label}</div>
+                  <div className="stat-row">
+                    <div className="stat-value">{s.value}</div>
+                    {s.trend && <Sparkline data={s.trend} tone={s.kind === 'up' ? 'success' : 'primary'} delay={350 + i * 200} />}
+                  </div>
+                  <div className={'stat-delta ' + (s.kind === 'up' ? 'up' : '')}>
+                    {s.delta}
+                  </div>
+                </>
+              )}
             </div>
           ))}
         </div>
@@ -159,26 +171,43 @@ function AdminDashboard() {
               </div>
             </div>
             <div className="card-body compact">
-              <MiniBarChart data={active.data} height={140} trend />
-              <div className="divider" style={{ margin: '10px 0' }} />
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
-                <div>
-                  <div className="t-help">{active.summary.totalLabel}</div>
-                  <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>{active.summary.total}</div>
+              {loading ? (
+                <div style={{ height: 208, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span className="spinner" role="status" aria-label="Loading chart" />
                 </div>
-                <div>
-                  <div className="t-help">Avg. per day</div>
-                  <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>{active.summary.avg}</div>
-                </div>
-                <div>
-                  <div className="t-help">Completion rate</div>
-                  <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--success)' }}>{active.summary.completion}</div>
-                </div>
-                <div>
-                  <div className="t-help">Cancellation rate</div>
-                  <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>{active.summary.cancellation}</div>
-                </div>
-              </div>
+              ) : (
+                <>
+                  {/* Highlight the peak bar of whichever range is active,
+                      instead of a hardcoded day */}
+                  {/* key={range} remounts the chart so the entrance
+                      animation replays on every filter switch; delay=350
+                      holds a beat after the skeletons clear */}
+                  <MiniBarChart
+                    key={range} delay={350}
+                    data={active.data.map(d => ({ ...d, highlight: d.value === peak }))}
+                    height={140} trend
+                  />
+                  <div className="divider" style={{ margin: '10px 0' }} />
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+                    <div>
+                      <div className="t-help">{active.summary.totalLabel}</div>
+                      <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>{active.summary.total}</div>
+                    </div>
+                    <div>
+                      <div className="t-help">Avg. per day</div>
+                      <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>{active.summary.avg}</div>
+                    </div>
+                    <div>
+                      <div className="t-help">Completion rate</div>
+                      <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--success)' }}>{active.summary.completion}</div>
+                    </div>
+                    <div>
+                      <div className="t-help">Cancellation rate</div>
+                      <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>{active.summary.cancellation}</div>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -188,14 +217,24 @@ function AdminDashboard() {
               <button className="btn btn-ghost sm" onClick={() => navigate('/admin/appointments')}>See all <Icon name="arrow-right" size={13} /></button>
             </div>
             <div>
-              {pending.slice(0, 4).map(a => {
+              {loading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="list-item">
+                    <span className="skel" style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0 }} />
+                    <div className="list-item-body" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <span className="skel" style={{ height: 10, width: '60%' }} />
+                      <span className="skel" style={{ height: 10, width: '85%' }} />
+                    </div>
+                  </div>
+                ))
+              ) : pending.slice(0, 4).map(a => {
                 const d = window.findDoctor(a.doctorId);
                 const p = window.findPatient(a.patientId);
                 return (
                   <div key={a.id} className="list-item">
                     <PatientAvatar person={p} size={28} />
                     <div className="list-item-body">
-                      <div className="list-item-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>{p.name}</div>
+                      <div className="list-item-title">{p.name}</div>
                       <div className="list-item-sub">{d.specialty} · {window.formatDate(a.date)} {a.time}</div>
                     </div>
                     <StatusBadge status="pending" />
@@ -225,7 +264,31 @@ function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {todayAppts.length === 0 ? (
+                {loading ? (
+                  // Skeleton rows mirroring the real ones: the Patient cell has
+                  // an avatar + phone line like the loaded rows, and every cell
+                  // carries data-label so the mobile stacked-card view renders
+                  // with labels (plain <SkeletonRows/> bars ignore that layout)
+                  Array.from({ length: 4 }).map((_, r) => (
+                    <tr key={r}>
+                      <td data-label="Time" className="td-nowrap"><span className="skel" style={{ width: 44, height: 12 }} /></td>
+                      <td data-label="Patient">
+                        <div className="cell-with-avatar">
+                          <span className="skel" style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0 }} />
+                          <div style={{ minWidth: 0 }}>
+                            <span className="skel" style={{ width: 120, maxWidth: '100%', height: 12, display: 'block' }} />
+                            <span className="skel" style={{ width: 88, height: 10, display: 'block', marginTop: 4 }} />
+                          </div>
+                        </div>
+                      </td>
+                      <td data-label="Doctor" className="cell-primary-truncate"><span className="skel" style={{ width: '70%', height: 12 }} /></td>
+                      <td data-label="Specialty" className="td-nowrap"><span className="skel" style={{ width: '65%', height: 12 }} /></td>
+                      <td data-label="Reason" className="cell-primary-truncate"><span className="skel" style={{ width: '75%', height: 12 }} /></td>
+                      <td data-label="Status"><span className="skel" style={{ width: 64, height: 18 }} /></td>
+                      <td className="col-actions"><span className="skel" style={{ width: 64, height: 28 }} /></td>
+                    </tr>
+                  ))
+                ) : todayAppts.length === 0 ? (
                   <tr><td colSpan={7} className="empty-cell"><EmptyState icon="calendar-x" title="No appointments today" message="The schedule is clear." /></td></tr>
                 ) : todayAppts.map(a => {
                   const d = window.findDoctor(a.doctorId);
@@ -258,7 +321,6 @@ function PatientsMgmt() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
-  const [editingId, setEditingId] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
   const [delLoading, setDelLoading] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -349,7 +411,33 @@ function PatientsMgmt() {
                 </tr>
               </thead>
               <tbody>
-                {loading ? <SkeletonRows rows={6} cols={6} />
+                {loading ? (
+                  // Skeleton rows mirroring the real ones: the Patient cell has
+                  // an avatar + ID line, the Contact cell has two lines, and
+                  // every cell carries data-label so the mobile stacked-card
+                  // view keeps its labels
+                  Array.from({ length: 6 }).map((_, r) => (
+                    <tr key={r}>
+                      <td data-label="Patient">
+                        <div className="cell-with-avatar">
+                          <span className="skel" style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0 }} />
+                          <div style={{ minWidth: 0 }}>
+                            <span className="skel" style={{ width: 110, maxWidth: '100%', height: 12, display: 'block' }} />
+                            <span className="skel" style={{ width: 64, height: 10, display: 'block', marginTop: 4 }} />
+                          </div>
+                        </div>
+                      </td>
+                      <td data-label="Contact">
+                        <div><span className="skel" style={{ width: 130, maxWidth: '100%', height: 11, display: 'inline-block' }} /></div>
+                        <div style={{ marginTop: 3 }}><span className="skel" style={{ width: 92, height: 10, display: 'inline-block' }} /></div>
+                      </td>
+                      <td data-label="Gender / Age"><span className="skel" style={{ width: 60, height: 12 }} /></td>
+                      <td data-label="Joined"><span className="skel" style={{ width: 72, height: 12 }} /></td>
+                      <td data-label="Last visit"><span className="skel" style={{ width: 72, height: 12 }} /></td>
+                      <td className="col-actions"><span className="skel" style={{ width: 24, height: 24 }} /></td>
+                    </tr>
+                  ))
+                )
                   : filtered.length === 0 ? (
                     <tr><td colSpan={6} className="empty-cell" style={{ padding: 0 }}>
                       <EmptyState icon="user-x" title={`No patients found for "${query}"`}
@@ -378,7 +466,9 @@ function PatientsMgmt() {
                       <td data-label="Joined">{window.formatDate(p.joined)}</td>
                       <td data-label="Last visit">{p.lastVisit ? window.formatDate(p.lastVisit) : <span className="t-muted">Never</span>}</td>
                       <td className="col-actions">
-                        <button className="btn-icon" title="Edit" aria-label="Edit patient" onClick={() => setEditingId(p.id)}><Icon name="pencil" size={16} /></button>
+                        {/* No edit action: personal info is owned by the patient —
+                            they manage it on their Profile page, and those changes
+                            reflect here automatically */}
                         <button className="btn-icon" title="Delete" aria-label="Delete patient" onClick={() => setConfirmDel(p)} style={{ color: 'var(--error)' }}><Icon name="trash-2" size={16} /></button>
                       </td>
                     </tr>
@@ -405,16 +495,6 @@ function PatientsMgmt() {
           store.setPatients([...window.PATIENTS]);
           setAddOpen(false);
           store.pushToast({ title: 'Patient added', msg: `${newP.name} has been added to your records.` });
-        }} />
-      <PatientFormModal open={!!editingId} onClose={() => setEditingId(null)}
-        patient={store.patients.find(p => p.id === editingId)}
-        onSave={(edited) => {
-          // Sync the static PATIENTS registry so findPatient() sees the update
-          const i = window.PATIENTS.findIndex(x => x.id === editingId);
-          if (i > -1) Object.assign(window.PATIENTS[i], edited);
-          store.setPatients(store.patients.map(p => p.id === editingId ? { ...p, ...edited } : p));
-          setEditingId(null);
-          store.pushToast({ title: 'Patient updated', msg: `${edited.name}'s record has been updated.` });
         }} />
       <ConfirmModal
         open={!!confirmDel}
@@ -540,6 +620,9 @@ function DoctorsMgmt() {
   const [delLoading, setDelLoading] = useState(false);
   const [specialty, setSpecialty] = useState('all');
   const PAGE = 4;
+  // Simulated fetch — skeleton rows while "loading", same as Patients page
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setLoading(false), 600); return () => clearTimeout(t); }, []);
 
   const filtered = store.doctors.filter(d => {
     if (specialty !== 'all' && d.specialty !== specialty) return false;
@@ -599,7 +682,37 @@ function DoctorsMgmt() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
+                {loading ? (
+                  // Skeleton rows mirroring the real ones: the Doctor cell has
+                  // an avatar + room line, Status is a badge pill, and every
+                  // cell carries data-label for the mobile stacked-card view
+                  Array.from({ length: 5 }).map((_, r) => (
+                    <tr key={r}>
+                      <td data-label="Doctor">
+                        <div className="cell-with-avatar">
+                          <span className="skel" style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0 }} />
+                          <div style={{ minWidth: 0 }}>
+                            <span className="skel" style={{ width: 110, maxWidth: '100%', height: 12, display: 'block' }} />
+                            <span className="skel" style={{ width: 90, height: 10, display: 'block', marginTop: 4 }} />
+                          </div>
+                        </div>
+                      </td>
+                      <td data-label="Specialty"><span className="skel" style={{ width: '65%', height: 12 }} /></td>
+                      <td data-label="Status"><span className="skel" style={{ width: 64, height: 18 }} /></td>
+                      <td data-label="Availability" className="td-nowrap"><span className="skel" style={{ width: 96, height: 11 }} /></td>
+                      <td data-label="Experience"><span className="skel" style={{ width: 40, height: 12 }} /></td>
+                      <td data-label="Rating"><span className="skel" style={{ width: 44, height: 12 }} /></td>
+                      <td data-label="Fee"><span className="skel" style={{ width: 56, height: 12 }} /></td>
+                      <td className="col-actions">
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <span className="skel" style={{ width: 24, height: 24 }} />
+                          <span className="skel" style={{ width: 24, height: 24 }} />
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )
+                  : filtered.length === 0 ? (
                   <tr><td colSpan={8} className="empty-cell" style={{ padding: 0 }}><EmptyState icon="stethoscope" title="No doctors found" message="Try clearing your search or add a new doctor."
                     actions={<button className="btn btn-primary" onClick={() => setAddOpen(true)}><Icon name="plus" size={14} /> Add doctor</button>} /></td></tr>
                 ) : paged.map(d => (
@@ -630,7 +743,7 @@ function DoctorsMgmt() {
               </tbody>
             </table>
           </div>
-          {filtered.length > 0 && <Pagination page={page} setPage={setPage} total={filtered.length} pageSize={PAGE} label="doctors" />}
+          {!loading && filtered.length > 0 && <Pagination page={page} setPage={setPage} total={filtered.length} pageSize={PAGE} label="doctors" />}
         </div>
       </div>
 
@@ -803,6 +916,9 @@ function AppointmentsMgmt() {
   const [sortKey, setSortKey] = useState('date');
   const [sortDir, setSortDir] = useState('desc');
   const PAGE = 4;
+  // Simulated fetch — skeleton rows while "loading", same as Patients page
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setLoading(false), 600); return () => clearTimeout(t); }, []);
 
   const filtered = store.appointments.filter(a => {
     if (status !== 'all' && a.status !== status) return false;
@@ -933,7 +1049,48 @@ function AppointmentsMgmt() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
+                {loading ? (
+                  // Skeleton rows mirroring the real ones: the Patient cell has
+                  // an avatar + phone line, the Doctor and Date & time cells
+                  // have two stacked lines (name over specialty, date over
+                  // time), Status is a select-sized pill, and every cell
+                  // carries data-label for the mobile stacked-card view
+                  Array.from({ length: 5 }).map((_, r) => (
+                    <tr key={r}>
+                      <td data-label="Ref" className="t-mono td-nowrap"><span className="skel" style={{ width: 64, height: 11 }} /></td>
+                      <td data-label="Patient">
+                        <div className="cell-with-avatar">
+                          <span className="skel" style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0 }} />
+                          <div style={{ minWidth: 0 }}>
+                            <span className="skel" style={{ width: 110, maxWidth: '100%', height: 12, display: 'block' }} />
+                            <span className="skel" style={{ width: 84, height: 10, display: 'block', marginTop: 4 }} />
+                          </div>
+                        </div>
+                      </td>
+                      <td data-label="Doctor" className="td-nowrap">
+                        <div style={{ minWidth: 0 }}>
+                          <span className="skel" style={{ width: 96, maxWidth: '100%', height: 12, display: 'block' }} />
+                          <span className="skel" style={{ width: 72, height: 10, display: 'block', marginTop: 4 }} />
+                        </div>
+                      </td>
+                      <td data-label="Date & time" className="td-nowrap">
+                        <div>
+                          <span className="skel" style={{ width: 78, height: 12, display: 'block' }} />
+                          <span className="skel" style={{ width: 56, height: 10, display: 'block', marginTop: 4 }} />
+                        </div>
+                      </td>
+                      <td data-label="Reason" className="cell-primary-truncate"><span className="skel" style={{ width: '75%', height: 12 }} /></td>
+                      <td data-label="Status"><span className="skel" style={{ width: 96, height: 30 }} /></td>
+                      <td className="col-actions">
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <span className="skel" style={{ width: 24, height: 24 }} />
+                          <span className="skel" style={{ width: 24, height: 24 }} />
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )
+                  : filtered.length === 0 ? (
                   <tr><td colSpan={7} className="empty-cell" style={{ padding: 0 }}><EmptyState icon="calendar-x" title="No appointments match" message="Try adjusting your filters." actions={<button className="btn btn-secondary" onClick={() => { setQuery(''); setStatus('all'); }}>Clear filters</button>} /></td></tr>
                 ) : paged.map(a => {
                   const d = window.findDoctor(a.doctorId);
@@ -976,7 +1133,7 @@ function AppointmentsMgmt() {
               </tbody>
             </table>
           </div>
-          {filtered.length > 0 && <Pagination page={page} setPage={setPage} total={filtered.length} pageSize={PAGE} label="appointments" />}
+          {!loading && filtered.length > 0 && <Pagination page={page} setPage={setPage} total={filtered.length} pageSize={PAGE} label="appointments" />}
         </div>
       </div>
 
@@ -1003,16 +1160,24 @@ function AdminReports() {
   const store = useStore();
   const appts = store.appointments;
 
+  // Simulated fetch (same 600ms pattern as the other admin pages) —
+  // skeletons/spinner before the report data appears
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setLoading(false), 600); return () => clearTimeout(t); }, []);
+
   const completed = appts.filter(a => a.status === 'completed').length;
   const cancelled = appts.filter(a => a.status === 'cancelled').length;
   const completionRate = appts.length ? Math.round((completed / appts.length) * 100) : 0;
   const cancellationRate = appts.length ? ((cancelled / appts.length) * 100).toFixed(1) : '0.0';
 
+  // Trend lines are prototype data (same approach as the Dashboard cards) —
+  // each series ends at the card's current value so line and number agree
   const stats = [
-    { label: 'Total appointments', value: appts.length, icon: 'calendar-days' },
-    { label: 'Completed visits', value: completed, icon: 'check-circle-2' },
-    { label: 'Completion rate', value: `${completionRate}%`, icon: 'trending-up' },
-    { label: 'Cancellation rate', value: `${cancellationRate}%`, icon: 'x-circle' },
+    { label: 'Total appointments', value: appts.length, icon: 'calendar-days', tone: 'success', trend: [19, 20, 21, 21, 23, 24, 25] },
+    { label: 'Completed visits', value: completed, icon: 'check-circle-2', tone: 'success', trend: [3, 4, 4, 5, 5, 6, 6] },
+    { label: 'Completion rate', value: `${completionRate}%`, icon: 'trending-up', tone: 'success', trend: [18, 20, 19, 22, 21, 25, 24] },
+    // Rising cancellations are bad news — the trend line reads red
+    { label: 'Cancellation rate', value: `${cancellationRate}%`, icon: 'x-circle', tone: 'error', trend: [6, 5.5, 7, 6.5, 7.5, 8, 8] },
   ];
 
   // Appointments per specialty, computed from the demo data
@@ -1037,6 +1202,8 @@ function AdminReports() {
     .sort((a, b) => b.total - a.total);
 
   const chartData = bySpecialty.slice(0, 6).map(r => ({ label: r.specialty, value: r.total }));
+  // Highlight the peak specialty bar, same as the Dashboard week chart
+  const peak = Math.max(...chartData.map(d => d.value));
 
   // Busiest doctors by appointment count (3 rows to visually match the specialty chart beside it)
   const byDoctor = store.doctors
@@ -1063,9 +1230,22 @@ function AdminReports() {
 
         <div className="stat-grid" style={{ marginBottom: 20 }}>
           {stats.map((s, i) => (
-            <div key={i} className="card stat-card">
-              <div className="stat-label"><Icon name={s.icon} size={14} /> {s.label}</div>
-              <div className="stat-value">{s.value}</div>
+            <div key={i} className={'card stat-card' + (s.trend ? ' stat-card-spark' : '')}>
+              {loading ? (
+                <>
+                  <span className="skel" style={{ height: 12, width: '70%' }} />
+                  <span className="skel" style={{ height: 26, width: '32%' }} />
+                  <span className="skel" style={{ height: 22, width: '40%' }} />
+                </>
+              ) : (
+                <>
+                  <div className="stat-label"><Icon name={s.icon} size={14} /> {s.label}</div>
+                  <div className="stat-row">
+                    <div className="stat-value">{s.value}</div>
+                    {s.trend && <Sparkline data={s.trend} tone={s.tone} delay={350 + i * 200} />}
+                  </div>
+                </>
+              )}
             </div>
           ))}
         </div>
@@ -1074,21 +1254,47 @@ function AdminReports() {
           <div className="card">
             <div className="card-header"><h2 className="h-section">Appointments by specialty</h2></div>
             <div className="card-body">
-              <MiniBarChart data={chartData} height={160} trend />
+              {loading ? (
+                <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span className="spinner" role="status" aria-label="Loading chart" />
+                </div>
+              ) : (
+                <MiniBarChart
+                  data={chartData.map(d => ({ ...d, highlight: d.value === peak }))}
+                  height={160} trend delay={350}
+                />
+              )}
             </div>
           </div>
 
           <div className="card">
             <div className="card-header"><h2 className="h-section">Busiest doctors</h2></div>
             <div>
-              {byDoctor.map(d => (
+              {loading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="list-item">
+                    <span className="skel" style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0 }} />
+                    <div className="list-item-body" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <span className="skel" style={{ height: 10, width: '60%' }} />
+                      <span className="skel" style={{ height: 10, width: '45%' }} />
+                    </div>
+                    {/* Mirror the real row's right-side appointments pill */}
+                    <span className="skel" style={{ width: 92, height: 22, borderRadius: 'var(--r-pill)', flexShrink: 0 }} />
+                  </div>
+                ))
+              ) : byDoctor.map(d => (
                 <div key={d.id} className="list-item">
                   <DoctorAvatar doctor={d} size={28} />
                   <div className="list-item-body">
                     <div className="list-item-title">{d.name}</div>
                     <div className="list-item-sub">{d.specialty} · {d.room}</div>
                   </div>
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>{d.count}</span>
+                  {/* Neutral stat pill — same right-side treatment as the
+                      status badges on the other list rows */}
+                  <span className="badge badge-neutral" style={{ flexShrink: 0 }}>
+                    <span style={{ fontWeight: 700, color: 'var(--text)' }}>{d.count}</span>
+                    {d.count === 1 ? 'appointment' : 'appointments'}
+                  </span>
                 </div>
               ))}
             </div>
@@ -1109,7 +1315,8 @@ function AdminReports() {
                 </tr>
               </thead>
               <tbody>
-                {bySpecialty.length === 0 ? (
+                {loading ? <SkeletonRows rows={6} cols={5} />
+                  : bySpecialty.length === 0 ? (
                   <tr><td colSpan={5} className="empty-cell" style={{ padding: 0 }}>
                     <EmptyState icon="calendar-x" title="No appointment data yet" message="Reports will appear once appointments are booked." />
                   </td></tr>
@@ -1139,6 +1346,10 @@ function AdminReports() {
 // ---------- Settings ----------
 function AdminSettings() {
   const store = useStore();
+  // Simulated fetch — centered circle spinner while "loading", same 600ms
+  // pattern as the patient Book/Profile pages
+  const [pageLoading, setPageLoading] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setPageLoading(false), 600); return () => clearTimeout(t); }, []);
   const [clinic, setClinic] = useState({
     name: HOSPITAL.name, phone: HOSPITAL.phone, email: HOSPITAL.email, address: HOSPITAL.address,
   });
@@ -1170,6 +1381,14 @@ function AdminSettings() {
       store.pushToast({ title: 'Preferences saved', msg: 'Your settings are now active.' });
     }, 700);
   };
+
+  if (pageLoading) {
+    return (
+      <AppShell current="settings">
+        <div className="page"><PageSpinner /></div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell current="settings">

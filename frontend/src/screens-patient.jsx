@@ -4,7 +4,7 @@ import {
   Sidebar, Topbar, AppShell, PublicNav, PageHeader,
   Badge, StatusBadge, DoctorStatusBadge, DoctorAvatar, PatientAvatar,
   Modal, ToastLayer, Field, TextInput, TextArea, SelectInput,
-  Pagination, SkeletonRows, EmptyState, ErrorState, ConfirmModal, MiniBarChart,
+  Pagination, SkeletonRows, SortableTh, PageSpinner, EmptyState, ErrorState, ConfirmModal, MiniBarChart,
 } from './components.jsx';
 import {
   HOSPITAL, SPECIALTIES, DOCTORS, PATIENTS, CURRENT_PATIENT, CURRENT_ADMIN,
@@ -109,6 +109,10 @@ function buildReceipt(appt, doctor, patient) {
 function PatientDashboard() {
   const store = useStore();
   const me = store.currentPatient || window.CURRENT_PATIENT;
+  // Simulated fetch — skeleton placeholders while "loading", same 600ms pattern
+  // as the admin dashboard and list pages
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setLoading(false), 600); return () => clearTimeout(t); }, []);
   const myAppts = store.appointments.filter(a => a.patientId === me.id);
   const upcoming = myAppts
     .filter(a => a.status === 'confirmed' || a.status === 'pending')
@@ -131,9 +135,9 @@ function PatientDashboard() {
     : '—';
 
   const stats = [
-    { label: 'Upcoming', value: upcoming.length, context: next ? `Next on ${window.formatDate(next.date)}` : 'No appointments booked' },
-    { label: 'Completed visits', value: completed12mo.length, context: 'In the last 12 months' },
-    { label: 'Last visit', value: lastVisitShort, context: lastVisitDoctor ? `With ${lastVisitDoctor.name}` : 'No past visits yet' },
+    { label: 'Upcoming', value: upcoming.length, context: next ? `Next on ${window.formatDate(next.date)}` : 'No appointments booked', icon: 'calendar-days' },
+    { label: 'Completed visits', value: completed12mo.length, context: 'In the last 12 months', icon: 'check-circle-2' },
+    { label: 'Last visit', value: lastVisitShort, context: lastVisitDoctor ? `With ${lastVisitDoctor.name}` : 'No past visits yet', icon: 'clock' },
   ];
 
   // Personal, state-aware subtitle instead of a static tagline
@@ -146,7 +150,9 @@ function PatientDashboard() {
       <div className="page">
         <PageHeader
           title={`${greeting()}, ${me.name.split(' ')[0]}`}
-          subtitle={subtitle}
+          subtitle={loading
+            ? <span className="skel" aria-hidden="true" style={{ width: 360, maxWidth: '100%', height: 14 }} />
+            : subtitle}
           actions={
             <button className="btn btn-primary" onClick={() => navigate('/patient/book')}>
               <Icon name="calendar-plus" size={14} /> Book appointment
@@ -154,8 +160,24 @@ function PatientDashboard() {
           }
         />
 
-        {/* Next appointment banner */}
-        {next ? (
+        {/* Next appointment banner (skeleton while loading) */}
+        {loading ? (
+          <div className="next-appt-card" style={{ marginBottom: 20 }} aria-hidden="true">
+            <div className="next-appt-date" style={{ display: 'grid', placeItems: 'center', padding: '14px 8px' }}>
+              <span className="skel" style={{ width: 30, height: 12 }} />
+              <span className="skel" style={{ width: 24, height: 24, marginTop: 5 }} />
+            </div>
+            <div className="next-appt-info">
+              <span className="skel" style={{ width: 150, height: 11, display: 'block' }} />
+              <span className="skel" style={{ width: 260, maxWidth: '100%', height: 20, display: 'block', marginTop: 10 }} />
+              <span className="skel" style={{ width: 330, maxWidth: '100%', height: 12, display: 'block', marginTop: 12 }} />
+            </div>
+            <div className="next-appt-actions">
+              <span className="skel" style={{ width: 100, height: 34 }} />
+              <span className="skel" style={{ width: 114, height: 34 }} />
+            </div>
+          </div>
+        ) : next ? (
           <div className="next-appt-card" style={{ marginBottom: 20 }}>
             <div className="next-appt-date">
               <div className="month">{nextDate.toLocaleDateString('en-US', { month: 'short' })}</div>
@@ -233,11 +255,28 @@ function PatientDashboard() {
 
           <div className="dashboard-stats">
             {stats.map((s, i) => (
-              // The third card spans the full 2×2 grid width (dashboard-stats layout)
+              // The third card spans the full 2×2 grid width on desktop
+              // (dashboard-stats layout). Desktop keeps the compact column with
+              // the icon inside the label row; on mobile the CSS restacks the
+              // cards into full-width rows — chip + label left, value right
+              // (guide §11/§28: readable compact summaries, no wrapped labels).
               <div key={i} className={'card stat-card' + (i === 2 ? ' stat-card-span' : '')}>
-                <div className="stat-label">{s.label}</div>
-                <div className="stat-value">{s.value}</div>
-                <div className="stat-delta">{s.context}</div>
+                <div className="quick-action-icon" style={{ flexShrink: 0 }}>
+                  <Icon name={s.icon} size={16} />
+                </div>
+                {loading ? (
+                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <span className="skel" style={{ height: 12, width: '65%' }} />
+                    <span className="skel" style={{ height: 26, width: '34%' }} />
+                    <span className="skel" style={{ height: 11, width: '80%' }} />
+                  </div>
+                ) : (
+                  <>
+                    <div className="stat-label"><Icon name={s.icon} size={14} /> {s.label}</div>
+                    <div className="stat-value">{s.value}</div>
+                    <div className="stat-delta">{s.context}</div>
+                  </>
+                )}
               </div>
             ))}
           </div>
@@ -250,7 +289,20 @@ function PatientDashboard() {
             <button className="btn btn-ghost sm" onClick={() => navigate('/patient/history')}>View all <Icon name="arrow-right" size={13} /></button>
           </div>
           <div>
-            {myAppts.slice(0, 4).map(a => {
+            {loading ? (
+              // Skeleton rows mirroring the real list-item layout (avatar + 2
+              // text lines + status badge), same 600ms window as the stats
+              [0, 1, 2].map(i => (
+                <div key={i} className="list-item" aria-hidden="true">
+                  <span className="skel" style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0 }} />
+                  <div className="list-item-body">
+                    <span className="skel" style={{ width: '55%', height: 12, display: 'block' }} />
+                    <span className="skel" style={{ width: '35%', height: 10, display: 'block', marginTop: 6 }} />
+                  </div>
+                  <span className="skel" style={{ width: 70, height: 18 }} />
+                </div>
+              ))
+            ) : myAppts.slice(0, 4).map(a => {
               const d = window.findDoctor(a.doctorId);
               return (
                 // role="button" makes this clickable row keyboard-operable
@@ -288,6 +340,10 @@ const MOBILE_DOCTOR_PAGE_SIZE = 6;
 
 function DoctorListing() {
   const store = useStore();
+  // Simulated fetch — skeleton cards while "loading", same 600ms pattern as
+  // the other patient pages
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setLoading(false), 600); return () => clearTimeout(t); }, []);
   const [query, setQuery] = useState('');
   const [specialty, setSpecialty] = useState('all');
   const [avail, setAvail] = useState('all');
@@ -354,7 +410,30 @@ function DoctorListing() {
           </div>
         </div>
 
-        {filtered.length === 0 ? (
+        {loading ? (
+          // Skeleton doctor cards mirroring the real card layout (avatar +
+          // name + specialty + rating/badge + room) so there is no layout shift
+          <div className="doctor-grid" aria-hidden="true">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="doctor-card">
+                <div className="doctor-card-head">
+                  <span className="skel" style={{ width: 52, height: 52, borderRadius: '50%', flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span className="skel" style={{ width: '80%', height: 14, display: 'block' }} />
+                    <span className="skel" style={{ width: '50%', height: 11, display: 'block', marginTop: 7 }} />
+                  </div>
+                </div>
+                <div className="doctor-card-meta">
+                  <span className="skel" style={{ width: 90, height: 12 }} />
+                  <span className="skel" style={{ width: 70, height: 18 }} />
+                </div>
+                <div className="doctor-card-meta">
+                  <span className="skel" style={{ width: '75%', height: 12 }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="card">
             <EmptyState
               icon="search-x"
@@ -610,6 +689,10 @@ function BookAppointment() {
   const store = useStore();
   const pending = store.pendingBooking;
   const me = store.currentPatient || window.CURRENT_PATIENT;
+  // Simulated fetch — centered circle spinner while "loading", same 600ms
+  // pattern as the other patient pages
+  const [pageLoading, setPageLoading] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setPageLoading(false), 600); return () => clearTimeout(t); }, []);
   const [form, setForm] = useState({
     doctorId: pending?.doctorId || '',
     date: pending?.date || '',
@@ -661,6 +744,14 @@ function BookAppointment() {
       navigate('/patient/confirmation');
     }, 1200);
   };
+
+  if (pageLoading) {
+    return (
+      <AppShell current="book">
+        <div className="page"><PageSpinner /></div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell current="book">
@@ -864,11 +955,85 @@ function BookingConfirmation() {
 function AppointmentStatus() {
   const store = useStore();
   const me = store.currentPatient || window.CURRENT_PATIENT;
+  // Simulated fetch — skeleton page while "loading", same 600ms pattern as the
+  // other patient pages
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setLoading(false), 600); return () => clearTimeout(t); }, []);
   const active = store.appointments
     .filter(a => a.patientId === me.id && (a.status === 'pending' || a.status === 'confirmed'))
     .sort((a, b) => a.date.localeCompare(b.date));
 
   const appt = active[0] || store.appointments.find(a => a.patientId === me.id);
+
+  // Skeleton mirrors the real layout (header card + facts + timeline) so there
+  // is no layout shift when the data lands; placed before the !appt early
+  // return so the empty state never flashes during the loading window
+  if (loading) {
+    return (
+      <AppShell current="dashboard">
+        <div className="page" style={{ maxWidth: 900 }}>
+          <PageHeader
+            title="Appointment status"
+            subtitle="Track your current appointment's progress."
+            breadcrumbs={[{ label: 'Home', to: '/patient/dashboard' }, { label: 'Status' }]}
+            actions={<button className="btn btn-secondary" onClick={() => navigate('/patient/history')}>View history</button>}
+          />
+
+          <div className="card" style={{ marginBottom: 16 }} aria-hidden="true">
+            <div className="card-body">
+              <div className="appt-head">
+                <span className="skel" style={{ width: 56, height: 56, borderRadius: '50%', flexShrink: 0 }} />
+                <div className="appt-head-info">
+                  <span className="skel" style={{ width: 220, maxWidth: '100%', height: 16, display: 'block' }} />
+                  <span className="skel" style={{ width: 260, maxWidth: '100%', height: 12, display: 'block', marginTop: 8 }} />
+                </div>
+                <div className="appt-head-status">
+                  <span className="skel" style={{ width: 80, height: 20, display: 'block' }} />
+                  <span className="skel" style={{ width: 110, height: 12, display: 'block', marginTop: 8 }} />
+                </div>
+              </div>
+              <div className="divider" />
+              <div className="appt-facts">
+                {[0, 1, 2].map(i => (
+                  <div key={i} className="appt-fact">
+                    <span className="skel" style={{ width: 46, height: 11, display: 'block' }} />
+                    <span className="skel" style={{ width: '70%', height: 15, display: 'block', marginTop: 7 }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="two-col">
+            <div className="card">
+              <div className="card-header"><h2 className="h-section">Progress timeline</h2></div>
+              <div className="card-body" aria-hidden="true">
+                {[0, 1, 2, 3].map(i => (
+                  <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
+                    <span className="skel" style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0 }} />
+                    <div style={{ flex: 1 }}>
+                      <span className="skel" style={{ width: '40%', height: 12, display: 'block' }} />
+                      <span className="skel" style={{ width: '65%', height: 10, display: 'block', marginTop: 6 }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="card-header"><h2 className="h-section">What to bring</h2></div>
+              <div className="card-body" aria-hidden="true">
+                {[0, 1, 2, 3].map(i => (
+                  <span key={i} className="skel" style={{ width: `${60 + i * 8}%`, height: 12, display: 'block', marginBottom: 12 }} />
+                ))}
+                <span className="skel" style={{ width: '100%', height: 36, display: 'block', marginTop: 8 }} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
 
   if (!appt) {
     return (
@@ -977,11 +1142,18 @@ function AppointmentStatus() {
 function AppointmentHistory() {
   const store = useStore();
   const me = store.currentPatient || window.CURRENT_PATIENT;
+  // Simulated fetch — skeleton table while "loading", same 600ms pattern as
+  // the admin list pages
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setLoading(false), 600); return () => clearTimeout(t); }, []);
   const [status, setStatus] = useState('all');
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const [confirmCancel, setConfirmCancel] = useState(null);
   const [cancelLoading, setCancelLoading] = useState(false);
+  // Column sorting (guideline 18) — default stays newest-first by date
+  const [sortKey, setSortKey] = useState('date');
+  const [sortDir, setSortDir] = useState('desc');
   const PAGE = 4;
 
   const all = store.appointments.filter(a => a.patientId === me.id);
@@ -993,9 +1165,32 @@ function AppointmentHistory() {
       if (!hay.includes(query.toLowerCase())) return false;
     }
     return true;
-  }).sort((a, b) => b.date.localeCompare(a.date));
+  });
 
-  const paged = filtered.slice((page - 1) * PAGE, page * PAGE);
+  const toggleSort = (key) => {
+    if (sortKey === key) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortKey(key); setSortDir(key === 'date' ? 'desc' : 'asc'); }
+  };
+  const sortVal = (a) => {
+    switch (sortKey) {
+      case 'doctor': return ((window.findDoctor(a.doctorId) || {}).name || '').toLowerCase();
+      case 'specialty': return ((window.findDoctor(a.doctorId) || {}).specialty || '').toLowerCase();
+      case 'time': return a.time;
+      case 'status': return a.status;
+      default: return a.date;
+    }
+  };
+  const dir = sortDir === 'asc' ? 1 : -1;
+  const sorted = filtered.slice().sort((a, b) => {
+    const va = sortVal(a), vb = sortVal(b);
+    if (va !== vb) return (va < vb ? -1 : 1) * dir;
+    // Tie-breaker: equal values keep the newest-first date order
+    return b.date.localeCompare(a.date);
+  });
+
+  const paged = sorted.slice((page - 1) * PAGE, page * PAGE);
+  // A sort change can move the current page out of range
+  useEffect(() => { setPage(1); }, [sortKey, sortDir]);
 
   const doCancel = () => {
     setCancelLoading(true);
@@ -1012,7 +1207,9 @@ function AppointmentHistory() {
       <div className="page">
         <PageHeader
           title="My appointments"
-          subtitle={`${all.length} appointments in total`}
+          subtitle={loading
+            ? <span className="skel" aria-hidden="true" style={{ width: 200, maxWidth: '100%', height: 14 }} />
+            : `${all.length} appointments in total`}
           breadcrumbs={[{ label: 'Home', to: '/patient/dashboard' }, { label: 'Appointments' }]}
           actions={<button className="btn btn-primary" onClick={() => navigate('/patient/book')}><Icon name="calendar-plus" size={14} /> Book appointment</button>}
         />
@@ -1047,16 +1244,44 @@ function AppointmentHistory() {
                 <table className="table table-responsive-stack">
                   <thead>
                     <tr>
-                      <th>Doctor</th>
-                      <th>Specialty</th>
-                      <th>Date</th>
-                      <th>Time</th>
-                      <th>Status</th>
+                      <SortableTh label="Doctor" k="doctor" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                      <SortableTh label="Specialty" k="specialty" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                      <SortableTh label="Date" k="date" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                      <SortableTh label="Time" k="time" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                      <SortableTh label="Status" k="status" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                       <th className="col-actions">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {paged.map(a => {
+                    {loading ? (
+                      // Skeleton rows mirroring the real ones: the Doctor cell has
+                      // an avatar + Ref line like the loaded rows, and every cell
+                      // carries data-label so the mobile stacked-card view renders
+                      // with labels (plain <SkeletonRows/> bars ignore that layout)
+                      Array.from({ length: 4 }).map((_, r) => (
+                        <tr key={r}>
+                          <td data-label="Doctor">
+                            <div className="cell-with-avatar">
+                              <span className="skel" style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0 }} />
+                              <div style={{ minWidth: 0 }}>
+                                <span className="skel" style={{ width: 120, maxWidth: '100%', height: 12, display: 'block' }} />
+                                <span className="skel" style={{ width: 70, height: 10, display: 'block', marginTop: 5 }} />
+                              </div>
+                            </div>
+                          </td>
+                          <td data-label="Specialty"><span className="skel" style={{ width: '70%', height: 12 }} /></td>
+                          <td data-label="Date"><span className="skel" style={{ width: '70%', height: 12 }} /></td>
+                          <td data-label="Time"><span className="skel" style={{ width: '60%', height: 12 }} /></td>
+                          <td data-label="Status"><span className="skel" style={{ width: 64, height: 18 }} /></td>
+                          <td className="col-actions" data-label="Actions">
+                            <div className="appt-actions">
+                              <span className="skel" style={{ flex: 1, maxWidth: 88, height: 30 }} />
+                              <span className="skel" style={{ flex: 1, maxWidth: 64, height: 30 }} />
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : paged.map(a => {
                       const d = window.findDoctor(a.doctorId) || { name: 'Unknown doctor', specialty: '—' };
                       const cancellable = a.status === 'pending' || a.status === 'confirmed';
                       return (
@@ -1088,7 +1313,9 @@ function AppointmentHistory() {
                   </tbody>
                 </table>
               </div>
-              <Pagination page={page} setPage={setPage} total={filtered.length} pageSize={PAGE} label="appointments" />
+              {!loading && filtered.length > 0 && (
+                <Pagination page={page} setPage={setPage} total={filtered.length} pageSize={PAGE} label="appointments" />
+              )}
             </>
           )}
         </div>
@@ -1299,6 +1526,10 @@ function AppointmentDetails({ apptId }) {
 function Profile() {
   const store = useStore();
   const me = store.currentPatient || window.CURRENT_PATIENT;
+  // Simulated fetch — centered circle spinner while "loading", same 600ms
+  // pattern as the other patient pages
+  const [pageLoading, setPageLoading] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setPageLoading(false), 600); return () => clearTimeout(t); }, []);
   const [form, setForm] = useState({ ...me });
   const [pw, setPw] = useState({ current: '', next: '', confirm: '' });
   const [pwErrors, setPwErrors] = useState({});
@@ -1350,7 +1581,13 @@ function Profile() {
     setSaving(true);
     setTimeout(() => {
       setSaving(false);
-      store.setCurrentPatient({ ...me, ...form });
+      const updated = { ...me, ...form };
+      store.setCurrentPatient(updated);
+      // Sync the shared patient registries so the admin console (Patients page,
+      // appointment owner lookups) reflects the patient's own edits
+      const idx = window.PATIENTS.findIndex(x => x.id === updated.id);
+      if (idx > -1) Object.assign(window.PATIENTS[idx], updated);
+      store.setPatients(store.patients.map(p => p.id === updated.id ? { ...p, ...updated } : p));
       store.pushToast({ title: 'Profile updated', msg: 'Your changes have been saved.' });
     }, 700);
   };
@@ -1377,6 +1614,14 @@ function Profile() {
       store.pushToast({ title: 'Password changed', msg: 'Your new password is now active.' });
     }, 800);
   };
+
+  if (pageLoading) {
+    return (
+      <AppShell current="profile">
+        <div className="page"><PageSpinner /></div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell current="profile">
@@ -1478,6 +1723,10 @@ function Profile() {
 function MedicalRecords() {
   const store = useStore();
   const me = store.currentPatient || window.CURRENT_PATIENT;
+  // Simulated fetch — skeleton while "loading", same 600ms pattern as the
+  // other patient pages
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setLoading(false), 600); return () => clearTimeout(t); }, []);
   const records = [
     { id: 'mr1', date: '2026-08-14', type: 'Consultation',      doctorId: 'd1',  title: 'Hypertension follow-up',     summary: 'Blood pressure well controlled on current medication. Continue lifestyle changes; repeat ECG in 6 months.' },
     { id: 'mr2', date: '2026-07-02', type: 'Laboratory result', doctorId: 'd9',  title: 'Complete blood count (CBC)', summary: 'All values within normal range. No further action required.' },
@@ -1490,7 +1739,9 @@ function MedicalRecords() {
       <div className="page" style={{ maxWidth: 960 }}>
         <PageHeader
           title="Medical records"
-          subtitle="Summary of your past visits and lab results."
+          subtitle={loading
+            ? <span className="skel" aria-hidden="true" style={{ width: 280, maxWidth: '100%', height: 14 }} />
+            : "Summary of your past visits and lab results."}
           breadcrumbs={[{ label: 'Home', to: '/patient/dashboard' }, { label: 'Medical records' }]}
         />
 
@@ -1498,18 +1749,29 @@ function MedicalRecords() {
           <div className="card-header"><h2 className="h-section">Health summary</h2></div>
           <div className="card-body">
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
-              <div>
-                <div className="t-muted" style={{ fontSize: 12, marginBottom: 4 }}>Blood type</div>
-                <div style={{ fontWeight: 600 }}>{me.bloodType}</div>
-              </div>
-              <div>
-                <div className="t-muted" style={{ fontSize: 12, marginBottom: 4 }}>Known allergies</div>
-                <div style={{ fontWeight: 600 }}>{me.allergies || 'None'}</div>
-              </div>
-              <div>
-                <div className="t-muted" style={{ fontSize: 12, marginBottom: 4 }}>Emergency contact</div>
-                <div style={{ fontWeight: 600 }}>{me.emergencyContact}</div>
-              </div>
+              {loading ? (
+                [0, 1, 2].map(i => (
+                  <div key={i} aria-hidden="true">
+                    <span className="skel" style={{ width: 90, height: 11, display: 'block', marginBottom: 9 }} />
+                    <span className="skel" style={{ width: '60%', height: 14, display: 'block' }} />
+                  </div>
+                ))
+              ) : (
+                <>
+                  <div>
+                    <div className="t-muted" style={{ fontSize: 12, marginBottom: 4 }}>Blood type</div>
+                    <div style={{ fontWeight: 600 }}>{me.bloodType}</div>
+                  </div>
+                  <div>
+                    <div className="t-muted" style={{ fontSize: 12, marginBottom: 4 }}>Known allergies</div>
+                    <div style={{ fontWeight: 600 }}>{me.allergies || 'None'}</div>
+                  </div>
+                  <div>
+                    <div className="t-muted" style={{ fontSize: 12, marginBottom: 4 }}>Emergency contact</div>
+                    <div style={{ fontWeight: 600 }}>{me.emergencyContact}</div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -1523,7 +1785,7 @@ function MedicalRecords() {
                   <tr><th>Date</th><th>Type</th><th>Doctor</th><th>Record</th></tr>
                 </thead>
                 <tbody>
-                  {records.map(r => {
+                  {loading ? <SkeletonRows rows={4} cols={4} /> : records.map(r => {
                     const doc = window.findDoctor(r.doctorId);
                     return (
                       <tr key={r.id}>
@@ -1552,11 +1814,8 @@ function MedicalRecords() {
 }
 
 
-// ---------- Help & Support ----------
+// ---------- Help & Support (patient portal only) ----------
 function HelpSupport() {
-  const route = useHashRoute();
-  const isAdmin = route.startsWith('/admin');
-  const homeRoute = isAdmin ? '/admin/dashboard' : '/patient/dashboard';
   const [open, setOpen] = useState(0);
 
   const faqs = [
@@ -1573,7 +1832,7 @@ function HelpSupport() {
         <PageHeader
           title="Help & support"
           subtitle="Find quick answers or get in touch with our team."
-          breadcrumbs={[{ label: 'Home', to: homeRoute }, { label: 'Help & support' }]}
+          breadcrumbs={[{ label: 'Home', to: '/patient/dashboard' }, { label: 'Help & support' }]}
         />
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 16 }}>
@@ -1604,6 +1863,7 @@ function HelpSupport() {
               <div key={i} style={{ borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
                 <button
                   type="button"
+                  aria-expanded={open === i}
                   onClick={() => setOpen(open === i ? -1 : i)}
                   style={{ background: 'transparent', border: 0, padding: 0, width: '100%', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', textAlign: 'left' }}
                 >

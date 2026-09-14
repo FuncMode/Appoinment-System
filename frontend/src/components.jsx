@@ -150,7 +150,6 @@ function Sidebar({ role, current }) {
   ];
   const adminNav2 = [
     { id: 'settings',     label: 'Settings',      icon: 'settings',    route: '/admin/settings' },
-    { id: 'help',         label: 'Help center',   icon: 'life-buoy',   route: '/admin/help' },
   ];
 
   const primary = role === 'admin' ? adminNav : patientNav;
@@ -211,7 +210,6 @@ function Topbar({ onMenuClick }) {
   const notifRef = useRef(null);
 
   const isAdmin = route.startsWith('/admin');
-  const helpRoute = isAdmin ? '/admin/help' : '/patient/help';
 
   // Close the notifications dropdown on outside click or Escape
   useEffect(() => {
@@ -224,6 +222,16 @@ function Topbar({ onMenuClick }) {
       document.removeEventListener('mousedown', onDocClick);
       document.removeEventListener('keydown', onKey);
     };
+  }, [notifOpen]);
+
+  // Simulated fetch — skeleton rows for 600ms every time the dropdown opens,
+  // same loading pattern as the admin list pages
+  const [notifLoading, setNotifLoading] = useState(false);
+  useEffect(() => {
+    if (!notifOpen) return;
+    setNotifLoading(true);
+    const t = setTimeout(() => setNotifLoading(false), 600);
+    return () => clearTimeout(t);
   }, [notifOpen]);
 
   // Prototype notifications derived from recent appointments
@@ -262,9 +270,22 @@ function Topbar({ onMenuClick }) {
             <div className="notif-panel">
               <div className="notif-head">
                 <span>Notifications</span>
-                <button className="btn btn-link" onClick={() => setNotifRead(true)}>Mark all as read</button>
+                <button className="btn btn-link" disabled={notifLoading} onClick={() => setNotifRead(true)}>Mark all as read</button>
               </div>
-              {notifications.length === 0 ? (
+              {notifLoading ? (
+                /* Skeleton rows mirroring the notif-item layout (icon + 2 lines) */
+                <div aria-hidden="true">
+                  {[0, 1, 2].map(i => (
+                    <div key={i} className="notif-item notif-skel">
+                      <span className="notif-icon skel" />
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div className="skel" style={{ width: '55%', height: 11, marginBottom: 6 }} />
+                        <div className="skel" style={{ width: '82%', height: 10 }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : notifications.length === 0 ? (
                 <div className="notif-empty">You're all caught up — no notifications yet.</div>
               ) : notifications.map(n => (
                 <div key={n.id} className="notif-item">
@@ -278,9 +299,12 @@ function Topbar({ onMenuClick }) {
             </div>
           )}
         </div>
-        <button className="btn-icon" title="Help" aria-label="Help" onClick={() => navigate(helpRoute)}>
-          <Icon name="help-circle" size={18} />
-        </button>
+        {/* Help & support is patient-portal only — hidden in the admin console */}
+        {!isAdmin && (
+          <button className="btn-icon" title="Help" aria-label="Help" onClick={() => navigate('/patient/help')}>
+            <Icon name="help-circle" size={18} />
+          </button>
+        )}
       </div>
     </div>
   );
@@ -780,6 +804,39 @@ function SkeletonRows({ rows = 6, cols = 5 }) {
   );
 }
 
+// ---------- Sortable table header button (guideline 18 — table sorting) ----------
+// Shared by the admin tables and the patient Appointment History table.
+// Keyboard-accessible (<button>), exposes state via aria-sort, and keeps the
+// chevron affordance visible in both sorted and unsorted columns.
+function SortableTh({ label, k, sortKey, sortDir, onSort }) {
+  const active = sortKey === k;
+  return (
+    <th aria-sort={active ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+      <button type="button" className="th-sort" onClick={() => onSort(k)}>
+        {label}
+        <Icon name={active ? (sortDir === 'asc' ? 'chevron-up' : 'chevron-down') : 'chevrons-up-down'} size={12} />
+      </button>
+    </th>
+  );
+}
+
+// ---------- Page loading spinner ----------
+// Full-page loading state for form-heavy pages (patient Book/Profile, admin
+// Settings) where a single centered circle reads better than layout skeletons.
+// The flex wrapper centers the circle on both axes within the visible content
+// area — identical on desktop and mobile.
+function PageSpinner() {
+  return (
+    <div
+      role="status"
+      aria-label="Loading"
+      style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+    >
+      <div className="spinner" />
+    </div>
+  );
+}
+
 // ---------- Empty / Error state ----------
 function EmptyState({ icon = 'inbox', title, message, actions }) {
   return (
@@ -833,24 +890,45 @@ function ConfirmModal({ open, onClose, onConfirm, title, message, confirmLabel =
 
 // ---------- Simple placeholder chart (visits over week) ----------
 // Optional `trend` draws a line connecting the bar tops.
-function MiniBarChart({ data, height = 120, trend = false }) {
+function MiniBarChart({ data, height = 120, trend = false, delay = 0, stagger = 80 }) {
   const max = Math.max(...data.map(d => d.value), 1);
   const n = data.length || 1;
   // Tallest bar uses this % of the chart height; the rest is headroom for the value labels
   const BAR_MAX = 82;
-  const points = data.map((d, i) => `${((i + 0.5) / n) * 100},${100 - (d.value / max) * BAR_MAX}`).join(' ');
+
+  // The trend line renders at its true pixel size (viewBox matches the
+  // container exactly, no stretching) instead of a distorted 100x100 viewBox.
+  // This avoids the Chrome dash-rendering artifacts on non-scaling-stroke +
+  // preserveAspectRatio="none", and lets the draw-in animation trace the
+  // path correctly ("walking" along the bar tops from start to end).
+  const chartRef = useRef(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    if (!trend || !chartRef.current) return;
+    const ro = new ResizeObserver(entries => {
+      for (const entry of entries) setWidth(Math.round(entry.contentRect.width));
+    });
+    ro.observe(chartRef.current);
+    return () => ro.disconnect();
+  }, [trend]);
   return (
     <div>
-      <div style={{ position: 'relative', height }}>
-        {trend && n > 1 && (
-          <svg viewBox="0 0 100 100" preserveAspectRatio="none"
-            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }}>
-            <polyline points={points} fill="none" stroke="var(--primary)" strokeWidth="2"
-              strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" opacity="0.85" />
+      <div ref={chartRef} style={{ position: 'relative', height }}>
+        {trend && n > 1 && width > 0 && (
+          <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}
+            className="mini-chart-trend"
+            style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 1, animationDelay: `${delay + n * stagger}ms` }}>
+            {/* pathLength=100 + dash-offset draw: at 1:1 pixel scale this
+                traces the line along the bar tops from start to end */}
+            <polyline
+              points={data.map((d, i) => `${((i + 0.5) / n) * width},${((100 - (d.value / max) * BAR_MAX) / 100) * height}`).join(' ')}
+              pathLength="100" className="chart-draw"
+              fill="none" stroke="var(--primary)" strokeWidth="2"
+              strokeLinejoin="round" strokeLinecap="round" opacity="0.85" />
           </svg>
         )}
         {trend && data.map((d, i) => (
-          <div key={`pt-${i}`} style={{
+          <div key={`pt-${i}`} className="chart-dot" style={{
             position: 'absolute', zIndex: 2,
             left: `${((i + 0.5) / n) * 100}%`,
             top: `${100 - (d.value / max) * BAR_MAX}%`,
@@ -858,6 +936,8 @@ function MiniBarChart({ data, height = 120, trend = false }) {
             background: 'var(--primary)', border: '2px solid #fff',
             transform: 'translate(-50%, -50%)',
             boxShadow: '0 1px 2px rgba(15, 23, 42, 0.2)',
+            // each dot pops as the drawn line reaches it (line duration: 900ms)
+            animationDelay: `${(delay + n * stagger) + (n > 1 ? (i / (n - 1)) * 900 : 0)}ms`,
           }} />
         ))}
         {data.map((d, i) => (
@@ -870,6 +950,9 @@ function MiniBarChart({ data, height = 120, trend = false }) {
             <div className={'mini-chart-bar' + (d.highlight ? ' on' : '')} style={{
               width: '100%', maxWidth: 40,
               height: `${Math.max((d.value / max) * BAR_MAX, 1)}%`,
+              // staggered wave: each bar starts after the previous one;
+              // `delay` holds the whole sequence briefly after loading clears
+              animationDelay: `${delay + i * stagger}ms`,
             }} />
           </div>
         ))}
@@ -883,6 +966,37 @@ function MiniBarChart({ data, height = 120, trend = false }) {
   );
 }
 
+// ---------- Sparkline (tiny trend line for stat cards) ----------
+// No axes or labels — the number beside it is the data; the line only
+// communicates direction. Fixed viewBox matching its pixel size so the
+// end dot doesn't distort under non-uniform scaling. `delay` staggers
+// multiple sparklines (e.g. one per stat card) after the skeletons clear.
+function Sparkline({ data, width = 72, height = 28, tone = 'primary', delay = 0 }) {
+  if (!data || data.length < 2) return null;
+  const max = Math.max(...data);
+  const min = Math.min(...data);
+  const span = max - min || 1;
+  const pad = 3;
+  const pts = data.map((v, i) => [
+    1 + (i / (data.length - 1)) * (width - 2),
+    height - pad - ((v - min) / span) * (height - pad * 2),
+  ]);
+  const line = pts.map(p => p.join(',')).join(' ');
+  const last = pts[pts.length - 1];
+  const color = tone === 'success' ? 'var(--success)' : tone === 'error' ? 'var(--error)' : 'var(--primary)';
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden="true" className="sparkline">
+      {/* pathLength=100 normalizes the draw-in dash animation for any shape */}
+      <polyline points={line} pathLength="100" className="chart-draw"
+        style={{ animationDelay: `${delay}ms` }}
+        fill="none" stroke={color} strokeWidth="1.5"
+        strokeLinejoin="round" strokeLinecap="round" opacity="0.85" />
+      <circle cx={last[0]} cy={last[1]} r="2" fill={color} className="chart-dot"
+        style={{ animationDelay: `${delay + 900}ms` }} />
+    </svg>
+  );
+}
+
 // ---------- Export everything ----------
 Object.assign(window, {
   Icon, useHashRoute, navigate, StoreProvider, useStore,
@@ -890,7 +1004,7 @@ Object.assign(window, {
   Badge, StatusBadge, DoctorStatusBadge, DoctorAvatar, PatientAvatar,
   Modal, ConfirmModal, ToastLayer,
   Field, TextInput, TextArea, SelectInput,
-  Pagination, SkeletonRows, EmptyState, ErrorState, MiniBarChart,
+  Pagination, SkeletonRows, SortableTh, PageSpinner, EmptyState, ErrorState, MiniBarChart, Sparkline,
   NoticeBar, ClinicStatus, FaqAccordion, TestimonialCarousel,
 });
 
@@ -899,7 +1013,7 @@ export {
   Sidebar, Topbar, AppShell, PublicNav, PublicFooter, PageHeader, BrandMark,
   Badge, StatusBadge, DoctorStatusBadge, DoctorAvatar, PatientAvatar,
   Modal, ToastLayer, Field, TextInput, TextArea, SelectInput,
-  Pagination, SkeletonRows, EmptyState, ErrorState, ConfirmModal, MiniBarChart,
+  Pagination, SkeletonRows, SortableTh, PageSpinner, EmptyState, ErrorState, ConfirmModal, MiniBarChart, Sparkline,
   NoticeBar, ClinicStatus, FaqAccordion, TestimonialCarousel,
 };
 

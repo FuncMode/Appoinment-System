@@ -20,7 +20,9 @@
   --text: #111827;
   --text-secondary: #374151;
   --text-muted: #6B7280;
-  --text-subtle: #9CA3AF;
+  /* #8A8F98 ≈ 3.25:1 on white — passes WCAG 1.4.11 non-text contrast (3:1) for
+     meaningful icons (chevrons, dept arrows). The old #9CA3AF was ~2.5:1. */
+  --text-subtle: #8A8F98;
 
   /* Semantic */
   --success: #16A34A;
@@ -194,6 +196,10 @@ a { color: inherit; text-decoration: none; }
 .notif-title { font-size: 13px; font-weight: 600; color: var(--text); }
 .notif-msg { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 .notif-empty { padding: 24px 14px; text-align: center; font-size: 13px; color: var(--text-muted); }
+/* Skeleton rows inside the notifications panel — no hover affordance */
+.notif-item.notif-skel { cursor: default; }
+.notif-item.notif-skel:hover { background: transparent; }
+.notif-icon.skel { border-radius: 8px; }
 
 .avatar {
   width: 32px; height: 32px; border-radius: 50%;
@@ -285,6 +291,14 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* Inline loading spinner (chart cards, panels) — same look as the button
+   spinner, per guideline 33: inline loaders over full-screen spinners */
+.spinner {
+  width: 24px; height: 24px; border-radius: 50%;
+  border: 2.5px solid var(--border); border-top-color: var(--primary);
+  animation: spin 0.7s linear infinite;
+}
+
 /* ============================================================
    Inputs
    ============================================================ */
@@ -362,12 +376,21 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
 .stat-card .stat-label svg { width: 14px; height: 14px; }
 .stat-card .stat-value { font-size: 28px; font-weight: 600; color: var(--text); letter-spacing: -0.02em; line-height: 1.1; }
 .stat-card .stat-delta { font-size: 12px; color: var(--text-muted); margin-top: 2px; display: flex; align-items: center; gap: 4px; }
+/* Patient dashboard stat icon chip is a mobile-only affordance — desktop stat
+   cards keep the inline label icon (guide §11/§28) */
+.dashboard-stats .quick-action-icon { display: none; }
 
 /* Dashboard stats: 2x2 grid beside quick actions on desktop */
 .dashboard-stats { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 12px; height: 100%; }
 .dashboard-stats .stat-card-span { grid-column: 1 / -1; }
 .stat-card .stat-delta.up { color: var(--success); }
 .stat-card .stat-delta.down { color: var(--error); }
+
+/* Stat cards with a sparkline (admin overview): label gets the full first
+   line (no wrapping), value + trend line share the middle row, delta stays
+   full width — keeps values and deltas aligned across all four cards */
+.stat-card-spark .stat-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.stat-card-spark .sparkline { flex-shrink: 0; }
 
 /* ============================================================
    Table
@@ -411,9 +434,36 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
   background: #DBEAFE;
   border-radius: 4px 4px 0 0;
   transition: background 120ms ease;
+  /* Grow from the baseline on mount (see keyframes below) */
+  transform-origin: bottom;
+  animation: barGrow 700ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 .mini-chart-bar.on { background: var(--primary); }
 .mini-chart-col:hover .mini-chart-bar { background: var(--primary); }
+
+/* Trend-line draw (MiniBarChart + Sparkline): the line traces itself from
+   start to end via dash offset. Both render at 1:1 pixel scale (the
+   MiniBarChart trend uses a measured pixel viewBox), so the dash renderer
+   stays exact — dash draw only breaks under non-uniform viewBox scaling.
+   `backwards` fill keeps the line hidden during its animationDelay. */
+.chart-draw {
+  stroke-dasharray: 100;
+  animation: chartDraw 900ms ease-out backwards;
+}
+.chart-dot { animation: dotIn 200ms ease 550ms backwards; }
+@keyframes barGrow { from { transform: scaleY(0); } }
+@keyframes chartDraw { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+@keyframes dotIn { from { opacity: 0; } }
+
+/* NOTE: chart entrance animations intentionally stay ON even when the OS
+   reports prefers-reduced-motion (this demo machine has Windows animation
+   effects OFF, which silenced them completely). They are one-shot, purely
+   decorative, and the data is fully readable without them. If a11y support
+   for these is needed again, re-add:
+   @media (prefers-reduced-motion: reduce) {
+     .mini-chart-bar, .chart-draw, .chart-dot { animation: none; }
+     .chart-draw { stroke-dasharray: none; }
+   } */
 .cell-primary { font-weight: 500; color: var(--text); }
 .cell-secondary { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 .cell-with-avatar { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -910,6 +960,11 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
 .list-item:last-child { border-bottom: 0; }
 .list-item-body { flex: 1; min-width: 0; }
 .list-item-title { font-size: 13.5px; font-weight: 500; color: var(--text); }
+/* One-line rows: truncate with an ellipsis instead of wrapping (the body
+   already has min-width: 0 so the flex badge keeps its space) */
+.list-item-title, .list-item-sub {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .list-item-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 
 /* ============================================================
@@ -1044,8 +1099,25 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
   .sidebar { display: none; }
 
   /* Portal mobile nav: hamburger in the topbar + slide-out drawer */
-  .mobile-menu-btn { display: grid; width: 44px; height: 44px; }
+  .mobile-menu-btn { display: grid; place-items: center; width: 44px; height: 44px; }
   .mobile-menu-btn svg { width: 20px; height: 20px; }
+  /* Notifications dropdown: 340px absolute panel anchored to the bell
+     overflows the left viewport edge on narrow screens — pin it as a
+     near full-width sheet just below the sticky topbar instead */
+  .notif-panel {
+    position: fixed; left: 12px; right: 12px; top: 68px; width: auto;
+  }
+
+  /* Care finder symptom chips: short pill chips wrap into ragged rows on
+     narrow screens — stretch each one to a full-width, thumb-friendly
+     option row instead */
+  .care-chips .chip {
+    flex: 1 1 100%;
+    padding: 12px 16px;
+    border-radius: var(--r-sm);
+    text-align: left;
+  }
+
   .mobile-nav-scrim {
     position: fixed; inset: 0; background: rgba(17, 24, 39, 0.45);
     z-index: 90; animation: fade 150ms ease;
@@ -1063,6 +1135,10 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
   .stat-grid, .stat-grid.three { grid-template-columns: 1fr 1fr; }
   .doctor-grid { grid-template-columns: 1fr; }
   .page { padding: 16px; }
+
+  /* Forms: 16px input font on touch devices prevents iOS Safari auto-zoom
+     when a field gains focus (guide §29) */
+  .input, .textarea, .select { font-size: 16px; }
   .page-header { flex-wrap: wrap; }
   .page-header-actions { flex-wrap: wrap; }
 
@@ -1174,14 +1250,19 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
   /* Dashboard quick actions: single column */
   .quick-actions-grid { grid-template-columns: 1fr; }
 
-  /* Dashboard stats: one compact row of 3; hide the secondary caption text */
-  .dashboard-stats { grid-template-columns: repeat(3, 1fr); grid-template-rows: auto; gap: 10px; height: auto; }
+  /* Dashboard stats: full-width stat rows on mobile — icon chip + label
+     left, value right. The 3-across compact columns forced wrapped labels
+     and misaligned values (guide §28: readable compact summaries) */
+  .dashboard-stats { grid-template-columns: 1fr; gap: 8px; height: auto; }
   .dashboard-stats .stat-card-span { grid-column: auto; }
-  .dashboard-stats .stat-card { padding: 12px 10px; gap: 2px; }
-  /* Reserve two label lines so the values line up across all three cards */
-  .dashboard-stats .stat-label { font-size: 11.5px; line-height: 1.3; min-height: 30px; align-items: flex-start; }
-  .dashboard-stats .stat-value { font-size: 22px; }
+  .dashboard-stats .stat-card { flex-direction: row; align-items: center; gap: 12px; padding: 12px 14px; }
+  .dashboard-stats .stat-card .quick-action-icon { display: grid; order: -1; }
+  .dashboard-stats .stat-label { font-size: 13px; min-height: 0; flex: 1; }
+  .dashboard-stats .stat-label svg { display: none; }
+  .dashboard-stats .stat-value { font-size: 20px; margin-left: auto; }
   .dashboard-stats .stat-delta { display: none; }
+  /* Stat sparklines: half-width cards are too tight for a trend line */
+  .stat-card-spark .sparkline { display: none; }
 
   /* Recent activity rows: move the status badge below the text so the
      doctor name gets full width (44px = 32px avatar + 12px gap) */
@@ -1355,4 +1436,10 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
 @media (max-width: 720px) {
   .public-notice-inner { padding: 8px 16px; font-size: 12px; }
   .testimonial-controls { margin-top: 12px; }
+
+  /* Touch targets: bump the compact pointer-size controls to the 44px touch
+     minimum on mobile (guide §23 / WCAG 2.5.5 best practice). Desktop keeps
+     the compact sizes — those pointer targets sit above the 24px AA floor. */
+  .btn-icon, .topbar-icon-btn, .public-nav-burger, .testimonial-arrow { width: 44px; height: 44px; }
+  .chip, .chip.filter { padding: 10px 14px; }
 }

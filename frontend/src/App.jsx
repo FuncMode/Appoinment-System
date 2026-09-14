@@ -77,7 +77,6 @@ function App() {
     else if (sub === 'appointments') screen = <AppointmentsMgmt />;
     else if (sub === 'reports') screen = <AdminReports />;
     else if (sub === 'settings') screen = <AdminSettings />;
-    else if (sub === 'help') screen = <HelpSupport />;
     else screen = <AdminDashboard />;
   } else {
     screen = <Landing />;
