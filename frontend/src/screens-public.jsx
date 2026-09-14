@@ -136,24 +136,18 @@ function Landing() {
               </>
             )}
 
-            {/* mini stat cards — icon chip on the right fills the card width and
-                aids recognition (guide §11/§13), same chip style as the
-                dashboard quick actions */}
+            {/* mini stat cards — number and label only; no icon chips, the value
+                itself is the information (icons only when they clarify) */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 }}>
               {[
-                { label: 'Specialists', value: String(DOCTORS.length), icon: 'stethoscope' },
-                { label: 'Avg. wait time', value: '< 12 min', icon: 'clock' },
-                { label: 'Departments', value: String(SPECIALTIES.length), icon: 'layout-grid' },
-                { label: 'Patient rating', value: '4.8 / 5', icon: 'star' },
+                { label: 'Specialists', value: String(DOCTORS.length) },
+                { label: 'Avg. wait time', value: '< 12 min' },
+                { label: 'Departments', value: String(SPECIALTIES.length) },
+                { label: 'Patient rating', value: '4.8 / 5' },
               ].map(s => (
-                <div className="hero-stat" key={s.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div className="hero-stat-label">{s.label}</div>
-                    <div className="hero-stat-value">{s.value}</div>
-                  </div>
-                  <div className="quick-action-icon" style={{ flexShrink: 0 }}>
-                    <Icon name={s.icon} size={16} />
-                  </div>
+                <div className="hero-stat" key={s.label}>
+                  <div className="hero-stat-label">{s.label}</div>
+                  <div className="hero-stat-value">{s.value}</div>
                 </div>
               ))}
             </div>
@@ -229,7 +223,6 @@ function Landing() {
           <div className="grid-4">
             {SPECIALTIES.map(s => (
               <button key={s} className="dept-chip" onClick={() => navigate(`/doctors?spec=${encodeURIComponent(s)}`)}>
-                <span className="dot" />
                 {s}
                 <Icon name="arrow-right" size={14} className="dept-arrow" />
               </button>
@@ -313,7 +306,6 @@ function ServicesPage() {
           <div className="grid-4">
             {SPECIALTIES.map(s => (
               <button key={s} className="dept-chip" onClick={() => navigate(`/doctors?spec=${encodeURIComponent(s)}`)}>
-                <span className="dot" />
                 {s}
                 <Icon name="arrow-right" size={14} className="dept-arrow" />
               </button>
@@ -332,7 +324,7 @@ function ServicesPage() {
 
       <section className="public-section" style={{ paddingTop: 32 }}>
         <div className="public-section-inner">
-          <h2>Ready to book a visit?</h2>
+          <h2>Skip the phone queue — book online</h2>
           <p className="public-section-sub">Create a free patient account and see a specialist as early as tomorrow.</p>
           <div style={{ display: 'flex', gap: 10 }}>
             <a className="btn btn-primary" href="#/register">Create patient account</a>
@@ -604,10 +596,10 @@ function DoctorsPage({ initialSpecialty = '' }) {
 // ---------- About page ----------
 function AboutPage() {
   const stats = [
-    { value: '120+', label: 'Board-certified specialists', icon: 'stethoscope' },
-    { value: '18', label: 'Departments & centers', icon: 'layout-grid' },
-    { value: '35 yrs', label: 'Serving Quezon City', icon: 'map-pin' },
-    { value: '4.8 / 5', label: 'Average patient rating', icon: 'star' },
+    { value: '120+', label: 'Board-certified specialists' },
+    { value: '18', label: 'Departments & centers' },
+    { value: '35 yrs', label: 'Serving Quezon City' },
+    { value: '4.8 / 5', label: 'Average patient rating' },
   ];
   const values = [
     { title: 'Patient safety first', desc: 'Evidence-based protocols, accredited facilities, and strict data privacy for every record.' },
@@ -634,16 +626,9 @@ function AboutPage() {
           </p>
           <div className="grid-4">
             {stats.map(s => (
-              // Value + icon chip side by side on top, label below at full
-              // width — works on both desktop and mobile without a restack
-              // rule (guide §11/§13, §31 chip reuse)
+              // Value and label only — no icon chips; the number is the content
               <div key={s.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-                  <div style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em' }}>{s.value}</div>
-                  <div className="quick-action-icon" style={{ flexShrink: 0 }}>
-                    <Icon name={s.icon} size={16} />
-                  </div>
-                </div>
+                <div style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em' }}>{s.value}</div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{s.label}</div>
               </div>
             ))}

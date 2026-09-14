@@ -533,7 +533,7 @@ function DoctorListing() {
             <div className="detail-list">
               <div className="detail-row"><div className="label">Consultation fee</div><div className="value">₱{profileDoc.fee.toLocaleString()}</div></div>
               <div className="detail-row"><div className="label">Experience</div><div className="value">{profileDoc.exp} years</div></div>
-              <div className="detail-row"><div className="label">Rating</div><div className="value">⭐ {profileDoc.rating} / 5.0</div></div>
+              <div className="detail-row"><div className="label">Rating</div><div className="value">{profileDoc.rating} / 5.0</div></div>
               <div className="detail-row"><div className="label">Room</div><div className="value">{profileDoc.room}</div></div>
               <div className="detail-row"><div className="label">Consultation length</div><div className="value">30 minutes</div></div>
             </div>
@@ -659,7 +659,7 @@ function DoctorAvailability({ doctorId }) {
                 <div className="detail-list">
                   <div className="detail-row"><div className="label">Consultation fee</div><div className="value">₱{doctor.fee.toLocaleString()}</div></div>
                   <div className="detail-row"><div className="label">Experience</div><div className="value">{doctor.exp} years</div></div>
-                  <div className="detail-row"><div className="label">Rating</div><div className="value">⭐ {doctor.rating} / 5.0</div></div>
+                  <div className="detail-row"><div className="label">Rating</div><div className="value">{doctor.rating} / 5.0</div></div>
                   <div className="detail-row"><div className="label">Room</div><div className="value">{doctor.room}</div></div>
                   <div className="detail-row"><div className="label">Consultation length</div><div className="value">30 minutes</div></div>
                 </div>
@@ -1836,20 +1836,22 @@ function HelpSupport() {
         />
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 16 }}>
-          <div className="card"><div className="card-body">
-            <div className="quick-action-icon" style={{ marginBottom: 10 }}><Icon name="phone" size={18} /></div>
+            {/* bare glyph, no tinted square — matches the public Contact page
+                info rows; the chip style is reserved for interactive buttons */}
+            <div className="card"><div className="card-body">
+              <div className="feature-card-icon" style={{ marginBottom: 10 }}><Icon name="phone" size={18} /></div>
             <div style={{ fontWeight: 600, marginBottom: 4 }}>Call us</div>
             <div className="t-muted" style={{ fontSize: 13 }}>{window.HOSPITAL.phone}</div>
             <div className="t-muted" style={{ fontSize: 12 }}>Mon–Sat, 8:00 AM – 6:00 PM</div>
           </div></div>
           <div className="card"><div className="card-body">
-            <div className="quick-action-icon" style={{ marginBottom: 10 }}><Icon name="mail" size={18} /></div>
+            <div className="feature-card-icon" style={{ marginBottom: 10 }}><Icon name="mail" size={18} /></div>
             <div style={{ fontWeight: 600, marginBottom: 4 }}>Email us</div>
             <div className="t-muted" style={{ fontSize: 13 }}>{window.HOSPITAL.email}</div>
             <div className="t-muted" style={{ fontSize: 12 }}>We reply within 1–2 business days</div>
           </div></div>
           <div className="card"><div className="card-body">
-            <div className="quick-action-icon" style={{ marginBottom: 10 }}><Icon name="map-pin" size={18} /></div>
+            <div className="feature-card-icon" style={{ marginBottom: 10 }}><Icon name="map-pin" size={18} /></div>
             <div style={{ fontWeight: 600, marginBottom: 4 }}>Visit us</div>
             <div className="t-muted" style={{ fontSize: 13 }}>{window.HOSPITAL.address}</div>
             <div className="t-muted" style={{ fontSize: 12 }}>Information desk, ground floor</div>

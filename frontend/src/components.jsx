@@ -360,6 +360,20 @@ function PublicNav({ activeLink = 'home' }) {
     { to: '#/contact', key: 'contact', label: 'Contact' },
   ];
 
+  // Brand block → home (standard logo behavior). When already on the home page
+  // the anchor would be a no-op (same URL, no hashchange), so we smooth-scroll
+  // back to the top ourselves; otherwise the href navigates and useHashRoute
+  // jumps to the top of the new page.
+  const goHome = (e) => {
+    const hash = window.location.hash.replace(/^#/, '') || '/';
+    const [path] = hash.split('?');
+    if (path === '' || path === '/' || path === '/landing') {
+      e.preventDefault();
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+    }
+  };
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
     onScroll();
@@ -382,13 +396,13 @@ function PublicNav({ activeLink = 'home' }) {
   return (
     <Fragment>
       <div className={`public-nav ${scrolled ? 'scrolled' : ''}`}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <a href="#/landing" className="public-nav-brand" title="Back to home" aria-label="MedicaCare — back to home page" onClick={goHome}>
           <BrandMark size={34} />
           <div>
             <div style={{ fontSize: 14, fontWeight: 600 }}>{window.HOSPITAL.name}</div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{(window.HOSPITAL.address.split(',')[1] || '').trim()}, PH</div>
           </div>
-        </div>
+        </a>
         <div className="public-nav-links">
           {links.map(l => (
             <a key={l.key} href={l.to} className={activeLink === l.key ? 'active' : ''}>{l.label}</a>
@@ -408,10 +422,11 @@ function PublicNav({ activeLink = 'home' }) {
           <div className="public-drawer-scrim" onClick={() => setMenuOpen(false)} />
           <div className="public-drawer">
             <div className="public-drawer-head">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <a href="#/landing" className="public-nav-brand" title="Back to home" aria-label="MedicaCare — back to home page"
+                onClick={(e) => { setMenuOpen(false); goHome(e); }}>
                 <BrandMark size={34} />
                 <div style={{ fontSize: 14, fontWeight: 600 }}>{window.HOSPITAL.name}</div>
-              </div>
+              </a>
               <button className="btn-icon" title="Close menu" aria-label="Close menu" onClick={() => setMenuOpen(false)}><Icon name="x" size={16} /></button>
             </div>
             <nav className="public-drawer-links">

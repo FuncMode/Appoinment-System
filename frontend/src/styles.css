@@ -795,12 +795,11 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--r-lg); padding: 20px;
 }
-.feature-card-icon {
-  width: 36px; height: 36px; border-radius: 8px;
-  background: var(--primary-soft); color: var(--primary);
-  display: grid; place-items: center; margin-bottom: 12px;
-}
+/* Bare primary glyph, no tinted square wrapper — icon boxes on every card read
+   as decoration; the glyph alone carries the meaning */
+.feature-card-icon { display: inline-flex; color: var(--primary); }
 .feature-card-icon svg { width: 18px; height: 18px; }
+.feature-card > .feature-card-icon { margin-bottom: 10px; }
 .feature-card h3 { font-size: 15px; margin: 0 0 4px; font-weight: 600; }
 .feature-card p { font-size: 13px; color: var(--text-muted); margin: 0; line-height: 1.55; }
 
@@ -1339,6 +1338,10 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
 /* Sticky nav: only a hairline shadow once scrolled — content stays calm */
 .public-nav.scrolled { box-shadow: var(--shadow-sm); }
 
+/* Brand block doubles as the "back to home" link (standard logo behavior) */
+.public-nav-brand { display: flex; align-items: center; gap: 10px; color: inherit; cursor: pointer; }
+.public-nav-brand:hover { opacity: 0.82; }
+
 /* Live open/closed clinic status pill */
 .clinic-status {
   display: inline-flex; align-items: center; gap: 8px;
@@ -1366,7 +1369,8 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
   width: 100%;
 }
 .dept-chip:hover { border-color: var(--primary); }
-.dept-chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); flex-shrink: 0; }
+/* No decorative dot — every chip carried an identical blue dot with no meaning;
+   the arrow on hover already signals clickability */
 .dept-chip .dept-arrow { margin-left: auto; color: var(--text-subtle); transition: color 120ms ease; }
 .dept-chip:hover .dept-arrow { color: var(--primary); }
 
