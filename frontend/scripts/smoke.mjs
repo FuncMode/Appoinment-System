@@ -6,7 +6,7 @@ import React from 'react';
 import { renderToString } from 'react-dom/server';
 
 const routes = [
-  '/', '/landing', '/register', '/login', '/mobile',
+  '/', '/landing', '/register', '/login', '/forgot-password', '/admin/login', '/mobile',
   '/services', '/doctors', '/about', '/contact', '/privacy', '/terms',
   '/patient/dashboard', '/patient/doctors', '/patient/availability/d1',
   '/patient/book', '/patient/confirmation', '/patient/status',

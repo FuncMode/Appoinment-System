@@ -35,15 +35,17 @@ const CARE_GUIDE = [
 ];
 
 // Patient testimonials — featured in the auto-rotating carousel on Landing
+// Fictional demo stories, labeled as such on the card (R-18: never present
+// invented reviews as real social proof)
 const TESTIMONIALS = [
-  { quote: 'Booking my cardiology follow-up used to take a whole afternoon of phone calls. Now I do it in two taps before work.', who: 'Sofia R., patient since 2024' },
-  { quote: "I booked my son's pediatric check-up after my night shift and had a confirmation before I even got home.", who: 'Marco T., parent of two' },
-  { quote: "Rescheduling used to mean three phone calls and crossing my fingers. Now it's two taps and done.", who: 'Andrea L., patient since 2023' },
+  { quote: 'Booking my cardiology follow-up used to take a whole afternoon of phone calls. Now I do it in two taps before work.', who: 'Sofia R. · fictional patient story' },
+  { quote: "I booked my son's pediatric check-up after my night shift and had a confirmation before I even got home.", who: 'Marco T. · fictional parent story' },
+  { quote: "Rescheduling used to mean three phone calls and crossing my fingers. Now it's two taps and done.", who: 'Andrea L. · fictional patient story' },
 ];
 
 // Homepage FAQ — expandable accordion (Cleveland-Clinic-style FAQ section)
 const LANDING_FAQS = [
-  { q: 'Do I need an account to book an appointment?', a: 'Yes — create a free patient account first so your bookings, records, and reminders live in one secure place. Registration takes under a minute.' },
+  { q: 'Do I need an account to book an appointment?', a: 'Yes. Create a free patient account first so your bookings, records, and reminders live in one secure place. Registration takes under a minute.' },
   { q: 'How much is a consultation?', a: 'Consultation fees start at ₱1,000 for Family Medicine and vary by specialty (e.g., ₱1,800 for Cardiology). The exact fee is shown on every doctor’s profile.' },
   { q: 'Do you accept HMO?', a: 'Yes, we work with major HMO providers. Coverage depends on your provider’s terms and is verified at the time of your visit.' },
   { q: 'Can I reschedule or cancel my appointment?', a: 'Absolutely. Reschedule or cancel from your patient portal at least 24 hours in advance so the slot can be offered to other patients.' },
@@ -55,7 +57,7 @@ const SERVICES_FAQS = [
   { q: 'Do I need an appointment for laboratory tests?', a: 'Walk-ins are accepted for routine labs (CBC, urinalysis, fasting blood sugar) before 10:00 AM. Booking online guarantees a slot and shorter wait.' },
   { q: 'How long do lab and imaging results take?', a: 'Most routine lab results are released the same day. Imaging reads (X-ray, ultrasound, ECG) are typically ready within 24–48 hours.' },
   { q: 'Do you accept walk-in consultations?', a: 'Yes, subject to the doctor’s schedule for the day. Booked patients are prioritized, so we recommend reserving a slot through the portal.' },
-  { q: 'Is there a package for annual physical exams?', a: 'Yes — executive check-up bundles are tailored to your age and risk profile. Call our hotline or send a message for current package rates.' },
+  { q: 'Is there a package for annual physical exams?', a: 'Yes. Executive check-up bundles are tailored to your age and risk profile. Call our hotline or send a message for current package rates.' },
   { q: 'How does HMO assistance work?', a: 'Present your HMO card at the billing counter. Our staff verifies eligibility and processes the claim directly with your provider so you focus on recovery.' },
 ];
 
@@ -75,6 +77,10 @@ function Landing() {
   const pickedDoctors = pickedGuide
     ? DOCTORS.filter(d => d.specialty === pickedGuide.specialty && d.status === 'available').length
     : 0;
+  // Stat sources: live counts and the real fee floor from the app's seed data
+  // (no invented wait times or ratings — R-17)
+  const availableNow = DOCTORS.filter(d => d.status === 'available').length;
+  const minFee = Math.min(...DOCTORS.map(d => d.fee));
 
   return (
     <div>
@@ -90,19 +96,20 @@ function Landing() {
               </div>
               <ClinicStatus />
             </div>
-            <h1>Book a MedicaCare specialist online — no phone calls needed.</h1>
+            <h1>Book a MedicaCare specialist online, no phone calls needed.</h1>
             <p>Pick from {DOCTORS.length} board-certified doctors across {SPECIALTIES.length} departments,
                view real-time availability, and get a confirmation in minutes. Reschedule anytime from your portal.</p>
             <div className="public-hero-actions">
-              <a className="btn btn-primary lg" href="#/register">
-                Create patient account <Icon name="arrow-right" size={16} />
-              </a>
+              <a className="btn btn-primary lg" href="#/register">Create patient account</a>
               <a className="btn btn-secondary lg" href="#/login">Log in</a>
             </div>
+            {/* Badges describe what the app actually shows (specialty count, HMO
+               flow, ER hours) — no accreditation/compliance claims the prototype
+               cannot back up (R-36) */}
             <div className="public-hero-badges">
-              <div className="public-hero-badge">DOH accredited</div>
               <div className="public-hero-badge">HMO-friendly</div>
-              <div className="public-hero-badge">24/7 patient support</div>
+              <div className="public-hero-badge">24/7 emergency care</div>
+              <div className="public-hero-badge">{SPECIALTIES.length} specialties</div>
             </div>
           </div>
 
@@ -137,13 +144,15 @@ function Landing() {
             )}
 
             {/* mini stat cards — number and label only; no icon chips, the value
-                itself is the information (icons only when they clarify) */}
+                itself is the information (icons only when they clarify).
+                Every figure is derived from the app's own seed data, never
+                invented marketing numbers (R-17: no unsourced statistics). */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 }}>
               {[
                 { label: 'Specialists', value: String(DOCTORS.length) },
-                { label: 'Avg. wait time', value: '< 12 min' },
+                { label: 'Available now', value: String(availableNow) },
                 { label: 'Departments', value: String(SPECIALTIES.length) },
-                { label: 'Patient rating', value: '4.8 / 5' },
+                { label: 'Consultation from', value: `₱${minFee.toLocaleString()}` },
               ].map(s => (
                 <div className="hero-stat" key={s.label}>
                   <div className="hero-stat-label">{s.label}</div>
@@ -179,12 +188,12 @@ function Landing() {
                   </div>
                   <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
                     {pickedDoctors > 0
-                      ? `${pickedDoctors} available specialist${pickedDoctors === 1 ? '' : 's'} right now — bookings open as early as this week.`
-                      : 'Specialists are currently busy or on leave — you can still browse their profiles and check schedules.'}
+                      ? `${pickedDoctors} available specialist${pickedDoctors === 1 ? '' : 's'} right now. Bookings open as early as this week.`
+                      : 'Specialists are currently busy or on leave. You can still browse their profiles and check schedules.'}
                   </div>
                   <div style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                     <a className="btn btn-primary" href={`#/doctors?spec=${encodeURIComponent(pickedGuide.specialty)}`}>
-                      See {pickedGuide.specialty} doctors <Icon name="arrow-right" size={14} />
+                      See {pickedGuide.specialty} doctors
                     </a>
                     <a className="btn btn-secondary" href="#/contact">Ask our staff instead</a>
                   </div>
@@ -199,20 +208,31 @@ function Landing() {
         <div className="public-section-inner">
           <h2>How it works</h2>
           <p className="public-section-sub">Three straightforward steps to see a doctor at MedicaCare.</p>
-          <div className="feature-grid">
-            <div className="feature-card">
-              <h3>1. Create your account</h3>
-              <p>Register in under a minute with your name, email, and phone number. No paperwork.</p>
-            </div>
-            <div className="feature-card">
-              <h3>2. Find your doctor</h3>
-              <p>Browse specialists by department, check real-time availability, and pick a time that works.</p>
-            </div>
-            <div className="feature-card">
-              <h3>3. Get confirmed</h3>
-              <p>Our staff confirms your booking within minutes, with reminders and easy rescheduling — all in your portal.</p>
-            </div>
-          </div>
+          {/* Numbered rail instead of the default 3-card grid (R-05): the steps
+              are a sequence, so the composition shows order and progression. */}
+          <ol className="how-steps">
+            <li>
+              <span className="how-step-num">1</span>
+              <div>
+                <h3>Create your account</h3>
+                <p>Register in under a minute with your name, email, and phone number. No paperwork.</p>
+              </div>
+            </li>
+            <li>
+              <span className="how-step-num">2</span>
+              <div>
+                <h3>Find your doctor</h3>
+                <p>Browse specialists by department, check real-time availability, and pick a time that works.</p>
+              </div>
+            </li>
+            <li>
+              <span className="how-step-num">3</span>
+              <div>
+                <h3>Get confirmed</h3>
+                <p>Our staff confirms your booking within minutes, with reminders and easy rescheduling, all in your portal.</p>
+              </div>
+            </li>
+          </ol>
         </div>
       </section>
 
@@ -221,6 +241,8 @@ function Landing() {
           <h2>Departments</h2>
           <p className="public-section-sub">Tap a department to see its specialists.</p>
           <div className="grid-4">
+            {/* Arrow kept deliberately: it signals "this chip navigates to the
+                filtered doctors list", which is exactly where it goes (R-08) */}
             {SPECIALTIES.map(s => (
               <button key={s} className="dept-chip" onClick={() => navigate(`/doctors?spec=${encodeURIComponent(s)}`)}>
                 {s}
@@ -234,7 +256,7 @@ function Landing() {
       <section className="public-section" style={{ background: 'var(--bg)', paddingTop: 32 }}>
         <div className="public-section-inner">
           <h2>What patients say</h2>
-          <p className="public-section-sub">Convenience that people who book with us every week can vouch for.</p>
+          <p className="public-section-sub">Fictional stories written for this prototype to show what booking with MedicaCare feels like.</p>
           <TestimonialCarousel items={TESTIMONIALS} />
         </div>
       </section>
@@ -254,7 +276,7 @@ function Landing() {
             Create a free account, pick a specialist, and choose a slot that fits your schedule.
           </p>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <a className="btn btn-primary lg" href="#/register">Create patient account <Icon name="arrow-right" size={16} /></a>
+            <a className="btn btn-primary lg" href="#/register">Create patient account</a>
             <a className="btn btn-secondary lg" href="#/doctors">Browse doctors</a>
           </div>
         </div>
@@ -269,7 +291,7 @@ function Landing() {
 function ServicesPage() {
   const services = [
     { icon: 'stethoscope', title: 'General & specialty consultations', desc: 'Board-certified physicians across 10 specialties, from family medicine to neurology.' },
-    { icon: 'calendar-check', title: 'Online appointment booking', desc: 'Pick a doctor, choose an open time slot, and get instant confirmation — no phone calls needed.' },
+    { icon: 'calendar-check', title: 'Online appointment booking', desc: 'Pick a doctor, choose an open time slot, and get instant confirmation, no phone calls needed.' },
     { icon: 'activity', title: 'Laboratory & diagnostics', desc: 'Complete blood work, urinalysis, and other routine labs with same-day results for most tests.' },
     { icon: 'search', title: 'Imaging services', desc: 'X-ray, ultrasound, and ECG performed by licensed technologists and read by our radiologists.' },
     { icon: 'check-circle-2', title: 'Executive check-up packages', desc: 'Comprehensive annual physical exam bundles tailored to your age and risk profile.' },
@@ -287,9 +309,12 @@ function ServicesPage() {
 
       <section className="public-section" style={{ paddingTop: 8 }}>
         <div className="public-section-inner">
+          {/* First card spans two columns: consultations are the primary
+              offering; the rest are supporting services (R-14 hierarchy
+              reason, written down). */}
           <div className="feature-grid">
-            {services.map(s => (
-              <div className="feature-card" key={s.title}>
+            {services.map((s, i) => (
+              <div className={`feature-card${i === 0 ? ' feature-card--featured' : ''}`} key={s.title}>
                 <div className="feature-card-icon"><Icon name={s.icon} size={18} /></div>
                 <h3>{s.title}</h3>
                 <p>{s.desc}</p>
@@ -324,7 +349,7 @@ function ServicesPage() {
 
       <section className="public-section" style={{ paddingTop: 32 }}>
         <div className="public-section-inner">
-          <h2>Skip the phone queue — book online</h2>
+          <h2>Skip the phone queue: book online</h2>
           <p className="public-section-sub">Create a free patient account and see a specialist as early as tomorrow.</p>
           <div style={{ display: 'flex', gap: 10 }}>
             <a className="btn btn-primary" href="#/register">Create patient account</a>
@@ -508,7 +533,7 @@ function DoctorsPage({ initialSpecialty = '' }) {
                   <div className="doctor-card-footer">
                     <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>₱{d.fee.toLocaleString()} / consult</span>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12.5, color: 'var(--primary)', fontWeight: 500 }}>
-                      View profile <Icon name="arrow-right" size={13} />
+                      View profile
                     </span>
                   </div>
                 </div>
@@ -521,6 +546,11 @@ function DoctorsPage({ initialSpecialty = '' }) {
               <Pagination page={page} setPage={setPage} total={filtered.length} pageSize={MOBILE_DOCTORS_PAGE_SIZE} label="doctors" />
             </div>
           )}
+
+          {/* R-23 honesty label: portraits are stock placeholders, not real staff */}
+          <div style={{ marginTop: 16, fontSize: 12.5, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Icon name="info" size={13} /> Doctor photos are placeholder portraits (randomuser.me) used for this prototype, not real staff.
+          </div>
 
           <div style={{ marginTop: 32, padding: 24, background: 'var(--primary-soft)', border: '1px solid var(--border)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
             <div style={{ flex: '1 1 240px' }}>
@@ -549,7 +579,7 @@ function DoctorsPage({ initialSpecialty = '' }) {
           <>
             <button className="btn btn-secondary" onClick={() => setSelectedDoctor(null)}>Close</button>
             <a className="btn btn-primary" href="#/register" onClick={() => setSelectedDoctor(null)}>
-              Book with this doctor <Icon name="arrow-right" size={14} />
+              Book with this doctor
             </a>
           </>
         }
@@ -582,7 +612,7 @@ function DoctorsPage({ initialSpecialty = '' }) {
             </div>
             <div style={{ marginTop: 14, fontSize: 12.5, color: 'var(--text-muted)', display: 'flex', gap: 6 }}>
               <Icon name="info" size={13} style={{ flexShrink: 0, marginTop: 1 }} />
-              Create a free account to see real-time availability and reserve a slot.
+              Portrait shown is a placeholder for this prototype. Create a free account to see real-time availability and reserve a slot.
             </div>
           </div>
         )}
@@ -595,16 +625,21 @@ function DoctorsPage({ initialSpecialty = '' }) {
 
 // ---------- About page ----------
 function AboutPage() {
+  // Every figure matches the app's own data or the fictional hospital's stated
+  // lore (est. 1991); nothing invented beyond the disclosed fiction (R-17)
+  const minFee = Math.min(...DOCTORS.map(d => d.fee));
   const stats = [
-    { value: '120+', label: 'Board-certified specialists' },
-    { value: '18', label: 'Departments & centers' },
-    { value: '35 yrs', label: 'Serving Quezon City' },
-    { value: '4.8 / 5', label: 'Average patient rating' },
+    { value: String(DOCTORS.length), label: 'Board-certified specialists' },
+    { value: String(SPECIALTIES.length), label: 'Departments & centers' },
+    { value: '35 yrs', label: 'Serving Quezon City (est. 1991)' },
+    { value: `₱${minFee.toLocaleString()}`, label: 'Consultation fees start at' },
   ];
+  // Equal-weight by design: these values are peers, and the uniform treatment
+  // IS the hierarchy decision (documented in DESIGN.md, RHYTHM note)
   const values = [
     { title: 'Patient safety first', desc: 'Evidence-based protocols, accredited facilities, and strict data privacy for every record.' },
-    { title: 'Clinical excellence', desc: 'Board-certified doctors and continuous training across all 18 departments.' },
-    { title: 'Compassionate care', desc: 'We treat people, not just charts — clear explanations and respect at every visit.' },
+    { title: 'Clinical excellence', desc: 'Board-certified doctors and continuous training across every department.' },
+    { title: 'Compassionate care', desc: 'We treat people, not just charts: clear explanations and respect at every visit.' },
   ];
   return (
     <div>
@@ -620,9 +655,9 @@ function AboutPage() {
         <div className="public-section-inner">
           <h2>Who we are</h2>
           <p className="public-section-sub">
-            MedicaCare is a DOH-accredited private hospital along Rizal Avenue, Quezon City.
-            Since 1991, we've combined modern facilities with a personal approach to care — from routine
-            check-ups to specialty consultations — for families across Metro Manila.
+            MedicaCare is a fictional private hospital along Rizal Avenue, Quezon City.
+            Since 1991 we have combined modern facilities with a personal approach to care, from routine
+            check-ups to specialty consultations, for families across Metro Manila.
           </p>
           <div className="grid-4">
             {stats.map(s => (
@@ -777,7 +812,7 @@ function ContactPage() {
           </p>
           <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)', lineHeight: 0 }}>
             <iframe
-              title="Map — MedicaCare location"
+              title="Map: MedicaCare location"
               src="https://www.openstreetmap.org/export/embed.html?bbox=121.02200%2C14.62500%2C121.04200%2C14.63500&layer=mapnik&marker=14.63000%2C121.03200"
               style={{ width: '100%', height: 360, border: 0 }}
               loading="lazy"
@@ -793,7 +828,7 @@ function ContactPage() {
               rel="noreferrer"
               style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 500 }}
             >
-              Open larger map <Icon name="arrow-right" size={13} />
+              Open larger map
             </a>
           </div>
         </div>
@@ -843,8 +878,8 @@ function PrivacyPage() {
       sections={[
         { h: 'Information we collect', p: 'When you register, we collect your name, email address, phone number, and appointment history. During consultations, doctors may record diagnoses, prescriptions, and clinical notes relevant to your care.' },
         { h: 'How we use your information', p: 'Your information is used solely to schedule and manage your appointments, provide medical care, send appointment reminders, and comply with legal and regulatory obligations. We do not sell your personal data to third parties.' },
-        { h: 'Medical data confidentiality', p: 'All patient records are treated as strictly confidential. Only your attending physicians and authorized hospital staff may access your medical information, and every access is logged and audited.' },
-        { h: 'Data security', p: 'Records are stored in access-controlled systems with encryption in transit and at rest. Passwords are stored only as secure hashes, and staff accounts follow the principle of least privilege.' },
+        { h: 'Medical data confidentiality', p: 'All patient records are treated as strictly confidential. In the production system this prototype models, only your attending physicians and authorized hospital staff may access your medical information, and every access is logged and audited.' },
+        { h: 'Data security', p: 'As a school prototype, your account and appointment data live only in this browser (localStorage) and never leave your device, and passwords are stored as plain text for demo purposes. The production system this prototype models would keep records in access-controlled systems with encryption in transit and at rest, hashed passwords, and least-privilege staff access.' },
         { h: 'Your rights', p: 'You may request a copy of your records, ask for corrections, or withdraw consent for non-essential data processing by contacting our Data Protection Officer through the contact page.' },
         { h: 'Data retention', p: 'Medical records are retained for the period required by Philippine health regulations, after which they are securely and permanently destroyed.' },
       ]}
@@ -993,7 +1028,7 @@ function Register() {
         <BrandMark className="brand-mark" />
         <div>
           <div className="quote">"Booking my cardiology follow-up used to take a whole afternoon of phone calls. Now I do it in two taps before work."</div>
-          <div className="attrib">— Sofia R., patient since 2024</div>
+          <div className="attrib">Sofia R. · fictional patient story</div>
         </div>
         <div style={{ fontSize: 12, opacity: 0.75 }}>
           MedicaCare · Quezon City, PH
@@ -1028,10 +1063,7 @@ function Login() {
       setLoading(false);
       const em = form.email.toLowerCase().trim();
       const account = store.users.find(u => u.email.toLowerCase() === em);
-      if (em === 'admin@medicacare.ph' && form.password === 'admin123') {
-        store.setRole('admin');
-        navigate('/admin/dashboard');
-      } else if (account && account.password === form.password) {
+      if (account && account.password === form.password) {
         // Registered account (including the seeded demo patient) — enter the
         // portal as that patient identity so bookings/history belong to them
         if (account.id === CURRENT_PATIENT.id) {
@@ -1043,6 +1075,7 @@ function Login() {
             photo: account.photo || '',
           });
         }
+        store.loginPatient(account);
         store.setRole('patient');
         navigate('/patient/dashboard');
       } else {
@@ -1053,15 +1086,13 @@ function Login() {
     }, 700);
   };
 
-  // Demo accounts accordion — collapsed by default to keep the form clean
+  // Demo account accordion — collapsed by default to keep the form clean.
+  // Patient credentials only; the staff login lives on the separate AdminLogin
+  // screen so admin credentials are never exposed on the public login page.
   const [demoOpen, setDemoOpen] = useState(false);
 
-  const useDemo = (role) => {
-    if (role === 'admin') {
-      setForm({ email: 'admin@medicacare.ph', password: 'admin123', remember: true });
-    } else {
-      setForm({ email: 'patient@medicacare.ph', password: 'patient123', remember: true });
-    }
+  const useDemo = () => {
+    setForm({ email: 'patient@medicacare.ph', password: 'patient123', remember: true });
     setErrors({}); setAuthError(null);
   };
 
@@ -1134,28 +1165,149 @@ function Login() {
               aria-expanded={demoOpen}
               onClick={() => setDemoOpen(o => !o)}
             >
-              <span className="demo-accounts-title">Demo accounts — click to use</span>
+              <span className="demo-accounts-title">Demo accounts: click to use</span>
               <Icon name="chevron-down" size={14} />
             </button>
             {demoOpen && (
-              <>
-                <div className="demo-account" onClick={() => useDemo('patient')}>
-                  <div className="avatar sm">JB</div>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>patient@medicacare.ph</div>
-                    <div className="t-muted" style={{ fontSize: 11 }}>Password: patient123</div>
-                  </div>
-                  <div className="demo-account-role">Patient</div>
-                </div>
-                <div className="demo-account" onClick={() => useDemo('admin')}>
-                  <div className="avatar sm neutral">HC</div>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>admin@medicacare.ph</div>
-                    <div className="t-muted" style={{ fontSize: 11 }}>Password: admin123</div>
-                  </div>
-                  <div className="demo-account-role">Admin</div>
-                </div>
-              </>
+              <button type="button" className="demo-account" onClick={useDemo}>
+                <span className="avatar sm">JB</span>
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: 13, fontWeight: 500 }}>patient@medicacare.ph</span>
+                  <span className="t-muted" style={{ display: 'block', fontSize: 11 }}>Password: patient123</span>
+                </span>
+                <span className="demo-account-role">Patient</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Admin login (staff console) ----------
+// Separate, unlinked login for hospital staff/admin. Kept off the public
+// patient login on purpose — patients never see staff entry points, and the
+// admin console routes are guarded so this page is the only way in.
+// NOTE: prototype-only. A real backend must verify staff credentials
+// server-side and enforce role checks on every API request.
+const ADMIN_CREDENTIALS = { email: 'admin@medicacare.ph', password: 'admin123' };
+
+function AdminLogin() {
+  const store = useStore();
+  const [form, setForm] = useState({ email: '', password: '' });
+  const [errors, setErrors] = useState({});
+  const [authError, setAuthError] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const update = (k, v) => { setForm(f => ({ ...f, [k]: v })); if (errors[k]) setErrors(e => ({ ...e, [k]: null })); setAuthError(null); };
+
+  const submit = (evt) => {
+    evt.preventDefault();
+    const e = {};
+    if (!form.email.trim()) e.email = 'Staff email is required';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Enter a valid staff email address';
+    if (!form.password) e.password = 'Password is required';
+    setErrors(e);
+    if (Object.keys(e).length) return;
+
+    setLoading(true);
+    setAuthError(null);
+    setTimeout(() => {
+      setLoading(false);
+      const em = form.email.toLowerCase().trim();
+      if (em === ADMIN_CREDENTIALS.email && form.password === ADMIN_CREDENTIALS.password) {
+        store.loginAdmin({ email: em, name: CURRENT_ADMIN.name, role: CURRENT_ADMIN.role });
+        store.setRole('admin');
+        navigate('/admin/dashboard');
+      } else {
+        // Generic message — does not reveal whether the staff account exists
+        setAuthError('Invalid staff credentials. Please try again.');
+      }
+    }, 700);
+  };
+
+  // Demo account shortcut — kept here (not on the public login) so demos stay
+  // easy while the public patient login stays clean.
+  const [demoOpen, setDemoOpen] = useState(false);
+
+  return (
+    <div className="auth-shell">
+      <div className="auth-visual-col auth-visual-col--forgot" style={{ order: 0 }}>
+        <BrandMark className="brand-mark" />
+        <div>
+          <div className="quote">"Behind every smooth appointment is a team that keeps the whole clinic in sync."</div>
+          <div className="attrib">MedicaCare · Staff console</div>
+        </div>
+        <div style={{ fontSize: 12, opacity: 0.75 }}>
+          © 2026 MedicaCare
+        </div>
+      </div>
+      <div className="auth-form-col">
+        <div className="auth-form-inner">
+          <div>
+            <button className="btn btn-ghost" onClick={() => navigate('/')} style={{ marginLeft: -10, marginBottom: 16 }}>
+              <Icon name="arrow-left" size={16} /> Back to home
+            </button>
+          </div>
+          <div className="brand">
+            <BrandMark size={36} />
+            <div>
+              <div style={{ fontWeight: 600 }}>MedicaCare</div>
+              <div className="t-muted" style={{ fontSize: 12 }}>Staff console</div>
+            </div>
+          </div>
+          <h1>Staff sign in</h1>
+          <p className="sub">Restricted access for authorized hospital staff only.</p>
+
+          {authError && (
+            <div role="alert" style={{ background: 'var(--error-soft)', border: '1px solid #FCA5A5', color: 'var(--error-text)', padding: '10px 12px', borderRadius: 8, fontSize: 13, marginBottom: 14, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+              <Icon name="alert-circle" size={16} style={{ marginTop: 1 }} />
+              <div>{authError}</div>
+            </div>
+          )}
+
+          <form onSubmit={submit} className="form-stack" noValidate>
+            <Field label="Staff email" required error={errors.email}>
+              <TextInput type="email" placeholder="staff@medicacare.ph" value={form.email}
+                onChange={e => update('email', e.target.value)} error={errors.email} icon="mail" />
+            </Field>
+            <Field label="Password" required error={errors.password}>
+              <TextInput type="password" placeholder="Enter your password" value={form.password}
+                onChange={e => update('password', e.target.value)} error={errors.password} />
+            </Field>
+
+            <button type="submit" className={`btn btn-primary lg ${loading ? 'btn-loading' : ''}`}>
+              Sign in to console
+            </button>
+
+            <div className="footer-link">
+              Patient? <a href="#/login">Use the patient portal instead</a>
+            </div>
+          </form>
+
+          <div className={`demo-accounts ${demoOpen ? 'open' : ''}`}>
+            <button
+              type="button"
+              className="demo-accounts-toggle"
+              aria-expanded={demoOpen}
+              onClick={() => setDemoOpen(o => !o)}
+            >
+              <span className="demo-accounts-title">Demo account: click to use</span>
+              <Icon name="chevron-down" size={14} />
+            </button>
+            {demoOpen && (
+              <button type="button" className="demo-account" onClick={() => {
+                setForm({ email: ADMIN_CREDENTIALS.email, password: ADMIN_CREDENTIALS.password });
+                setErrors({}); setAuthError(null);
+              }}>
+                <span className="avatar sm neutral">HC</span>
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: 13, fontWeight: 500 }}>{ADMIN_CREDENTIALS.email}</span>
+                  <span className="t-muted" style={{ display: 'block', fontSize: 11 }}>Password: {ADMIN_CREDENTIALS.password}</span>
+                </span>
+                <span className="demo-account-role">Admin</span>
+              </button>
             )}
           </div>
         </div>
@@ -1237,7 +1389,7 @@ function ForgotPassword() {
       <div className="auth-visual-col auth-visual-col--forgot">
         <BrandMark className="brand-mark" />
         <div>
-          <div className="quote">"Your health records, appointments, and prescriptions — all in one secure place."</div>
+          <div className="quote">"Your health records, appointments, and prescriptions: all in one secure place."</div>
           <div className="attrib">MedicaCare</div>
         </div>
         <div style={{ fontSize: 12, opacity: 0.75 }}>
@@ -1249,12 +1401,12 @@ function ForgotPassword() {
 }
 
 Object.assign(window, {
-  Landing, Register, Login, ForgotPassword,
+  Landing, Register, Login, AdminLogin, ForgotPassword,
   ServicesPage, DoctorsPage, AboutPage, ContactPage, PrivacyPage, TermsPage,
 });
 
 export {
-  Landing, Register, Login, ForgotPassword,
+  Landing, Register, Login, AdminLogin, ForgotPassword,
   ServicesPage, DoctorsPage, AboutPage, ContactPage, PrivacyPage, TermsPage,
 };
 

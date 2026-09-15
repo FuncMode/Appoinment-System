@@ -85,11 +85,22 @@ function StoreProvider({ children }) {
     } catch { /* fall through */ }
     return window.CURRENT_PATIENT;
   });
+  // Prototype auth sessions — separate flags for the patient portal and the
+  // admin console so neither area can be reached without logging in first.
+  // Client-side only in the prototype; a real backend must re-check every request.
+  const [patientSession, setPatientSession] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('nmc.patientSession')) || null; } catch { return null; }
+  });
+  const [adminSession, setAdminSession] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('nmc.adminSession')) || null; } catch { return null; }
+  });
 
   useEffect(() => { localStorage.setItem('nmc.role', role); }, [role]);
   useEffect(() => { localStorage.setItem('nmc.appointments', JSON.stringify(appointments)); }, [appointments]);
   useEffect(() => { localStorage.setItem('nmc.users', JSON.stringify(users)); }, [users]);
   useEffect(() => { localStorage.setItem('nmc.currentPatient', JSON.stringify(currentPatient)); }, [currentPatient]);
+  useEffect(() => { localStorage.setItem('nmc.patientSession', JSON.stringify(patientSession)); }, [patientSession]);
+  useEffect(() => { localStorage.setItem('nmc.adminSession', JSON.stringify(adminSession)); }, [adminSession]);
 
   const pushToast = useCallback((t) => {
     const id = 'tst_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
@@ -97,6 +108,19 @@ function StoreProvider({ children }) {
     setTimeout(() => setToasts(prev => prev.filter(x => x.id !== id)), t.duration || 3800);
   }, []);
   const dismissToast = useCallback((id) => setToasts(prev => prev.filter(x => x.id !== id)), []);
+
+  const loginPatient = useCallback((account) => {
+    setPatientSession({ id: account.id, email: account.email, at: Date.now() });
+  }, []);
+  const logoutPatient = useCallback(() => {
+    setPatientSession(null);
+    // Reset to the seeded demo identity so the portal still renders after logout
+    setCurrentPatient(window.CURRENT_PATIENT);
+  }, []);
+  const loginAdmin = useCallback((account) => {
+    setAdminSession({ email: account.email, name: account.name, role: account.role, at: Date.now() });
+  }, []);
+  const logoutAdmin = useCallback(() => setAdminSession(null), []);
 
   const store = {
     role, setRole,
@@ -107,6 +131,8 @@ function StoreProvider({ children }) {
     lastBookingId, setLastBookingId,
     users, setUsers,
     currentPatient, setCurrentPatient,
+    patientSession, loginPatient, logoutPatient,
+    adminSession, loginAdmin, logoutAdmin,
     pushToast, toasts, dismissToast,
   };
   return <StoreCtx.Provider value={store}>{children}</StoreCtx.Provider>;
@@ -143,7 +169,10 @@ function Sidebar({ role, current }) {
   ];
   const adminNav = [
     { id: 'a-dashboard',  label: 'Dashboard',     icon: 'layout-dashboard', route: '/admin/dashboard' },
-    { id: 'appointments', label: 'Appointments',  icon: 'calendar-days',    route: '/admin/appointments', count: 8 },
+    // Live pending count from the store instead of a hardcoded number —
+    // the badge always means something real (audit-002 #20)
+    { id: 'appointments', label: 'Appointments',  icon: 'calendar-days',    route: '/admin/appointments',
+      count: store.appointments.filter(a => a.status === 'pending').length },
     { id: 'patients',     label: 'Patients',      icon: 'users-round',      route: '/admin/patients' },
     { id: 'doctors',      label: 'Doctors',       icon: 'stethoscope',      route: '/admin/doctors' },
     { id: 'reports',      label: 'Reports',       icon: 'bar-chart-3',      route: '/admin/reports' },
@@ -168,22 +197,25 @@ function Sidebar({ role, current }) {
       <div className="sidebar-nav">
         <div className="sidebar-nav-label">Main</div>
         {primary.map(item => (
-          <div key={item.id}
+          // Real <button> (audit-002 #1): puts the nav in the Tab order and
+          // gives Enter/Space activation for free; the .sidebar-item CSS
+          // reset keeps the visuals identical to the old clickable div
+          <button key={item.id} type="button"
                className={'sidebar-item' + (current === item.id ? ' active' : '')}
                onClick={() => navigate(item.route)}>
             <Icon name={item.icon} size={18} />
             <span>{item.label}</span>
             {item.count != null && <span className="badge-count">{item.count}</span>}
-          </div>
+          </button>
         ))}
         <div className="sidebar-nav-label">Account</div>
         {secondary.map(item => (
-          <div key={item.id}
+          <button key={item.id} type="button"
                className={'sidebar-item' + (current === item.id ? ' active' : '')}
                onClick={() => navigate(item.route)}>
             <Icon name={item.icon} size={18} />
             <span>{item.label}</span>
-          </div>
+          </button>
         ))}
       </div>
       <div className="sidebar-footer">
@@ -194,7 +226,11 @@ function Sidebar({ role, current }) {
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{me.name}</div>
           <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{role === 'admin' ? me.role : 'Patient'}</div>
         </div>
-        <button className="btn-icon" title="Log out" aria-label="Log out" onClick={() => navigate('/landing')}>
+        <button className="btn-icon" title="Log out" aria-label="Log out" onClick={() => {
+          // Clear the session for the active console, then bounce to its own login
+          if (role === 'admin') { store.logoutAdmin(); navigate('/admin/login'); }
+          else { store.logoutPatient(); navigate('/login'); }
+        }}>
           <Icon name="log-out" size={16} />
         </button>
       </div>
@@ -262,7 +298,7 @@ function Topbar({ onMenuClick }) {
       )}
       <div className="topbar-right">
         <div className="notif-wrap" ref={notifRef}>
-          <button className="btn-icon" title="Notifications" aria-label="Notifications" onClick={() => setNotifOpen(o => !o)}>
+          <button className="btn-icon" title="Notifications" aria-label="Notifications" aria-haspopup="true" aria-expanded={notifOpen} onClick={() => setNotifOpen(o => !o)}>
             <Icon name="bell" size={18} />
             {!notifRead && notifications.length > 0 && <span className="dot" />}
           </button>
@@ -286,7 +322,7 @@ function Topbar({ onMenuClick }) {
                   ))}
                 </div>
               ) : notifications.length === 0 ? (
-                <div className="notif-empty">You're all caught up — no notifications yet.</div>
+                <div className="notif-empty">You're all caught up: no notifications yet.</div>
               ) : notifications.map(n => (
                 <div key={n.id} className="notif-item">
                   <span className="notif-icon"><Icon name={n.icon} size={15} /></span>
@@ -396,7 +432,7 @@ function PublicNav({ activeLink = 'home' }) {
   return (
     <Fragment>
       <div className={`public-nav ${scrolled ? 'scrolled' : ''}`}>
-        <a href="#/landing" className="public-nav-brand" title="Back to home" aria-label="MedicaCare — back to home page" onClick={goHome}>
+        <a href="#/landing" className="public-nav-brand" title="Back to home" aria-label="MedicaCare: back to home page" onClick={goHome}>
           <BrandMark size={34} />
           <div>
             <div style={{ fontSize: 14, fontWeight: 600 }}>{window.HOSPITAL.name}</div>
@@ -422,7 +458,7 @@ function PublicNav({ activeLink = 'home' }) {
           <div className="public-drawer-scrim" onClick={() => setMenuOpen(false)} />
           <div className="public-drawer">
             <div className="public-drawer-head">
-              <a href="#/landing" className="public-nav-brand" title="Back to home" aria-label="MedicaCare — back to home page"
+              <a href="#/landing" className="public-nav-brand" title="Back to home" aria-label="MedicaCare: back to home page"
                 onClick={(e) => { setMenuOpen(false); goHome(e); }}>
                 <BrandMark size={34} />
                 <div style={{ fontSize: 14, fontWeight: 600 }}>{window.HOSPITAL.name}</div>
@@ -464,7 +500,7 @@ function PublicFooter() {
       <div className="footer-disclaimer">
         <Icon name="info" size={12} />
         <span>
-          This website is for a school subject project (IPT2) only — MedicaCare is a fictional
+          This website is for a school subject project (IPT2) only: MedicaCare is a fictional
           hospital and all doctors, patients, and appointments are dummy data.
         </span>
       </div>
@@ -492,7 +528,7 @@ function NoticeBar({ phone }) {
     <div className="public-notice-bar" role="status">
       <div className="public-notice-inner">
         <Icon name="siren" size={14} />
-        <span><strong>24/7 Emergency care:</strong> our ER never closes — walk in anytime or call us.</span>
+        <span><strong>24/7 Emergency care:</strong> our ER never closes: walk in anytime or call us.</span>
         {phone && <a href={`tel:${phone.replace(/[^+\d]/g, '')}`}>{phone}</a>}
         <button className="public-notice-close" aria-label="Dismiss announcement" title="Dismiss" onClick={dismiss}>
           <Icon name="x" size={14} />
@@ -563,7 +599,7 @@ function TestimonialCarousel({ items, interval = 6000 }) {
           <div className="testimonial-slide" key={t.who}>
             <div className="feature-card testimonial-card">
               <p className="testimonial-quote">"{t.quote}"</p>
-              <div className="testimonial-who">— {t.who}</div>
+              <div className="testimonial-who">{t.who}</div>
             </div>
           </div>
         ))}
@@ -603,7 +639,10 @@ function PageHeader({ title, subtitle, breadcrumbs, actions }) {
               <Fragment key={i}>
                 {i > 0 && <Icon name="chevron-right" size={12} />}
                 {b.to
-                  ? <a onClick={() => navigate(b.to)}>{b.label}</a>
+                  // Real href (audit-002 #2): keyboard-focusable and
+                  // right/middle-clickable; navigate() keeps the
+                  // scroll-to-top behavior consistent
+                  ? <a href={'#' + b.to} onClick={e => { e.preventDefault(); navigate(b.to); }}>{b.label}</a>
                   : <span>{b.label}</span>}
               </Fragment>
             ))}
@@ -687,16 +726,35 @@ function PatientAvatar({ person, size = 32 }) {
 
 // ---------- Modal ----------
 function Modal({ open, onClose, title, subtitle, icon, iconKind = 'info', size = '', children, footer }) {
+  const modalRef = useRef(null);
   useEffect(() => {
     if (!open) return;
-    const onKey = (e) => { if (e.key === 'Escape') onClose && onClose(); };
+    const prevFocus = document.activeElement;
+    // Dialog focus pattern (audit-002 #13): move focus into the dialog when
+    // it opens, trap Tab inside it, and restore focus to the trigger on close
+    requestAnimationFrame(() => { if (modalRef.current) modalRef.current.focus(); });
+    const onKey = (e) => {
+      if (e.key === 'Escape') { onClose && onClose(); return; }
+      if (e.key === 'Tab' && modalRef.current) {
+        const focusables = modalRef.current.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if (!focusables.length) { e.preventDefault(); return; }
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && (document.activeElement === last || document.activeElement === modalRef.current)) { e.preventDefault(); first.focus(); }
+      }
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      if (prevFocus && typeof prevFocus.focus === 'function') prevFocus.focus();
+    };
   }, [open, onClose]);
   if (!open) return null;
   return (
     <div className="modal-scrim" onClick={onClose}>
-      <div className={`modal ${size}`} onClick={e => e.stopPropagation()}>
+      <div ref={modalRef} className={`modal ${size}`} role="dialog" aria-modal="true" tabIndex={-1} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', flex: 1 }}>
             {icon && (

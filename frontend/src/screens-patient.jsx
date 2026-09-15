@@ -65,9 +65,9 @@ function buildICS(appt, doctor) {
     `DTSTAMP:${toICSStamp(appt.date, appt.time)}`,
     `DTSTART:${toICSStamp(appt.date, appt.time)}`,
     `DTEND:${toICSStamp(appt.date, appt.time, 30)}`, // 30-minute consultation
-    `SUMMARY:${doctor.name} — ${doctor.specialty}`,
+    `SUMMARY:${doctor.name} (${doctor.specialty})`,
     `LOCATION:${doctor.room}, MedicaCare`,
-    `DESCRIPTION:Appointment ${appt.id.toUpperCase()} — ${String(appt.reason).replace(/\r?\n/g, ' ')}`,
+    `DESCRIPTION:Appointment ${appt.id.toUpperCase()}: ${String(appt.reason).replace(/\r?\n/g, ' ')}`,
     'END:VEVENT',
     'END:VCALENDAR',
   ].join('\r\n');
@@ -78,7 +78,7 @@ function buildReceipt(appt, doctor, patient) {
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   return `<!doctype html>
 <html>
-<head><meta charset="utf-8"><title>Receipt ${esc(appt.id.toUpperCase())} — MedicaCare</title></head>
+<head><meta charset="utf-8"><title>Receipt ${esc(appt.id.toUpperCase())} at MedicaCare</title></head>
 <body style="font-family: Arial, sans-serif; max-width: 560px; margin: 40px auto; color: #1e293b;">
   <h2 style="margin: 0;">MedicaCare</h2>
   <p style="margin: 4px 0 20px; color: #64748b;">221 Rizal Avenue, Quezon City · +63 (2) 8567 4400</p>
@@ -93,7 +93,7 @@ function buildReceipt(appt, doctor, patient) {
     <tr><td style="padding: 6px 0; color: #64748b;">Status</td><td style="text-align: right;">${esc((window.statusMeta(appt.status) || {}).label || appt.status)}</td></tr>
     <tr><td style="padding: 12px 0; border-top: 1px solid #e2e8f0;"><strong>Consultation fee</strong></td><td style="text-align: right; border-top: 1px solid #e2e8f0;"><strong>&#8369;${Number(doctor.fee).toLocaleString()}</strong></td></tr>
   </table>
-  <p style="margin-top: 24px; font-size: 12px; color: #94a3b8;">Prototype receipt — fictional data for demo purposes only.</p>
+  <p style="margin-top: 24px; font-size: 12px; color: #94a3b8;">Prototype receipt: fictional data for demo purposes only.</p>
 </body>
 </html>`;
 }
@@ -143,7 +143,7 @@ function PatientDashboard() {
   // Personal, state-aware subtitle instead of a static tagline
   const subtitle = next
     ? `You have ${upcoming.length} upcoming appointment${upcoming.length === 1 ? '' : 's'}. Your next visit is on ${window.formatDate(next.date)} at ${next.time}.`
-    : 'No upcoming appointments — your schedule is clear.';
+    : 'No upcoming appointments. Your schedule is clear.';
 
   return (
     <AppShell current="dashboard">
@@ -491,6 +491,12 @@ function DoctorListing() {
             ))}
             </div>
 
+            {/* Honesty labels (audit-002 #10/#11): ratings and portraits are
+                seed/demo data, presented as such instead of as real facts */}
+            <p className="t-muted" style={{ fontSize: 12.5, marginTop: 14 }}>
+              Doctor ratings and photos are sample prototype data (randomuser.me placeholder portraits), not real staff profiles or collected patient reviews.
+            </p>
+
             {isMobile && (
               <div className="doctors-pager" style={{ marginTop: 16 }}>
                 <Pagination page={page} setPage={setPage} total={filtered.length} pageSize={MOBILE_DOCTOR_PAGE_SIZE} label="doctors" />
@@ -587,7 +593,7 @@ function DoctorAvailability({ doctorId }) {
             <div className="card">
               <div className="card-header">
                 <h2 className="h-section">Select a date</h2>
-                <span className="t-muted" style={{ fontSize: 12 }}>Available in the next 2 weeks</span>
+                <span className="t-muted" style={{ fontSize: 12 }}>Available in the coming days</span>
               </div>
               <div className="date-chip-row">
                 {dates.map(d => {
@@ -603,11 +609,11 @@ function DoctorAvailability({ doctorId }) {
                         color: on ? '#fff' : 'var(--text-secondary)',
                         borderColor: on ? 'var(--primary)' : 'var(--border-strong)',
                       }}>
-                      <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', opacity: on ? 0.9 : 0.7 }}>
+                      <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 500 }}>
                         {dt.toLocaleDateString('en-US', { weekday: 'short' })}
                       </span>
                       <span style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em' }}>{dt.getDate()}</span>
-                      <span style={{ fontSize: 10, opacity: on ? 0.9 : 0.7 }}>{dt.toLocaleDateString('en-US', { month: 'short' })}</span>
+                      <span style={{ fontSize: 10, fontWeight: 500 }}>{dt.toLocaleDateString('en-US', { month: 'short' })}</span>
                     </button>
                   );
                 })}
@@ -638,7 +644,7 @@ function DoctorAvailability({ doctorId }) {
               <div className="card-footer">
                 <button className="btn btn-secondary" onClick={() => navigate('/patient/doctors')}>Cancel</button>
                 <button className="btn btn-primary" disabled={!slot} onClick={cont}>
-                  Continue <Icon name="arrow-right" size={14} />
+                  Continue
                 </button>
               </div>
             </div>
@@ -781,7 +787,7 @@ function BookAppointment() {
                     }} error={errors.doctorId}>
                       <option value="">Select a doctor...</option>
                       {store.doctors.map(d => (
-                        <option key={d.id} value={d.id}>{d.name} — {d.specialty}</option>
+                        <option key={d.id} value={d.id}>{d.name} ({d.specialty})</option>
                       ))}
                     </SelectInput>
                   </Field>
@@ -821,7 +827,7 @@ function BookAppointment() {
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'right', marginTop: -4 }}>{form.reason.length}/500</div>
                   </Field>
 
-                  <Field label="Additional notes" help="Optional — anything else the doctor should know.">
+                  <Field label="Additional notes" help="Optional. Anything else the doctor should know.">
                     <TextArea placeholder="Any allergies, current medications, recent test results..."
                       value={form.notes} onChange={e => update('notes', e.target.value)} />
                   </Field>
@@ -878,8 +884,8 @@ function BookAppointment() {
               <div style={{ padding: 16, display: 'flex', gap: 12 }}>
                 <Icon name="info" size={18} style={{ color: 'var(--info)', marginTop: 2 }} />
                 <div style={{ fontSize: 13, color: 'var(--info-text)', lineHeight: 1.6 }}>
-                  Your appointment will be reviewed by our staff. You'll receive an SMS confirmation within 15 minutes.
-                  Cancellations must be made at least 4 hours in advance.
+                  Your appointment will be reviewed by our staff. Its status will update here in the portal.
+                  You can cancel free of charge any time before your visit.
                 </div>
               </div>
             </div>
@@ -906,7 +912,7 @@ function BookingConfirmation() {
           </div>
           <h1 className="h-page" style={{ marginBottom: 8 }}>Appointment successfully booked</h1>
           <p className="t-muted" style={{ fontSize: 14, maxWidth: 400, margin: '0 auto 24px' }}>
-            We've sent a confirmation to your email. You can track your appointment status any time from your dashboard.
+            Your appointment request has been received. You can track your appointment status any time from your dashboard.
           </p>
 
           {appt && doctor && (
@@ -1051,7 +1057,7 @@ function AppointmentStatus() {
   const doctor = window.findDoctor(appt.doctorId) || { name: 'Unknown doctor', specialty: '—', room: '—' };
   const steps = [
     { label: 'Booked',    sub: `Request submitted · ${window.formatDate(appt.createdAt || appt.date)}`, done: true, active: false },
-    { label: 'Reviewed by staff', sub: appt.status === 'pending' ? 'Awaiting confirmation' : 'Confirmed · SMS sent', done: appt.status !== 'pending', active: appt.status === 'pending' },
+    { label: 'Reviewed by staff', sub: appt.status === 'pending' ? 'Awaiting confirmation' : 'Confirmed', done: appt.status !== 'pending', active: appt.status === 'pending' },
     { label: 'Confirmed', sub: appt.status === 'confirmed' || appt.status === 'completed' ? 'Ready to visit' : 'Waiting', done: appt.status === 'confirmed' || appt.status === 'completed', active: appt.status === 'confirmed' },
     { label: 'Visit completed', sub: appt.status === 'completed' ? 'Doctor notes available in records' : 'After your visit', done: appt.status === 'completed', active: false },
   ];
@@ -1821,9 +1827,9 @@ function HelpSupport() {
   const faqs = [
     { q: 'How do I book an appointment?', a: 'Go to "Find a doctor", pick a doctor, choose an available date and time slot, then fill out the booking form. You will receive a confirmation with a reference number once submitted.' },
     { q: 'Can I cancel or reschedule an appointment?', a: 'Yes. Open "My appointments", find the appointment, and use the cancel action. To reschedule, cancel the booking and create a new one with your preferred slot.' },
-    { q: 'What do the appointment statuses mean?', a: 'Pending — your request was received and is awaiting confirmation. Confirmed — your slot is reserved. Completed — the visit has happened. Cancelled — the appointment was called off.' },
+    { q: 'What do the appointment statuses mean?', a: 'Pending means your request was received and is awaiting confirmation. Confirmed means your slot is reserved. Completed means the visit has happened. Cancelled means the appointment was called off.' },
     { q: 'How do I update my personal information?', a: 'Go to your Profile page to edit your contact details, address, emergency contact, and change your password.' },
-    { q: 'Are my records and data secure?', a: 'Yes. Data is stored in access-controlled systems, passwords are only kept as secure hashes, and this prototype only uses fictional demo data.' },
+    { q: 'Are my records and data secure?', a: 'Yes, within the scope of this prototype. All data stays in your browser (localStorage) and only fictional demo data is used. A production system would add server-side access control and hashed passwords.' },
   ];
 
   return (
@@ -1867,7 +1873,7 @@ function HelpSupport() {
                   type="button"
                   aria-expanded={open === i}
                   onClick={() => setOpen(open === i ? -1 : i)}
-                  style={{ background: 'transparent', border: 0, padding: 0, width: '100%', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', textAlign: 'left' }}
+                  style={{ background: 'transparent', border: 0, padding: '10px 0', minHeight: 44, width: '100%', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', textAlign: 'left' }}
                 >
                   <Icon name={open === i ? 'chevron-down' : 'chevron-right'} size={16} />
                   <span style={{ fontWeight: 600, fontSize: 14, flex: 1 }}>{f.q}</span>

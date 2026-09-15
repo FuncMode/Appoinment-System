@@ -3,7 +3,7 @@
 // ============================================================
 import { useEffect } from 'react';
 import { useHashRoute, useStore } from './components.jsx';
-import { Landing, Register, Login, ForgotPassword, ServicesPage, DoctorsPage, AboutPage, ContactPage, PrivacyPage, TermsPage } from './screens-public.jsx';
+import { Landing, Register, Login, AdminLogin, ForgotPassword, ServicesPage, DoctorsPage, AboutPage, ContactPage, PrivacyPage, TermsPage } from './screens-public.jsx';
 import {
   PatientDashboard, DoctorListing, DoctorAvailability, BookAppointment,
   BookingConfirmation, AppointmentStatus, AppointmentHistory, AppointmentDetails, Profile,
@@ -55,23 +55,32 @@ function App() {
   } else if (first === '/terms') {
     screen = <TermsPage />;
   } else if (path === 'patient') {
-    const sub = rest[0];
-    const arg = rest[1];
-    if (sub === 'dashboard') screen = <PatientDashboard />;
-    else if (sub === 'doctors') screen = <DoctorListing />;
-    else if (sub === 'availability') screen = <DoctorAvailability doctorId={arg} />;
-    else if (sub === 'book') screen = <BookAppointment />;
-    else if (sub === 'confirmation') screen = <BookingConfirmation />;
-    else if (sub === 'status') screen = <AppointmentStatus />;
-    else if (sub === 'history') screen = <AppointmentHistory />;
-    else if (sub === 'appointment') screen = <AppointmentDetails apptId={arg} />;
-    else if (sub === 'profile') screen = <Profile />;
-    else if (sub === 'records') screen = <MedicalRecords />;
-    else if (sub === 'help') screen = <HelpSupport />;
-    else screen = <PatientDashboard />;
+    // Route guard — the patient portal requires a patient session
+    if (!store.patientSession) {
+      screen = <Login />;
+    } else {
+      const sub = rest[0];
+      const arg = rest[1];
+      if (sub === 'dashboard') screen = <PatientDashboard />;
+      else if (sub === 'doctors') screen = <DoctorListing />;
+      else if (sub === 'availability') screen = <DoctorAvailability doctorId={arg} />;
+      else if (sub === 'book') screen = <BookAppointment />;
+      else if (sub === 'confirmation') screen = <BookingConfirmation />;
+      else if (sub === 'status') screen = <AppointmentStatus />;
+      else if (sub === 'history') screen = <AppointmentHistory />;
+      else if (sub === 'appointment') screen = <AppointmentDetails apptId={arg} />;
+      else if (sub === 'profile') screen = <Profile />;
+      else if (sub === 'records') screen = <MedicalRecords />;
+      else if (sub === 'help') screen = <HelpSupport />;
+      else screen = <PatientDashboard />;
+    }
   } else if (path === 'admin') {
     const sub = rest[0];
-    if (sub === 'dashboard') screen = <AdminDashboard />;
+    // Route guard — the staff console requires an admin session; the staff
+    // login itself is unlinked from the public site (URL is shared internally).
+    if (sub === 'login' || !store.adminSession) {
+      screen = <AdminLogin />;
+    } else if (sub === 'dashboard') screen = <AdminDashboard />;
     else if (sub === 'patients') screen = <PatientsMgmt />;
     else if (sub === 'doctors') screen = <DoctorsMgmt />;
     else if (sub === 'appointments') screen = <AppointmentsMgmt />;
