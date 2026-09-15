@@ -56,7 +56,19 @@ function StoreProvider({ children }) {
   const [appointments, setAppointments] = useState(() => {
     try {
       const saved = localStorage.getItem('nmc.appointments');
-      return saved ? JSON.parse(saved) : window.APPOINTMENTS;
+      if (saved) {
+        const list = JSON.parse(saved);
+        if (Array.isArray(list) && list.length) {
+          // The apT* rows are date-bound to "today" (see data.js), so they are
+          // regenerated on every load with the current date — the same way a
+          // real clinic's daily schedule is rebuilt each day. Everything else
+          // in storage (user bookings, older seed rows) is kept as-is.
+          const kept = list.filter(a => !String(a.id).startsWith('apT'));
+          const freshToday = window.APPOINTMENTS.filter(a => String(a.id).startsWith('apT'));
+          return [...freshToday, ...kept];
+        }
+      }
+      return window.APPOINTMENTS;
     } catch { return window.APPOINTMENTS; }
   });
   const [doctors, setDoctors] = useState(window.DOCTORS);
@@ -94,6 +106,30 @@ function StoreProvider({ children }) {
   const [adminSession, setAdminSession] = useState(() => {
     try { return JSON.parse(localStorage.getItem('nmc.adminSession')) || null; } catch { return null; }
   });
+  // Visit ratings — one per completed appointment (submitted from the patient
+  // portal), seeded with fictional demo feedback so the demo shows realistic
+  // averages from day one. Persisted like appointments; once the logged-in
+  // patient submits a real rating, the real list takes over permanently.
+  const [ratings, setRatings] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('nmc.ratings'));
+      // An empty saved list means nothing real has been submitted yet — fall
+      // back to the demo seed
+      if (Array.isArray(saved) && saved.length) return saved;
+    } catch { /* fall through to seed */ }
+    return window.SEED_RATINGS || [];
+  });
+  // Public testimonials — patient-submitted (portal), staff-moderated before
+  // they appear on the public website. Seeded with two pending demo stories so
+  // the admin moderation page has data; no seeded approved stories (the public
+  // carousel keeps its labeled fictional fallback until real ones are approved).
+  const [testimonials, setTestimonials] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('nmc.testimonials'));
+      if (Array.isArray(saved) && saved.length) return saved;
+    } catch { /* fall through to seed */ }
+    return window.SEED_TESTIMONIALS || [];
+  });
 
   useEffect(() => { localStorage.setItem('nmc.role', role); }, [role]);
   useEffect(() => { localStorage.setItem('nmc.appointments', JSON.stringify(appointments)); }, [appointments]);
@@ -101,6 +137,8 @@ function StoreProvider({ children }) {
   useEffect(() => { localStorage.setItem('nmc.currentPatient', JSON.stringify(currentPatient)); }, [currentPatient]);
   useEffect(() => { localStorage.setItem('nmc.patientSession', JSON.stringify(patientSession)); }, [patientSession]);
   useEffect(() => { localStorage.setItem('nmc.adminSession', JSON.stringify(adminSession)); }, [adminSession]);
+  useEffect(() => { localStorage.setItem('nmc.ratings', JSON.stringify(ratings)); }, [ratings]);
+  useEffect(() => { localStorage.setItem('nmc.testimonials', JSON.stringify(testimonials)); }, [testimonials]);
 
   const pushToast = useCallback((t) => {
     const id = 'tst_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
@@ -125,6 +163,8 @@ function StoreProvider({ children }) {
   const store = {
     role, setRole,
     appointments, setAppointments,
+    ratings, setRatings,
+    testimonials, setTestimonials,
     doctors, setDoctors,
     patients, setPatients,
     pendingBooking, setPendingBooking,
@@ -175,6 +215,10 @@ function Sidebar({ role, current }) {
       count: store.appointments.filter(a => a.status === 'pending').length },
     { id: 'patients',     label: 'Patients',      icon: 'users-round',      route: '/admin/patients' },
     { id: 'doctors',      label: 'Doctors',       icon: 'stethoscope',      route: '/admin/doctors' },
+    // Live pending-story count — same "badge means real state" rule as the
+    // appointments badge above
+    { id: 'stories',      label: 'Patient stories', icon: 'message-square', route: '/admin/stories',
+      count: store.testimonials.filter(t => t.status === 'pending').length },
     { id: 'reports',      label: 'Reports',       icon: 'bar-chart-3',      route: '/admin/reports' },
   ];
   const adminNav2 = [
@@ -581,11 +625,27 @@ function FaqAccordion({ items }) {
   );
 }
 
-// ---------- Auto-rotating testimonial carousel (pauses on hover) ----------
+// ---------- Auto-rotating testimonial carousel (pauses on hover/focus/toggle) ----------
 function TestimonialCarousel({ items, interval = 6000 }) {
   const [idx, setIdx] = useState(0);
-  const [paused, setPaused] = useState(false);
+  const [hoverPaused, setHoverPaused] = useState(false);
+  // Explicit play/pause toggle — hover alone is not a pause mechanism for
+  // keyboard or touch users (WCAG 2.2.2: moving content needs pause/stop)
+  const [userPaused, setUserPaused] = useState(false);
+  // Auto-advance is off entirely under prefers-reduced-motion: with the CSS
+  // transition disabled, slides would jump instead of slide, which reads as
+  // broken. Arrows and dots still work; there is nothing auto-moving to pause.
+  const [reduceMotion, setReduceMotion] = useState(
+    () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
   const count = items.length;
+  const paused = hoverPaused || userPaused || reduceMotion;
+  useEffect(() => {
+    const mql = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const onChange = (e) => setReduceMotion(e.matches);
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
   useEffect(() => {
     if (paused || count <= 1) return;
     const t = setInterval(() => setIdx(i => (i + 1) % count), interval);
@@ -593,10 +653,27 @@ function TestimonialCarousel({ items, interval = 6000 }) {
   }, [paused, count, interval]);
   const go = (i) => setIdx(((i % count) + count) % count);
   return (
-    <div className="testimonial-carousel" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+    <div
+      className="testimonial-carousel"
+      onMouseEnter={() => setHoverPaused(true)}
+      onMouseLeave={() => setHoverPaused(false)}
+      // React onFocus/onBlur bubble — pause auto-advance while any control
+      // (arrows, dots, toggle) inside has keyboard focus
+      onFocus={() => setHoverPaused(true)}
+      onBlur={() => setHoverPaused(false)}
+    >
       <div className="testimonial-track" style={{ transform: `translateX(-${idx * 100}%)` }}>
-        {items.map(t => (
-          <div className="testimonial-slide" key={t.who}>
+        {items.map((t, i) => (
+          // aria-hidden keeps screen readers on the visible slide instead of
+          // reading all quotes as one stream
+          <div
+            className="testimonial-slide"
+            key={t.who}
+            role="group"
+            aria-roledescription="slide"
+            aria-label={`${i + 1} of ${count}`}
+            aria-hidden={i !== idx}
+          >
             <div className="feature-card testimonial-card">
               <p className="testimonial-quote">"{t.quote}"</p>
               <div className="testimonial-who">{t.who}</div>
@@ -606,6 +683,16 @@ function TestimonialCarousel({ items, interval = 6000 }) {
       </div>
       {count > 1 && (
         <div className="testimonial-controls">
+          {!reduceMotion && (
+            <button
+              className="testimonial-arrow"
+              aria-label={userPaused ? 'Play rotating testimonials' : 'Pause rotating testimonials'}
+              aria-pressed={userPaused}
+              onClick={() => setUserPaused(p => !p)}
+            >
+              <Icon name={userPaused ? 'play' : 'pause'} size={16} />
+            </button>
+          )}
           <button className="testimonial-arrow" aria-label="Previous testimonial" onClick={() => go(idx - 1)}>
             <Icon name="chevron-left" size={16} />
           </button>
@@ -1070,6 +1157,37 @@ function Sparkline({ data, width = 72, height = 28, tone = 'primary', delay = 0 
   );
 }
 
+// ---------- Doctor visit ratings (computed from real patient feedback) ----------
+// Ratings come only from patients with a completed appointment (one rating per
+// appointment, enforced again at submit time). Doctors start with no rating at
+// all — nothing is displayed that patients did not actually give, and an
+// average is always shown together with its review count (small samples stay
+// labeled). Ratings are never used to sort or rank doctors.
+function computeDoctorRating(ratings, doctorId) {
+  const list = (ratings || []).filter(r => r.doctorId === doctorId);
+  if (!list.length) return { count: 0, avg: null };
+  const avg = list.reduce((s, r) => s + (Number(r.stars) || 0), 0) / list.length;
+  return { count: list.length, avg: Math.round(avg * 10) / 10 };
+}
+
+function DoctorRatingPill({ ratings, doctorId }) {
+  const { count, avg } = computeDoctorRating(ratings, doctorId);
+  if (!count) return <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>No ratings yet</span>;
+  const label = `${count} patient rating${count === 1 ? '' : 's'}`;
+  return (
+    <span
+      className="rating-cell"
+      style={{ fontSize: 12.5 }}
+      // Hover detail for mouse users; the visible text already spells it out
+      title={`Average of ${count} patient rating${count === 1 ? '' : 's'} from completed visits`}
+    >
+      <Icon name="star" size={13} style={{ color: '#F59E0B' }} />
+      <span style={{ color: 'var(--text)', fontWeight: 500 }}>{avg.toFixed(1)}</span>
+      <span style={{ color: 'var(--text-muted)' }}>· {label}</span>
+    </span>
+  );
+}
+
 // ---------- Export everything ----------
 Object.assign(window, {
   Icon, useHashRoute, navigate, StoreProvider, useStore,
@@ -1079,6 +1197,7 @@ Object.assign(window, {
   Field, TextInput, TextArea, SelectInput,
   Pagination, SkeletonRows, SortableTh, PageSpinner, EmptyState, ErrorState, MiniBarChart, Sparkline,
   NoticeBar, ClinicStatus, FaqAccordion, TestimonialCarousel,
+  computeDoctorRating, DoctorRatingPill,
 });
 
 export {
@@ -1088,5 +1207,6 @@ export {
   Modal, ToastLayer, Field, TextInput, TextArea, SelectInput,
   Pagination, SkeletonRows, SortableTh, PageSpinner, EmptyState, ErrorState, ConfirmModal, MiniBarChart, Sparkline,
   NoticeBar, ClinicStatus, FaqAccordion, TestimonialCarousel,
+  computeDoctorRating, DoctorRatingPill,
 };
 

@@ -4,7 +4,7 @@ import {
   Sidebar, Topbar, AppShell, PublicNav, PageHeader,
   Badge, StatusBadge, DoctorStatusBadge, DoctorAvatar, PatientAvatar,
   Modal, ToastLayer, Field, TextInput, TextArea, SelectInput,
-  Pagination, SkeletonRows, SortableTh, PageSpinner, EmptyState, ErrorState, ConfirmModal, MiniBarChart,
+  Pagination, SkeletonRows, SortableTh, PageSpinner, EmptyState, ErrorState, ConfirmModal, MiniBarChart, DoctorRatingPill,
 } from './components.jsx';
 import {
   HOSPITAL, SPECIALTIES, DOCTORS, PATIENTS, CURRENT_PATIENT, CURRENT_ADMIN,
@@ -467,8 +467,7 @@ function DoctorListing() {
                 </div>
                 <div className="doctor-card-meta">
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <Icon name="star" size={14} style={{ color: '#F59E0B' }} />
-                    <span style={{ color: 'var(--text)', fontWeight: 500 }}>{d.rating}</span>
+                    <DoctorRatingPill ratings={store.ratings} doctorId={d.id} />
                     <span>· {d.exp} yrs</span>
                   </div>
                   <DoctorStatusBadge status={d.status} />
@@ -491,10 +490,10 @@ function DoctorListing() {
             ))}
             </div>
 
-            {/* Honesty labels (audit-002 #10/#11): ratings and portraits are
-                seed/demo data, presented as such instead of as real facts */}
+            {/* Honesty labels: portraits are placeholders; ratings are real
+                patient feedback (completed visits, one per appointment) */}
             <p className="t-muted" style={{ fontSize: 12.5, marginTop: 14 }}>
-              Doctor ratings and photos are sample prototype data (randomuser.me placeholder portraits), not real staff profiles or collected patient reviews.
+              Doctor photos are sample placeholder portraits (randomuser.me), not real staff photos. Ratings shown are prototype demo data; ratings you submit from completed visits are added to them.
             </p>
 
             {isMobile && (
@@ -539,7 +538,7 @@ function DoctorListing() {
             <div className="detail-list">
               <div className="detail-row"><div className="label">Consultation fee</div><div className="value">₱{profileDoc.fee.toLocaleString()}</div></div>
               <div className="detail-row"><div className="label">Experience</div><div className="value">{profileDoc.exp} years</div></div>
-              <div className="detail-row"><div className="label">Rating</div><div className="value">{profileDoc.rating} / 5.0</div></div>
+              <div className="detail-row"><div className="label">Rating</div><div className="value"><DoctorRatingPill ratings={store.ratings} doctorId={profileDoc.id} /></div></div>
               <div className="detail-row"><div className="label">Room</div><div className="value">{profileDoc.room}</div></div>
               <div className="detail-row"><div className="label">Consultation length</div><div className="value">30 minutes</div></div>
             </div>
@@ -665,15 +664,21 @@ function DoctorAvailability({ doctorId }) {
                 <div className="detail-list">
                   <div className="detail-row"><div className="label">Consultation fee</div><div className="value">₱{doctor.fee.toLocaleString()}</div></div>
                   <div className="detail-row"><div className="label">Experience</div><div className="value">{doctor.exp} years</div></div>
-                  <div className="detail-row"><div className="label">Rating</div><div className="value">{doctor.rating} / 5.0</div></div>
+                  <div className="detail-row"><div className="label">Rating</div><div className="value"><DoctorRatingPill ratings={store.ratings} doctorId={doctor.id} /></div></div>
                   <div className="detail-row"><div className="label">Room</div><div className="value">{doctor.room}</div></div>
                   <div className="detail-row"><div className="label">Consultation length</div><div className="value">30 minutes</div></div>
                 </div>
               </div>
             </div>
 
+            {/* Honesty label: portraits are placeholders; ratings are real
+                completed-visit feedback (updated audit-002 #10/#11 policy) */}
+            <p className="t-muted" style={{ fontSize: 12.5 }}>
+              Photos are sample placeholder portraits, not real staff portraits. Ratings shown are prototype demo data.
+            </p>
+
             {slot && (
-              <div className="card" style={{ background: 'var(--primary-soft)', borderColor: '#BFDBFE' }}>
+              <div className="card" style={{ background: 'var(--primary-soft)', borderColor: '#DBEAFE' }}>
                 <div style={{ padding: 16 }}>
                   <div className="t-help" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--primary)' }}>Your selection</div>
                   <div style={{ marginTop: 8, fontSize: 14, color: 'var(--text)' }}>
@@ -824,7 +829,7 @@ function BookAppointment() {
                       error={errors.reason}
                       maxLength={500}
                     />
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'right', marginTop: -4 }}>{form.reason.length}/500</div>
+                    <div className="t-help" style={{ textAlign: 'right', marginTop: -4 }}>{form.reason.length}/500</div>
                   </Field>
 
                   <Field label="Additional notes" help="Optional. Anything else the doctor should know.">
@@ -880,7 +885,7 @@ function BookAppointment() {
               </div>
             </div>
 
-            <div className="card" style={{ background: '#F0F9FF', borderColor: '#BAE6FD' }}>
+            <div className="card" style={{ background: 'var(--info-soft)', borderColor: 'var(--info-border)' }}>
               <div style={{ padding: 16, display: 'flex', gap: 12 }}>
                 <Icon name="info" size={18} style={{ color: 'var(--info)', marginTop: 2 }} />
                 <div style={{ fontSize: 13, color: 'var(--info-text)', lineHeight: 1.6 }}>
@@ -1157,6 +1162,10 @@ function AppointmentHistory() {
   const [page, setPage] = useState(1);
   const [confirmCancel, setConfirmCancel] = useState(null);
   const [cancelLoading, setCancelLoading] = useState(false);
+  // Rate-your-visit modal (Option B): completed appointments only, one rating
+  // per appointment (the action is hidden once a rating exists)
+  const [rateAppt, setRateAppt] = useState(null);
+  const hasRated = (apptId) => store.ratings.some(r => r.appointmentId === apptId);
   // Column sorting (guideline 18) — default stays newest-first by date
   const [sortKey, setSortKey] = useState('date');
   const [sortDir, setSortDir] = useState('desc');
@@ -1308,6 +1317,9 @@ function AppointmentHistory() {
                           <td className="col-actions" data-label="Actions">
                             <div className="appt-actions">
                               <button className="btn btn-ghost sm" onClick={() => navigate('/patient/appointment/' + a.id)}>View details</button>
+                              {a.status === 'completed' && !hasRated(a.id) && (
+                                <button className="btn btn-primary sm" onClick={() => setRateAppt(a)}><Icon name="star" size={13} /> Rate visit</button>
+                              )}
                               {cancellable && (
                                 <button className="btn btn-danger-outline sm" onClick={() => setConfirmCancel(a)}>Cancel</button>
                               )}
@@ -1326,6 +1338,8 @@ function AppointmentHistory() {
           )}
         </div>
       </div>
+
+      <RateVisitModal open={!!rateAppt} appointment={rateAppt} onClose={() => setRateAppt(null)} />
 
       <ConfirmModal
         open={!!confirmCancel}
@@ -1359,6 +1373,8 @@ function AppointmentDetails({ apptId }) {
   );
   const [resSlot, setResSlot] = useState(appt ? appt.time : null);
   const [resLoading, setResLoading] = useState(false);
+  // Rate-your-visit modal state (completed appointments only)
+  const [rateOpen, setRateOpen] = useState(false);
 
   if (!appt) {
     return (
@@ -1370,6 +1386,8 @@ function AppointmentDetails({ apptId }) {
   // Fallback keeps the page rendering if this doctor was removed in the admin console
   const doctor = window.findDoctor(appt.doctorId) || { name: 'Unknown doctor', specialty: '—', room: '—', fee: 0 };
   const cancellable = appt.status === 'pending' || appt.status === 'confirmed';
+  // This patient's rating for this visit, if already submitted
+  const myRating = store.ratings.find(r => r.appointmentId === appt.id);
   // Own current slot stays selectable while rescheduling
   const resSlots = getSlotsFor(appt.doctorId, resDate, store.appointments, appt.id);
 
@@ -1463,6 +1481,31 @@ function AppointmentDetails({ apptId }) {
               </div>
             </div>
 
+            {appt.status === 'completed' && (
+              <div className="card">
+                <div className="card-header"><h3 className="h-card">Your feedback</h3></div>
+                <div className="card-body stack md">
+                  {myRating ? (
+                    <>
+                      <span className="rating-cell" style={{ fontSize: 14 }}>
+                        <Icon name="star" size={16} style={{ color: '#F59E0B' }} />
+                        <strong>{myRating.stars}</strong> / 5
+                      </span>
+                      {myRating.comment && <p className="t-muted" style={{ fontSize: 13, margin: 0, lineHeight: 1.55 }}>{myRating.comment}</p>}
+                      <div className="t-help">Submitted {window.formatDate(myRating.createdAt)}</div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="t-muted" style={{ fontSize: 13, margin: 0, lineHeight: 1.55 }}>
+                        How was your visit with {doctor.name}? Your rating is shown together with the total number of reviews and is never used to rank doctors.
+                      </p>
+                      <button className="btn btn-primary block" onClick={() => setRateOpen(true)}><Icon name="star" size={14} /> Rate your visit</button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="card">
               <div className="card-header"><h3 className="h-card">Actions</h3></div>
               <div className="card-body stack md">
@@ -1514,6 +1557,8 @@ function AppointmentDetails({ apptId }) {
         </Field>
       </Modal>
 
+      <RateVisitModal open={rateOpen} appointment={appt} onClose={() => setRateOpen(false)} />
+
       <ConfirmModal
         open={confirmCancel}
         onClose={() => setConfirmCancel(false)}
@@ -1525,6 +1570,86 @@ function AppointmentDetails({ apptId }) {
         kind="danger"
       />
     </AppShell>
+  );
+}
+
+// ---------- Rate your visit (Option B) ----------
+// Reachable only for completed appointments; one rating per appointment is
+// enforced in the UI (the action is hidden once rated) and re-checked on
+// submit. Stored in store.ratings and surfaced everywhere a doctor's rating is
+// displayed, always together with the review count.
+function RateVisitModal({ open, appointment, onClose }) {
+  const store = useStore();
+  const [stars, setStars] = useState(0);
+  const [comment, setComment] = useState('');
+  const [error, setError] = useState('');
+  useEffect(() => { if (open) { setStars(0); setComment(''); setError(''); } }, [open]);
+
+  if (!appointment) return null;
+  const doctor = window.findDoctor(appointment.doctorId);
+
+  const submit = () => {
+    if (!stars) { setError('Please choose a star rating.'); return; }
+    // One rating per appointment — re-check even though the UI already hides
+    // the action once rated
+    if (store.ratings.some(r => r.appointmentId === appointment.id)) { onClose(); return; }
+    store.setRatings([
+      ...store.ratings,
+      {
+        id: 'r' + Date.now(),
+        appointmentId: appointment.id,
+        doctorId: appointment.doctorId,
+        patientId: appointment.patientId,
+        stars,
+        comment: comment.trim(),
+        createdAt: new Date().toISOString().slice(0, 10),
+      },
+    ]);
+    store.pushToast({ title: 'Thank you for your feedback', msg: `Your ${stars}-star rating for ${doctor ? doctor.name : 'this doctor'} has been recorded.` });
+    onClose();
+  };
+
+  return (
+    <Modal
+      open={open} onClose={onClose}
+      title="Rate your visit"
+      subtitle={doctor ? `${doctor.name} · ${window.formatDate(appointment.date)}` : ''}
+      icon="star" iconKind="success"
+      footer={<>
+        <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        <button className="btn btn-primary" onClick={submit}>Submit rating</button>
+      </>}
+    >
+      <div className="stack md">
+        <Field label="How was your visit?" required error={error}>
+          <div className="rate-star-row">
+            {[1, 2, 3, 4, 5].map(n => (
+              <button
+                key={n} type="button"
+                className={'rate-star' + (n <= stars ? ' on' : '')}
+                aria-label={`${n} star${n === 1 ? '' : 's'}`}
+                aria-pressed={n <= stars}
+                onClick={() => { setStars(n); setError(''); }}
+              >
+                <Icon name="star" size={26} />
+              </button>
+            ))}
+          </div>
+        </Field>
+        <Field label="Comment" help="Optional. Share what went well or what could improve.">
+          <TextArea
+            rows={3}
+            placeholder="Your feedback helps other patients and helps us improve."
+            value={comment}
+            onChange={e => setComment(e.target.value)}
+            maxLength={300}
+          />
+        </Field>
+        <p className="t-muted" style={{ fontSize: 12, margin: 0 }}>
+          Ratings are displayed with the number of reviews. Only patients with a completed appointment can rate, once per visit.
+        </p>
+      </div>
+    </Modal>
   );
 }
 
@@ -1822,7 +1947,46 @@ function MedicalRecords() {
 
 // ---------- Help & Support (patient portal only) ----------
 function HelpSupport() {
+  const store = useStore();
+  const me = store.currentPatient || window.CURRENT_PATIENT;
   const [open, setOpen] = useState(0);
+
+  // "Share your experience" — submissions go to the admin console as pending
+  // and only appear on the public website after staff approval, under a
+  // display name (never the account identity)
+  const displayNameDefault = (() => {
+    const parts = (me.name || '').trim().split(/\s+/);
+    return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0]}.` : (parts[0] || 'Patient');
+  })();
+  const [storyForm, setStoryForm] = useState({ displayName: displayNameDefault, quote: '' });
+  const [storyErrors, setStoryErrors] = useState({});
+  const myStories = store.testimonials.filter(t => t.patientId === me.id);
+  const updateStory = (k, v) => { setStoryForm(f => ({ ...f, [k]: v })); if (storyErrors[k]) setStoryErrors(e => ({ ...e, [k]: null })); };
+
+  const submitStory = (e) => {
+    e.preventDefault();
+    const errs = {};
+    if (!storyForm.displayName.trim()) errs.displayName = 'Please enter a display name';
+    const q = storyForm.quote.trim();
+    if (!q) errs.quote = 'Please share your experience';
+    else if (q.length < 30) errs.quote = 'Please write a bit more (30+ characters)';
+    setStoryErrors(errs);
+    if (Object.keys(errs).length) return;
+    store.setTestimonials([
+      {
+        id: 't' + Date.now(),
+        patientId: me.id,
+        displayName: storyForm.displayName.trim(),
+        quote: q,
+        status: 'pending',
+        createdAt: new Date().toISOString().slice(0, 10),
+      },
+      ...store.testimonials,
+    ]);
+    setStoryForm({ displayName: displayNameDefault, quote: '' });
+    store.pushToast({ title: 'Story submitted', msg: 'Thank you! Our staff will review it before it appears on the website.' });
+  };
+
 
   const faqs = [
     { q: 'How do I book an appointment?', a: 'Go to "Find a doctor", pick a doctor, choose an available date and time slot, then fill out the booking form. You will receive a confirmation with a reference number once submitted.' },
@@ -1865,12 +2029,54 @@ function HelpSupport() {
         </div>
 
         <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-header"><h2 className="h-section">Share your experience</h2></div>
+          <form onSubmit={submitStory} noValidate>
+            <div className="card-body stack md">
+              <p className="t-muted" style={{ fontSize: 13, margin: 0, lineHeight: 1.55 }}>
+                Booked with us before? Share what it was like. Stories are reviewed by our staff before
+                appearing on the public website and are published under your display name only.
+                Please don't include medical details or other people's information.
+              </p>
+              <Field label="Display name" required error={storyErrors.displayName} help="Shown with your story on the public website.">
+                <TextInput value={storyForm.displayName} onChange={e => updateStory('displayName', e.target.value)} error={storyErrors.displayName} maxLength={40} />
+              </Field>
+              <Field label="Your story" required error={storyErrors.quote} help={`${storyForm.quote.trim().length}/280 characters. Minimum 30.`}>
+                <TextArea
+                  rows={3}
+                  placeholder="e.g., Booking my follow-up took two taps and I had a confirmation before lunch."
+                  value={storyForm.quote}
+                  onChange={e => updateStory('quote', e.target.value)}
+                  error={storyErrors.quote}
+                  maxLength={280}
+                />
+              </Field>
+              <div>
+                <button type="submit" className="btn btn-primary">Submit for review</button>
+              </div>
+              {myStories.length > 0 && (
+                <div className="stack md" style={{ paddingTop: 4 }}>
+                  {myStories.map(s => (
+                    <div key={s.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 0', borderTop: '1px solid var(--border)' }}>
+                      <Badge kind={s.status === 'approved' ? 'success' : s.status === 'pending' ? 'warning' : 'neutral'} dot={false}>
+                        {s.status === 'approved' ? 'Shown on website' : s.status === 'pending' ? 'Pending review' : 'Not published'}
+                      </Badge>
+                      <span className="t-muted" style={{ fontSize: 12.5, flex: 1, minWidth: 0 }}>"{s.quote}"</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </form>
+        </div>
+
+        <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-header"><h2 className="h-section">Frequently asked questions</h2></div>
           <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {faqs.map((f, i) => (
               <div key={i} style={{ borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
                 <button
                   type="button"
+                  className="help-faq-q"
                   aria-expanded={open === i}
                   onClick={() => setOpen(open === i ? -1 : i)}
                   style={{ background: 'transparent', border: 0, padding: '10px 0', minHeight: 44, width: '100%', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', textAlign: 'left' }}

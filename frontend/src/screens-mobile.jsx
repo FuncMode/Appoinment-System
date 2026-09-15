@@ -4,7 +4,7 @@ import {
   Sidebar, Topbar, AppShell, PublicNav, PageHeader,
   Badge, StatusBadge, DoctorStatusBadge, DoctorAvatar,
   Modal, ToastLayer, Field, TextInput, TextArea, SelectInput,
-  Pagination, SkeletonRows, EmptyState, ErrorState, ConfirmModal, MiniBarChart,
+  Pagination, SkeletonRows, EmptyState, ErrorState, ConfirmModal, MiniBarChart, DoctorRatingPill,
 } from './components.jsx';
 import {
   HOSPITAL, SPECIALTIES, DOCTORS, PATIENTS, CURRENT_PATIENT, CURRENT_ADMIN,
@@ -210,6 +210,7 @@ function MobileQuickAction({ icon, label, sub }) {
 
 // ---------- Phone: Doctor list ----------
 function PhoneDoctorList() {
+  const store = useStore();
   const doctors = window.DOCTORS.slice(0, 6);
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#F5F7FA', fontFamily: 'IBM Plex Sans, -apple-system, sans-serif' }}>
@@ -241,7 +242,7 @@ function PhoneDoctorList() {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: 'var(--text-muted)' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Icon name="star" size={12} style={{ color: '#F59E0B' }} /> {d.rating}</span>
+                  <DoctorRatingPill ratings={store.ratings} doctorId={d.id} />
                   <span>·</span>
                   <DoctorStatusBadge status={d.status} />
                 </div>

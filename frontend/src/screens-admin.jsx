@@ -4,7 +4,7 @@ import {
   Sidebar, Topbar, AppShell, PublicNav, PageHeader, SortableTh, PageSpinner,
   Badge, StatusBadge, DoctorStatusBadge, DoctorAvatar, PatientAvatar,
   Modal, ToastLayer, Field, TextInput, TextArea, SelectInput,
-  Pagination, SkeletonRows, EmptyState, ErrorState, ConfirmModal, MiniBarChart, Sparkline,
+  Pagination, SkeletonRows, EmptyState, ErrorState, ConfirmModal, MiniBarChart, Sparkline, DoctorRatingPill,
 } from './components.jsx';
 import {
   HOSPITAL, SPECIALTIES, DOCTORS, PATIENTS, CURRENT_PATIENT, CURRENT_ADMIN,
@@ -92,7 +92,7 @@ function AdminDashboard() {
       summary: { totalLabel: 'Total last week', total: 155, avg: 22, completion: '92%', cancellation: '5.1%' },
     },
     '30-days': {
-      label: 'Appointments — last 30 days',
+      label: 'Appointments (last 30 days)',
       data: [
         { label: 'Aug 11', value: 96 },
         { label: 'Aug 16', value: 118 },
@@ -133,7 +133,7 @@ function AdminDashboard() {
           }
         />
 
-        <div className="stat-grid" style={{ marginBottom: 12 }}>
+        <div className="stat-grid" style={{ marginBottom: 20 }}>
           {stats.map((s, i) => (
             <div key={i} className={'card stat-card' + (s.trend ? ' stat-card-spark' : '')}>
               {loading ? (
@@ -149,7 +149,7 @@ function AdminDashboard() {
                     <div className="stat-value">{s.value}</div>
                     {s.trend && <Sparkline data={s.trend} tone={s.kind === 'up' ? 'success' : 'primary'} delay={350 + i * 200} />}
                   </div>
-                  <div className={'stat-delta ' + (s.kind === 'up' ? 'up' : '')}>
+                  <div className={'stat-delta ' + (s.kind === 'up' ? 'up' : s.kind === 'warn' ? 'warn' : '')}>
                     {s.delta}
                   </div>
                 </>
@@ -462,7 +462,7 @@ function PatientsMgmt() {
                         <div>{p.email || <span className="t-muted">—</span>}</div>
                         <div className="cell-secondary">{p.phone}</div>
                       </td>
-                      <td data-label="Gender / Age">{p.gender === 'M' ? 'Male' : 'Female'}, {p.age}</td>
+                      <td data-label="Gender / Age">{p.gender === 'M' ? 'Male' : p.gender === 'F' ? 'Female' : '—'}{p.age ? `, ${p.age}` : ''}</td>
                       <td data-label="Joined">{window.formatDate(p.joined)}</td>
                       <td data-label="Last visit">{p.lastVisit ? window.formatDate(p.lastVisit) : <span className="t-muted">Never</span>}</td>
                       <td className="col-actions">
@@ -534,7 +534,7 @@ function PatientFormModal({ open, onClose, patient, onSave }) {
       return;
     }
     if (file.size > 1024 * 1024) {
-      setPhotoError('Image is too large — please choose one under 1 MB.');
+      setPhotoError('Image is too large. Please choose one under 1 MB.');
       return;
     }
     setPhotoError('');
@@ -580,7 +580,7 @@ function PatientFormModal({ open, onClose, patient, onSave }) {
               {photo && <button type="button" className="btn btn-ghost sm" onClick={() => setPhoto('')}>Remove</button>}
             </div>
             <div className="t-muted" style={{ fontSize: 11.5, marginTop: 6 }}>
-              Optional — defaults to a portrait photo. JPG/PNG up to 1 MB.
+              Optional. Defaults to a portrait photo. JPG/PNG up to 1 MB.
             </div>
             {photoError && <div style={{ fontSize: 12, color: 'var(--error)', marginTop: 4 }}>{photoError}</div>}
           </div>
@@ -732,7 +732,7 @@ function DoctorsMgmt() {
                       {Array.isArray(d.avail) && d.avail.length ? d.avail.join(', ') : '—'}
                     </td>
                     <td data-label="Experience">{d.exp} yrs</td>
-                    <td data-label="Rating"><span className="rating-cell"><Icon name="star" size={13} style={{ color: '#F59E0B' }} /> {d.rating}</span></td>
+                    <td data-label="Rating"><DoctorRatingPill ratings={store.ratings} doctorId={d.id} /></td>
                     <td data-label="Fee">₱{d.fee.toLocaleString()}</td>
                     <td className="col-actions">
                       <button className="btn-icon" title="Edit" aria-label="Edit doctor" onClick={() => setEditingId(d.id)}><Icon name="pencil" size={16} /></button>
@@ -753,7 +753,8 @@ function DoctorsMgmt() {
           const rec = {
             ...newD,
             id,
-            rating: 4.5, exp: parseInt(newD.exp) || 0, fee: parseInt(newD.fee) || 0,
+            // Ratings are patient-given only (completed visits); none are seeded
+            exp: parseInt(newD.exp) || 0, fee: parseInt(newD.fee) || 0,
             // Default to a dummy portrait when no photo was uploaded
             photo: newD.photo || `https://randomuser.me/api/portraits/${newD.gender === 'F' ? 'women' : 'men'}/${Math.floor(Math.random() * 99) + 1}.jpg`,
           };
@@ -813,7 +814,7 @@ function DoctorFormModal({ open, onClose, doctor, onSave }) {
       return;
     }
     if (file.size > 1024 * 1024) {
-      setPhotoError('Image is too large — please choose one under 1 MB.');
+      setPhotoError('Image is too large. Please choose one under 1 MB.');
       return;
     }
     setPhotoError('');
@@ -858,7 +859,7 @@ function DoctorFormModal({ open, onClose, doctor, onSave }) {
               {photo && <button type="button" className="btn btn-ghost sm" onClick={() => setPhoto('')}>Remove</button>}
             </div>
             <div className="t-muted" style={{ fontSize: 11.5, marginTop: 6 }}>
-              Optional — defaults to a portrait photo. JPG/PNG up to 1 MB.
+              Optional. Defaults to a portrait photo. JPG/PNG up to 1 MB.
             </div>
             {photoError && <div style={{ fontSize: 12, color: 'var(--error)', marginTop: 4 }}>{photoError}</div>}
           </div>
@@ -1150,6 +1151,113 @@ function AppointmentsMgmt() {
         confirmLabel="Delete appointment"
         kind="danger"
       />
+    </AppShell>
+  );
+}
+
+// ---------- Patient stories (public testimonial moderation) ----------
+// Portal submissions land here as pending; approved ones are shown on the
+// public "What patients say" carousel under the display name only. Staff see
+// the author's account identity for verification; the public site does not.
+function StoryRow({ t, actions }) {
+  const author = window.findPatient(t.patientId);
+  return (
+    <div className="list-item" style={{ alignItems: 'flex-start' }}>
+      <PatientAvatar person={author} size={28} />
+      <div className="list-item-body">
+        <div className="list-item-title">"{t.quote}"</div>
+        <div className="list-item-sub">
+          Shows as "{t.displayName}" · submitted {window.formatDate(t.createdAt)}
+          {t.reviewedAt ? ` · reviewed ${window.formatDate(t.reviewedAt)}` : ''}
+          {author ? ` · ${author.name}${author.email ? `, ${author.email}` : ''}` : ''}
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>{actions}</div>
+    </div>
+  );
+}
+
+function StoriesMgmt() {
+  const store = useStore();
+  const pending = store.testimonials.filter(t => t.status === 'pending');
+  const approved = store.testimonials.filter(t => t.status === 'approved');
+  const rejected = store.testimonials.filter(t => t.status === 'rejected');
+
+  const setStatus = (id, status) => {
+    store.setTestimonials(store.testimonials.map(t => t.id === id ? { ...t, status, reviewedAt: localToday() } : t));
+    store.pushToast({
+      title: status === 'approved' ? 'Story approved' : status === 'pending' ? 'Story unpublished' : 'Story rejected',
+      msg: status === 'approved' ? 'It is now shown on the public website.' : status === 'pending' ? 'It is back in the review queue.' : 'It will not appear on the public website.',
+    });
+  };
+
+  return (
+    <AppShell current="stories">
+      <div className="page" style={{ maxWidth: 960 }}>
+        <PageHeader
+          title="Patient stories"
+          subtitle={`${pending.length} waiting for review · ${approved.length} shown on the public website`}
+          breadcrumbs={[{ label: 'Home', to: '/admin/dashboard' }, { label: 'Patient stories' }]}
+        />
+
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-header">
+            <h2 className="h-section">Waiting for review</h2>
+          </div>
+          <div>
+            {pending.length === 0 ? (
+              <div style={{ padding: '8px 20px 16px' }}>
+                <EmptyState
+                  icon="message-square"
+                  title="No stories waiting for review"
+                  message="Stories submitted from the patient portal (Help & support) appear here for approval before they are shown on the public website."
+                />
+              </div>
+            ) : pending.map(t => (
+              <StoryRow key={t.id} t={t} actions={<>
+                <button className="btn btn-primary sm" onClick={() => setStatus(t.id, 'approved')}>Approve</button>
+                <button className="btn btn-danger-outline sm" onClick={() => setStatus(t.id, 'rejected')}>Reject</button>
+              </>} />
+            ))}
+          </div>
+        </div>
+
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-header">
+            <h2 className="h-section">Approved & shown publicly</h2>
+          </div>
+          <div>
+            {approved.length === 0 ? (
+              <div style={{ padding: '8px 20px 16px' }}>
+                <EmptyState
+                  icon="globe"
+                  title="Nothing published yet"
+                  message="Approved stories appear on the public website's What patients say carousel."
+                />
+              </div>
+            ) : approved.map(t => (
+              <StoryRow key={t.id} t={t} actions={
+                <button className="btn btn-secondary sm" onClick={() => setStatus(t.id, 'pending')}>Unpublish</button>
+              } />
+            ))}
+          </div>
+        </div>
+
+        {rejected.length > 0 && (
+          <div className="card">
+            <div className="card-header">
+              <h2 className="h-section">Not published</h2>
+            </div>
+            <div>
+              {rejected.map(t => (
+                <StoryRow key={t.id} t={t} actions={
+                  <button className="btn btn-secondary sm" onClick={() => setStatus(t.id, 'pending')}>Restore to review</button>
+                } />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </AppShell>
   );
 }
@@ -1512,7 +1620,7 @@ function AppointmentFormModal({ open, onClose, onSave }) {
         <Field label="Patient" required error={errors.patientId}>
           <SelectInput value={form.patientId} onChange={e => set('patientId', e.target.value)} error={errors.patientId}>
             <option value="">Select a patient...</option>
-            {store.patients.map(p => <option key={p.id} value={p.id}>{p.name} — {p.phone}</option>)}
+            {store.patients.map(p => <option key={p.id} value={p.id}>{p.name} ({p.phone})</option>)}
           </SelectInput>
         </Field>
         <Field label="Doctor" required error={errors.doctorId}>
@@ -1523,7 +1631,7 @@ function AppointmentFormModal({ open, onClose, onSave }) {
             if (e.target.value !== prev) setForm(f => ({ ...f, date: '', time: '' }));
           }} error={errors.doctorId}>
             <option value="">Select a doctor...</option>
-            {store.doctors.map(d => <option key={d.id} value={d.id}>{d.name} — {d.specialty}</option>)}
+            {store.doctors.map(d => <option key={d.id} value={d.id}>{d.name} ({d.specialty})</option>)}
           </SelectInput>
         </Field>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -1604,7 +1712,7 @@ function AppointmentDetailsModal({ appointment, onClose }) {
   );
 }
 
-Object.assign(window, { AdminDashboard, PatientsMgmt, DoctorsMgmt, AppointmentsMgmt, AdminReports, AdminSettings });
+Object.assign(window, { AdminDashboard, PatientsMgmt, DoctorsMgmt, AppointmentsMgmt, StoriesMgmt, AdminReports, AdminSettings });
 
-export { AdminDashboard, PatientsMgmt, PatientFormModal, DoctorsMgmt, DoctorFormModal, AppointmentsMgmt, AdminReports, AdminSettings };
+export { AdminDashboard, PatientsMgmt, PatientFormModal, DoctorsMgmt, DoctorFormModal, AppointmentsMgmt, StoriesMgmt, AdminReports, AdminSettings };
 

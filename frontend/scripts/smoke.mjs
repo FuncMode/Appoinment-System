@@ -13,7 +13,7 @@ const routes = [
   '/patient/history', '/patient/appointment/ap1', '/patient/profile',
   '/patient/records', '/patient/help',
   '/admin/dashboard', '/admin/patients', '/admin/doctors', '/admin/appointments',
-  '/admin/reports', '/admin/settings',
+  '/admin/stories', '/admin/reports', '/admin/settings',
   '/patient/availability/unknown-id', '/patient/appointment/unknown-id',
 ];
 

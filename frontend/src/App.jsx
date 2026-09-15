@@ -9,7 +9,7 @@ import {
   BookingConfirmation, AppointmentStatus, AppointmentHistory, AppointmentDetails, Profile,
   MedicalRecords, HelpSupport,
 } from './screens-patient.jsx';
-import { AdminDashboard, PatientsMgmt, DoctorsMgmt, AppointmentsMgmt, AdminReports, AdminSettings } from './screens-admin.jsx';
+import { AdminDashboard, PatientsMgmt, DoctorsMgmt, AppointmentsMgmt, StoriesMgmt, AdminReports, AdminSettings } from './screens-admin.jsx';
 import { MobileShowcase } from './screens-mobile.jsx';
 
 function App() {
@@ -84,6 +84,7 @@ function App() {
     else if (sub === 'patients') screen = <PatientsMgmt />;
     else if (sub === 'doctors') screen = <DoctorsMgmt />;
     else if (sub === 'appointments') screen = <AppointmentsMgmt />;
+    else if (sub === 'stories') screen = <StoriesMgmt />;
     else if (sub === 'reports') screen = <AdminReports />;
     else if (sub === 'settings') screen = <AdminSettings />;
     else screen = <AdminDashboard />;

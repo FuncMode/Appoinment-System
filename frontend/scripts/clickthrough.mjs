@@ -238,7 +238,7 @@ async function runScenario(s, vp) {
   // --- doctor listing ---
   await step(`[${vp.name}] doctors: honesty label present`, async () => {
     await s.goto('/patient/doctors');
-    await s.waitFor(`window.__text().includes('sample prototype data')`);
+    await s.waitFor(`window.__text().includes('prototype demo data')`);
   });
   await step(`[${vp.name}] doctors: search filters cards`, async () => {
     await s.set('.doctor-filter-search input', 'cardio');

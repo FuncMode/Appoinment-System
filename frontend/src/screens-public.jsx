@@ -4,7 +4,7 @@ import {
   Sidebar, Topbar, AppShell, PublicNav, PublicFooter, PageHeader,
   Badge, StatusBadge, DoctorStatusBadge, DoctorAvatar,
   Modal, ToastLayer, Field, TextInput, TextArea, SelectInput,
-  Pagination, SkeletonRows, EmptyState, ErrorState, ConfirmModal, MiniBarChart,
+  Pagination, SkeletonRows, EmptyState, ErrorState, ConfirmModal, MiniBarChart, DoctorRatingPill,
   NoticeBar, ClinicStatus, FaqAccordion, TestimonialCarousel,
 } from './components.jsx';
 import {
@@ -34,10 +34,13 @@ const CARE_GUIDE = [
   { symptom: 'General annual check-up', specialty: 'Family Medicine' },
 ];
 
-// Patient testimonials — featured in the auto-rotating carousel on Landing
-// Fictional demo stories, labeled as such on the card (R-18: never present
-// invented reviews as real social proof)
-const TESTIMONIALS = [
+// Prototype testimonial stories — shown on the Landing "What patients say"
+// carousel as clearly labeled fiction while no real patient stories have been
+// approved yet (labeled on the card AND in the section copy, per R-18: never
+// present invented reviews as real social proof). Once real stories are
+// approved via the portal → admin moderation flow, they replace these
+// entirely — the two are never mixed in one carousel (DESIGN.md).
+const PROTOTYPE_STORIES = [
   { quote: 'Booking my cardiology follow-up used to take a whole afternoon of phone calls. Now I do it in two taps before work.', who: 'Sofia R. · fictional patient story' },
   { quote: "I booked my son's pediatric check-up after my night shift and had a confirmation before I even got home.", who: 'Marco T. · fictional parent story' },
   { quote: "Rescheduling used to mean three phone calls and crossing my fingers. Now it's two taps and done.", who: 'Andrea L. · fictional patient story' },
@@ -62,6 +65,10 @@ const SERVICES_FAQS = [
 ];
 
 function Landing() {
+  const store = useStore();
+  // Real approved patient stories replace the prototype stories once they
+  // exist; the two are never shown together in one carousel
+  const approvedStories = store.testimonials.filter(t => t.status === 'approved');
   // Hero "portal preview" card mirrors the demo patient's next confirmed
   // appointment from the seed data, so the marketing visual always stays
   // in sync with what the portal actually shows after login.
@@ -256,13 +263,21 @@ function Landing() {
       <section className="public-section" style={{ background: 'var(--bg)', paddingTop: 32 }}>
         <div className="public-section-inner">
           <h2>What patients say</h2>
-          <p className="public-section-sub">Fictional stories written for this prototype to show what booking with MedicaCare feels like.</p>
-          <TestimonialCarousel items={TESTIMONIALS} />
+          <p className="public-section-sub">
+            {approvedStories.length > 0
+              ? 'Stories shared by patients from the MedicaCare portal, reviewed by our staff before publishing.'
+              : 'Fictional stories written for this prototype to show what booking with MedicaCare feels like.'}
+          </p>
+          <TestimonialCarousel
+            items={approvedStories.length > 0
+              ? approvedStories.map(t => ({ quote: t.quote, who: `${t.displayName} · patient` }))
+              : PROTOTYPE_STORIES}
+          />
         </div>
       </section>
 
       <section className="public-section">
-        <div className="public-section-inner">
+        <div className="public-section-inner public-section--centered">
           <h2>Common questions</h2>
           <p className="public-section-sub">Quick answers before you create your account.</p>
           <FaqAccordion items={LANDING_FAQS} />
@@ -340,7 +355,7 @@ function ServicesPage() {
       </section>
 
       <section className="public-section">
-        <div className="public-section-inner">
+        <div className="public-section-inner public-section--centered">
           <h2>Service FAQs</h2>
           <p className="public-section-sub">Answers to what patients ask us most about our services.</p>
           <FaqAccordion items={SERVICES_FAQS} />
@@ -368,6 +383,7 @@ const MOBILE_DOCTORS_QUERY = '(max-width: 720px)';
 const MOBILE_DOCTORS_PAGE_SIZE = 6;
 
 function DoctorsPage({ initialSpecialty = '' }) {
+  const store = useStore();
   // Simulated fetch — skeleton cards while "loading", same 600ms pattern as
   // the patient Doctor Listing
   const [loading, setLoading] = useState(true);
@@ -519,10 +535,7 @@ function DoctorsPage({ initialSpecialty = '' }) {
                     </div>
                   </div>
                   <div className="doctor-card-meta">
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <Icon name="star" size={14} style={{ color: '#F59E0B' }} />
-                      <span style={{ color: 'var(--text)', fontWeight: 500 }}>{d.rating}</span>
-                    </span>
+                    <DoctorRatingPill ratings={store.ratings} doctorId={d.id} />
                     <DoctorStatusBadge status={d.status} />
                   </div>
                   <div className="doctor-card-meta">
@@ -549,7 +562,7 @@ function DoctorsPage({ initialSpecialty = '' }) {
 
           {/* R-23 honesty label: portraits are stock placeholders, not real staff */}
           <div style={{ marginTop: 16, fontSize: 12.5, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Icon name="info" size={13} /> Doctor photos are placeholder portraits (randomuser.me) used for this prototype, not real staff.
+            <Icon name="info" size={13} /> Doctor photos are placeholder portraits (randomuser.me), not real staff. Ratings shown are prototype demo data; ratings you submit from completed visits are added to them.
           </div>
 
           <div style={{ marginTop: 32, padding: 24, background: 'var(--primary-soft)', border: '1px solid var(--border)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
@@ -591,9 +604,8 @@ function DoctorsPage({ initialSpecialty = '' }) {
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <DoctorStatusBadge status={selectedDoctor.status} />
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13 }}>
-                    <Icon name="star" size={14} style={{ color: '#F59E0B' }} />
-                    {selectedDoctor.rating} patient rating
+                  <span style={{ display: 'inline-flex', alignItems: 'center', fontSize: 13 }}>
+                    <DoctorRatingPill ratings={store.ratings} doctorId={selectedDoctor.id} />
                   </span>
                 </div>
               </div>
@@ -762,18 +774,18 @@ function ContactPage() {
 
       <section className="public-section" style={{ paddingTop: 8 }}>
         <div className="public-section-inner contact-cols">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="contact-info-list">
             {[
               { icon: 'map-pin', title: 'Address', body: HOSPITAL.address },
               { icon: 'phone', title: 'Phone', body: HOSPITAL.phone },
               { icon: 'mail', title: 'Email', body: HOSPITAL.email },
               { icon: 'clock', title: 'Hours', body: <>Mon–Sat: 7:00 AM – 8:00 PM · Sun: 8:00 AM – 5:00 PM<br />Emergency: 24/7</> },
             ].map(c => (
-              <div key={c.title} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 20, display: 'flex', gap: 12 }}>
-                <div className="feature-card-icon"><Icon name={c.icon} size={18} /></div>
+              <div key={c.title} className="contact-info-row">
+                <div className="feature-card-icon" style={{ marginTop: 1 }}><Icon name={c.icon} size={18} /></div>
                 <div>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{c.title}</div>
-                  <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{c.body}</div>
+                  <div className="contact-info-title">{c.title}</div>
+                  <div className="contact-info-body">{c.body}</div>
                 </div>
               </div>
             ))}

@@ -15,7 +15,7 @@
 | Dial | Value | Why |
 | --- | --- | --- |
 | **ENERGY** | 1 (Calm) | Healthcare. Patients arrive worried or in a hurry; the page must reassure, not excite. Anchor feel: GOV.UK/Stripe clarity, never agency-flashy. |
-| **RHYTHM** | 2 (Consistent with a few breaks) | The public pages share a consistent h2 + sub + content rhythm, deliberately broken by: the interactive care-finder panel (left accent rail), the numbered "How it works" rail (no cards), the live clinic-status pill, and the portal-preview hero visual. Those breaks are the identity. |
+| **RHYTHM** | 2 (Consistent with a few breaks) | The public pages share a consistent h2 + sub + content rhythm, deliberately broken by: the interactive care-finder panel (left accent rail), the numbered "How it works" rail (no cards), the live clinic-status pill, the portal-preview hero visual, and the centered FAQ sections (Landing/Services — the 760px accordion reads better centered ahead of the centered closing CTA). Those breaks are the identity. |
 | **MOTION** | 1 (Hover states only) | Motion budget goes to functional transitions only: FAQ/accordion reveal, carousel slide, 120ms control feedback. No scroll-reveal, no parallax, nothing decorative (also removed once already as R-19/R-01 hygiene). |
 
 ## Identity
@@ -72,6 +72,11 @@
 - 120ms control feedback (hover/border/focus), 200-450ms state transitions
   (accordion, carousel), both respecting `prefers-reduced-motion`. Nothing
   else moves.
+- The Landing testimonial carousel auto-advance is pausable: it stops on
+  hover/keyboard focus and via an explicit play/pause toggle (WCAG 2.2.2),
+  styled as a third arrow button so it stays within the same control family.
+  Under `prefers-reduced-motion: reduce` the auto-advance is off entirely
+  (manual arrows/dots remain) — slides would otherwise jump instead of slide.
 - Known deliberate exception (documented at the rule site, `styles.css`
   "chart entrance animations" note): the dashboard chart's one-shot draw-in
   stays on even under reduced-motion, because the data is fully readable
@@ -85,11 +90,27 @@ The portal shares the dials above, with these written decisions:
   (ENERGY 1). The Dashboard breaks it once, on purpose: greeting + next
   appointment banner + stat row + recent activity list, where the banner is
   the focal point. Screens stay quiet; the data is the color.
-- **Doctor ratings / years / portraits:** seed (demo) data, never presented
-  as real facts. The Doctor Listing carries a visible honesty label
-  ("sample prototype data... not real staff profiles or collected patient
-  reviews"); the Medical Records and Profile pages carry their own fictional
-  notes. If real ratings ever exist, this policy changes with them.
+- **Doctor ratings:** computed from visit ratings — one rating per completed
+  appointment, verified against the appointment reference. The demo starts with
+  fictional seed ratings from the fictional seed patients so realistic averages
+  show from day one; the honesty labels on the Doctors pages disclose that the
+  displayed ratings are prototype demo data, and ratings submitted by the
+  logged-in patient add to the same pool. Averages are always shown with their
+  review count, doctors never start as unrated in marketing views, and ratings
+  are **never** used to sort or rank doctors (information, not ranking). This
+  supersedes the audit-002 #10 seed-`rating`-field policy (the raw seed field
+  is no longer displayed anywhere).
+- **Years of experience / portraits:** seed (demo) data, never presented as
+  real facts. The Doctor Listing and Availability pages carry visible honesty
+  labels ("placeholder portraits (randomuser.me), not real staff"); the
+  Medical Records and Profile pages carry their own fictional notes.
+- **Public testimonials:** patient-submitted from the portal (Help & support),
+  staff-moderated in the admin console before publishing, and shown under a
+  display name only (staff see the account identity; the public site does not).
+  Until real stories are approved, the Landing carousel shows the clearly
+  labeled fictional prototype stories as a fallback; once real ones exist they
+  replace the fiction entirely — the two are never mixed in one carousel.
+  Auth-screen quotes remain labeled fictional brand copy.
 - **Empty-value glyph:** `—` is the declared placeholder for "no value" in
   detail rows, tables, and date fallbacks. It is a null glyph, not
   punctuation; sentence text never uses em dashes (R-02).

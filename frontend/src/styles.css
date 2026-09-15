@@ -36,6 +36,7 @@
   --error-text: #991B1B;
   --info: #0891B2;
   --info-soft: #ECFEFF;
+  --info-border: #A5F3FC;
   --info-text: #155E75;
 
   /* Radius */
@@ -277,7 +278,11 @@ a { color: inherit; text-decoration: none; }
 .btn:focus-visible, .chip:focus-visible, .btn-icon:focus-visible, .page-btn:focus-visible,
 a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
 .doctor-card:focus-visible, .list-item:focus-visible, .th-sort:focus-visible,
-.public-nav-burger:focus-visible, .demo-account:focus-visible {
+.public-nav-burger:focus-visible, .demo-account:focus-visible,
+.dept-chip:focus-visible, .faq-question:focus-visible, .testimonial-arrow:focus-visible,
+.testimonial-dot:focus-visible, .demo-accounts-toggle:focus-visible,
+.public-notice-close:focus-visible, .topbar-icon-btn:focus-visible,
+.help-faq-q:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
   border-radius: var(--r-sm);
@@ -387,6 +392,7 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
 .dashboard-stats { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 12px; height: 100%; }
 .dashboard-stats .stat-card-span { grid-column: 1 / -1; }
 .stat-card .stat-delta.up { color: var(--success); }
+.stat-card .stat-delta.warn { color: var(--warning-text); }
 .stat-card .stat-delta.down { color: var(--error); }
 
 /* Stat cards with a sparkline (admin overview): label gets the full first
@@ -494,6 +500,21 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
 
 /* Rating cell: lucide star icon instead of a text emoji (guideline 11) */
 .rating-cell { display: inline-flex; align-items: center; gap: 4px; }
+
+/* Rate-your-visit star picker (patient portal). Lucide stars are stroke-only,
+   so the selected state fills the svg shape via CSS. 44px touch targets. */
+.rate-star-row { display: flex; gap: 6px; }
+.rate-star {
+  width: 44px; height: 44px; border-radius: var(--r-sm);
+  background: transparent; border: 1px solid transparent;
+  display: grid; place-items: center; cursor: pointer;
+  color: var(--border-strong);
+  transition: color 120ms ease, border-color 120ms ease;
+}
+.rate-star svg { fill: none; }
+.rate-star:hover { border-color: var(--border); color: var(--text-muted); }
+.rate-star.on { color: #F59E0B; }
+.rate-star.on svg { fill: #F59E0B; }
 
 /* Appointment status: doctor summary card */
 .appt-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
@@ -697,7 +718,9 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
   color: var(--text-secondary); font-weight: 500;
 }
 .public-nav-links a:hover { background: var(--surface-muted); color: var(--text); }
-.public-nav-links a.active { color: var(--primary); }
+/* Active link uses the same fill+tint treatment as the mobile drawer's active
+   item — one state language across breakpoints, and not hue-only signal */
+.public-nav-links a.active { color: var(--primary); background: var(--primary-soft); }
 .public-nav-cta { display: flex; gap: 8px; }
 
 /* Mobile burger menu + slide-out drawer (visible via media query below) */
@@ -794,6 +817,13 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
 .public-section-inner { max-width: 1100px; margin: 0 auto; }
 .public-section h2 { font-size: 24px; font-weight: 600; margin: 0 0 8px; letter-spacing: -0.01em; }
 .public-section-sub { color: var(--text-muted); margin: 0 0 32px; font-size: 15px; }
+/* Centered section variant (Landing/Services FAQ): the 760px accordion leaves
+   a large empty column on wide screens, so the heading, sub, and accordion
+   center as one unit — matching the closing CTA section. Accordion items keep
+   left-aligned text for readability. */
+.public-section--centered { text-align: center; }
+.public-section--centered .public-section-sub { max-width: 560px; margin-left: auto; margin-right: auto; }
+.public-section--centered .faq-accordion { text-align: left; }
 
 .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .feature-card {
@@ -838,6 +868,17 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
 .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .contact-cols { display: grid; grid-template-columns: 1fr 1.4fr; gap: 24px; align-items: start; }
+/* Contact details: one bordered card with divider rows. Four sibling cards
+   read as four unrelated boxes; the rows are a single "contact info" group
+   (same divider language as .detail-row elsewhere in the app). */
+.contact-info-list {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-lg); overflow: hidden;
+}
+.contact-info-list > * + * { border-top: 1px solid var(--border); }
+.contact-info-row { display: flex; gap: 12px; padding: 16px 20px; }
+.contact-info-title { font-weight: 600; font-size: 14px; }
+.contact-info-body { font-size: 13px; color: var(--text-muted); margin-top: 2px; line-height: 1.55; }
 .form-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
 .public-footer {
@@ -928,6 +969,14 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
 }
 .demo-account:hover { border-color: var(--primary); }
 .demo-account-role { margin-left: auto; font-size: 11px; color: var(--text-muted); font-weight: 500; }
+
+/* Help & Support FAQ question buttons — inline layout stays in JSX; this gives
+   the button the standard quiet hover/focus feedback the public .faq-question
+   has (pointer affordance + visible keyboard focus via the ring group) */
+.help-faq-q { color: var(--text); transition: color 120ms ease; }
+.help-faq-q:hover { color: var(--primary); }
+.help-faq-q svg { color: var(--text-muted); transition: color 120ms ease; }
+.help-faq-q:hover svg { color: var(--primary); }
 
 /* ============================================================
    Dashboard-specific
@@ -1408,6 +1457,9 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
    (Rule: animation only when it explains a state change). */
 
 /* FAQ accordion */
+/* FAQ accordion — 760px cap for comfortable answer line length. Inside the
+   centered section variant (Landing/Services FAQ) it is centered as one unit
+   with the heading and sub; the items' own text stays left-aligned. */
 .faq-accordion { display: flex; flex-direction: column; gap: 10px; max-width: 760px; margin: 0 auto; }
 .faq-item {
   background: var(--surface); border: 1px solid var(--border);
@@ -1470,9 +1522,14 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
   transition: border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
 }
 .testimonial-arrow:hover { border-color: var(--primary); color: var(--primary); }
+/* Paused state of the play/pause toggle — icon swaps play/pause, so state is
+   not color-only */
+.testimonial-arrow[aria-pressed="true"] { border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
 
-/* Respect reduced-motion preferences for the remaining functional animations
-   (carousel slide, FAQ fade-in) */
+/* Respect reduced-motion preferences for the remaining functional animations.
+   The carousel's AUTO-ADVANCE is disabled in JS under prefers-reduced-motion
+   (slides would jump instead of slide); this block only affects the manual
+   arrow/dot transitions and the FAQ/care-finder reveals. */
 @media (prefers-reduced-motion: reduce) {
   .testimonial-track { transition: none; }
   .faq-answer, .care-finder-panel { animation: none; }

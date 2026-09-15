@@ -45,6 +45,31 @@ DOCTORS.forEach((d, i) => {
   d.photo = `https://randomuser.me/api/portraits/${d.gender === 'F' ? 'women' : 'men'}/${((i + 1) * 5) % 99}.jpg`;
 });
 
+// Demo visit ratings — fictional feedback from the fictional seed patients so
+// the rating system shows realistic computed averages from day one. Each row
+// is one fictional completed visit; appointment ids use the 'demo-' prefix so
+// they never collide with (or block) real appointments in the booking flow.
+// The averages doctors display are computed from these rows plus any real
+// ratings submitted from the portal, always with the review count shown.
+const RATING_PATTERNS = {
+  high: [5, 5, 5, 4, 5, 4, 5],  // for doctors seeded at ≈4.7+
+  mid:  [5, 4, 5, 4, 5, 4, 5],  // for doctors seeded at ≈4.6
+  good: [5, 4, 4, 5, 4, 5, 4],  // for doctors seeded at ≈4.4–4.5
+};
+export const SEED_RATINGS = DOCTORS.flatMap((d, i) => {
+  const pattern = RATING_PATTERNS[d.rating >= 4.8 ? 'high' : d.rating >= 4.6 ? 'mid' : 'good'];
+  const count = 4 + (i % 4); // deterministic 4–7 ratings per doctor
+  return Array.from({ length: count }, (_, j) => ({
+    id: `demo-${d.id}-${j}`,
+    appointmentId: `demo-${d.id}-${j}`, // fictional completed visit
+    doctorId: d.id,
+    patientId: `p${(j % 5) + 1}`,
+    stars: pattern[j % pattern.length],
+    comment: '',
+    createdAt: `2026-08-${String(((i * 3 + j * 5) % 27) + 1).padStart(2, '0')}`,
+  }));
+});
+
 const PATIENTS = [
   { id: 'p1',  name: 'Juan Miguel Bautista',                   email: 'juanmi.bautista@gmail.com',     phone: '+63 917 234 5678',  gender: 'M', age: 34, joined: '2024-08-14', lastVisit: '2026-08-22' },
   { id: 'p2',  name: 'Maria Kristina Del Rosario-Fernandez',   email: 'mk.fernandez@outlook.com',      phone: '+63 918 445 1120',  gender: 'F', age: 29, joined: '2025-01-03', lastVisit: '2026-09-01' },
@@ -99,8 +124,18 @@ const CURRENT_ADMIN = {
   role: 'Administrator',
 };
 
+// "Today" appointments — dated relative to the current date (computed at load)
+// so the admin dashboard's Today's schedule always has live-looking rows no
+// matter when the demo is opened.
+function dayOffsetISO(offset) {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 // Appointments — mix of statuses across patients and doctors
-// Dates around Sep 2026
+// Dates around Sep 2026, plus a handful dated "today" (see dayOffsetISO above)
 const APPOINTMENTS = [
   // Patient p1 (current user)
   { id: 'ap1',  patientId: 'p1',  doctorId: 'd1',  date: '2026-09-11', time: '10:30 AM', reason: 'Annual cardiac check-up and ECG review',       status: 'confirmed', createdAt: '2026-09-04' },
@@ -130,6 +165,13 @@ const APPOINTMENTS = [
   { id: 'ap23', patientId: 'p22', doctorId: 'd14', date: '2026-09-13', time: '3:30 PM',  reason: 'Peripheral neuropathy screening',               status: 'confirmed', createdAt: '2026-09-04' },
   { id: 'ap24', patientId: 'p23', doctorId: 'd1',  date: '2026-09-14', time: '9:00 AM',  reason: 'Cardiology second opinion',                     status: 'pending',   createdAt: '2026-09-08' },
   { id: 'ap25', patientId: 'p24', doctorId: 'd18', date: '2026-09-14', time: '2:30 PM',  reason: 'Medication adjustment consultation',            status: 'pending',   createdAt: '2026-09-08' },
+
+  // Today's schedule (admin dashboard + appointments queue)
+  { id: 'apT1', patientId: 'p2',  doctorId: 'd13', date: dayOffsetISO(0), time: '9:00 AM',  reason: 'Recurring rash follow-up',                      status: 'completed', createdAt: dayOffsetISO(0) },
+  { id: 'apT2', patientId: 'p3',  doctorId: 'd1',  date: dayOffsetISO(0), time: '10:30 AM', reason: 'Blood pressure medication review',              status: 'confirmed', createdAt: dayOffsetISO(-2) },
+  { id: 'apT3', patientId: 'p5',  doctorId: 'd2',  date: dayOffsetISO(0), time: '1:30 PM',  reason: 'Pediatric wellness check',                      status: 'completed', createdAt: dayOffsetISO(0) },
+  { id: 'apT4', patientId: 'p6',  doctorId: 'd7',  date: dayOffsetISO(0), time: '3:00 PM',  reason: 'Chronic sinusitis re-evaluation',               status: 'confirmed', createdAt: dayOffsetISO(-1) },
+  { id: 'apT5', patientId: 'p7',  doctorId: 'd9',  date: dayOffsetISO(0), time: '4:30 PM',  reason: 'Fasting blood sugar results consultation',      status: 'pending',   createdAt: dayOffsetISO(0) },
 ];
 
 // Availability sample — used on doctor availability screen (per-doctor)
@@ -141,6 +183,24 @@ const AVAILABILITY_TEMPLATE = {
   '2026-09-14': { day: 'Mon', slots: [ ['8:30 AM', true],  ['9:00 AM', true],  ['9:30 AM', false], ['10:00 AM', true], ['10:30 AM', true],  ['11:00 AM', true], ['11:30 AM', false], ['2:00 PM', true], ['2:30 PM', true], ['3:00 PM', true], ['3:30 PM', true], ['4:00 PM', true] ] },
   '2026-09-15': { day: 'Tue', slots: [ ['9:00 AM', true],  ['10:00 AM', true], ['11:00 AM', true], ['2:00 PM', true],  ['3:00 PM', true],   ['4:00 PM', true] ] },
 };
+
+// Demo patient-story submissions — two pending stories so the admin
+// "Patient stories" page demonstrates the moderation flow with data. They stay
+// pending on purpose: approved stories display on the public website as
+// patient stories, so that transition happens through the staff's own actions
+// during the demo rather than through seeded data.
+export const SEED_TESTIMONIALS = [
+  {
+    id: 'tDemo1', patientId: 'p2', displayName: 'Kristina F.',
+    quote: 'Booking my prenatal check-up took less than a minute, and the confirmation was already in the portal when I looked.',
+    status: 'pending', createdAt: '2026-09-13',
+  },
+  {
+    id: 'tDemo2', patientId: 'p7', displayName: 'Luis A.',
+    quote: 'I used to call three times just to ask for available schedules. Now I can see the open slots myself and pick one.',
+    status: 'pending', createdAt: '2026-09-14',
+  },
+];
 
 // helpers
 function findDoctor(id) { return DOCTORS.find(d => d.id === id); }
@@ -220,7 +280,7 @@ function doctorStatusMeta(s) {
 
 Object.assign(window, {
   HOSPITAL, SPECIALTIES, DOCTORS, PATIENTS, CURRENT_PATIENT, CURRENT_ADMIN,
-  APPOINTMENTS, AVAILABILITY_TEMPLATE,
+  APPOINTMENTS, AVAILABILITY_TEMPLATE, SEED_RATINGS, SEED_TESTIMONIALS,
   findDoctor, findPatient, formatDate, formatDateLong, initials, statusMeta, doctorStatusMeta,
   isSlotTaken, getSlotsFor, downloadFile,
 });
