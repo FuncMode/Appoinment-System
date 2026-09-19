@@ -1,8 +1,8 @@
 // ============================================================
 // Router / app root — MedicaCare
 // ============================================================
-import { useEffect } from 'react';
-import { useHashRoute, useStore } from './components.jsx';
+import { useEffect, useState } from 'react';
+import { BrandMark, useHashRoute, useStore } from './components.jsx';
 import { Landing, Register, Login, AdminLogin, ForgotPassword, ServicesPage, DoctorsPage, AboutPage, ContactPage, PrivacyPage, TermsPage } from './screens-public.jsx';
 import {
   PatientDashboard, DoctorListing, DoctorAvailability, BookAppointment,
@@ -12,9 +12,36 @@ import {
 import { AdminDashboard, PatientsMgmt, DoctorsMgmt, AppointmentsMgmt, StoriesMgmt, AdminReports, AdminSettings } from './screens-admin.jsx';
 import { MobileShowcase } from './screens-mobile.jsx';
 
+// ============================================================
+// Initial-visit splash — brand mark + spinner circle, centered
+// vertically AND horizontally. Shown on every full page load,
+// held briefly, then faded out (CSS transition) and unmounted.
+// ============================================================
+function Splash({ fading }) {
+  return (
+    <div
+      className={`app-splash${fading ? ' splash-fading' : ''}`}
+      role="status"
+      aria-label="Loading MedicaCare"
+    >
+      <div className="app-splash-inner">
+        <BrandMark size={56} />
+        <div className="app-splash-spinner" />
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const route = useHashRoute();
   const store = useStore();
+  // Splash lifecycle: 'shown' -> 'fading' -> 'gone' (then unmounted)
+  const [splash, setSplash] = useState('shown');
+  useEffect(() => {
+    const t1 = setTimeout(() => setSplash('fading'), 900);
+    const t2 = setTimeout(() => setSplash('gone'), 1300);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
 
   // Split an optional query string off the hash route (e.g. #/doctors?spec=Cardiology)
   // so deep links from the Landing care finder / department chips can pre-filter pages.
@@ -94,7 +121,12 @@ function App() {
 
   // set a screen label per top-level route for comments
   const label = route.replace(/^\//, '') || 'landing';
-  return <div data-screen-label={label}>{screen}</div>;
+  return (
+    <div data-screen-label={label}>
+      {splash !== 'gone' && <Splash fading={splash === 'fading'} />}
+      {screen}
+    </div>
+  );
 }
 
 export default App;

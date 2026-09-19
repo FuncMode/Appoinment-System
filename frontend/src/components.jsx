@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback, createContext, useContext, Fragment } from 'react';
 import brandLogo from './assets/brand_logo.png';
 import './data.js';
+import AnimatedContent from './reactbits/AnimatedContent.jsx';
 
 // ---------- Icon (Lucide inline via <i data-lucide>) ----------
 function Icon({ name, size = 16, style = {}, className = '' }) {
@@ -414,7 +415,15 @@ function AppShell({ current, children }) {
       {mobileNavOpen && (
         <div className="mobile-nav-scrim" onClick={() => setMobileNavOpen(false)}>
           <aside className="mobile-nav" onClick={e => e.stopPropagation()}>
-            <Sidebar role={role} current={current} />
+            {/* React Bits AnimatedContent — portal drawer slides in from the left
+                on open (the aside itself has no CSS entrance animation). The
+                wrapper carries .mobile-nav-slide so CSS can stretch it to the
+                drawer's full height — without it the wrapper's auto height makes
+                the sidebar's height:100% collapse and the user footer sits
+                right under the nav instead of at the drawer bottom. */}
+            <AnimatedContent className="mobile-nav-slide" distance={300} direction="horizontal" reverse duration={0.4}>
+              <Sidebar role={role} current={current} />
+            </AnimatedContent>
           </aside>
         </div>
       )}
@@ -509,6 +518,7 @@ function PublicNav({ activeLink = 'home' }) {
               </a>
               <button className="btn-icon" title="Close menu" aria-label="Close menu" onClick={() => setMenuOpen(false)}><Icon name="x" size={16} /></button>
             </div>
+            <AnimatedContent className="public-drawer-slide" distance={24} duration={0.5} delay={0.12}>
             <nav className="public-drawer-links">
               {links.map(l => (
                 <a key={l.key} href={l.to} className={activeLink === l.key ? 'active' : ''} onClick={() => setMenuOpen(false)}>
@@ -517,6 +527,7 @@ function PublicNav({ activeLink = 'home' }) {
                 </a>
               ))}
             </nav>
+            </AnimatedContent>
             <div className="public-drawer-cta">
               <a className="btn btn-secondary" href="#/login" onClick={() => setMenuOpen(false)}>Log in</a>
               <a className="btn btn-primary" href="#/register" onClick={() => setMenuOpen(false)}>Register</a>

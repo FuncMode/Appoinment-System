@@ -784,9 +784,6 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
 .public-hero h1 { font-size: 40px; line-height: 1.15; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 16px; }
 .public-hero p { font-size: 16px; color: var(--text-secondary); margin: 0 0 24px; max-width: 480px; }
 .public-hero-actions { display: flex; gap: 10px; }
-.public-hero-badges { display: flex; gap: 16px; margin-top: 32px; }
-/* Trust badges are plain muted text — separated by the flex gap, no icon parade */
-.public-hero-badge { font-size: 13px; color: var(--text-muted); }
 
 /* Compact single-column hero variant used by the subpages
    (Services / Doctors / About / Contact / legal). Kept as a class instead of
@@ -797,21 +794,233 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
 .public-hero.page-hero h1 { font-size: 32px; margin: 0 0 10px; }
 .public-hero.page-hero .public-hero-sub { margin-bottom: 0; }
 
+/* Landing-only: the hero fills the first viewport (minus the notice bar,
+   nav, and the trust ticker itself ≈ 160px of chrome), so the ticker
+   lands exactly on the fold — a full-screen hero at laptop heights.
+   Content stays vertically centered when the viewport is taller. */
+.public-hero:not(.page-hero) {
+  min-height: calc(100vh - 160px);
+  min-height: calc(100dvh - 160px);
+  display: flex;
+  align-items: center;
+}
+.public-hero:not(.page-hero) .public-hero-inner { flex: 1; }
+
+/* ============================================================
+   React Bits — Aurora hero backdrop (public pages)
+   The canvas wash sits behind the hero content; .public-hero
+   gains position:relative + overflow:hidden so the WebGL layer
+   clips cleanly, and the inner grid stays clickable above it.
+   ============================================================ */
+.public-hero {
+  position: relative;
+  overflow: hidden;
+}
+.public-hero-aurora {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.45;
+}
+.public-hero .public-hero-inner { position: relative; z-index: 1; }
+/* Respect reduced-motion users: skip the animated wash entirely */
+@media (prefers-reduced-motion: reduce) {
+  .public-hero-aurora { display: none; }
+}
+
+/* ============================================================
+   React Bits — SpotlightCard / GradientText adaptations
+   SpotlightCard ships with a dark demo skin (.card-spotlight);
+   these double-class overrides win the cascade so our card
+   classes keep their own look while the cursor spotlight glow
+   still plays on hover. GradientText alignment helpers match
+   the section layout it wraps (centered vs left).
+   ============================================================ */
+.card-spotlight.feature-card,
+.card-spotlight.doctor-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 20px;
+}
+/* Doctor cards: SpotlightCard is a transparent wrapper AROUND the interactive
+   .doctor-card (SpotlightCard drops extra props, so the real card keeps its
+   role="button" and click handling). The glow plays over the card surface. */
+.card-spotlight.doctor-card-wrap {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  border-radius: var(--r-lg);
+}
+.card-spotlight.doctor-card-wrap .doctor-card { height: 100%; }
+/* Per-card scroll entrances: the AnimatedContent wrapper is the grid item,
+   so stretch it (and the spotlight wrapper inside) to full row height. */
+.doctor-grid > .card-anim { height: 100%; }
+.card-anim > .card-spotlight.doctor-card-wrap { height: 100%; }
+.public-section .animated-gradient-text { cursor: default; }
+.animated-gradient-text.gradient-text-center { margin: 0 auto; }
+.animated-gradient-text.gradient-text-start { margin: 0; }
+
+/* ============================================================
+   React Bits — ScrollVelocity trust ticker (Landing) + StarBorder CTA
+   The ticker restyles the marquee to the muted brand voice; the
+   StarBorder override matches .btn-primary.lg sizing. The hover
+   rule needs !important because backgroundColor is an inline
+   React style on .inner-content.
+   ============================================================ */
+.trust-ticker {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 0;
+  overflow: hidden;
+}
+.trust-ticker .scroller {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  filter: none;
+}
+@media (min-width: 768px) {
+  .trust-ticker .scroller { font-size: 14px; line-height: 1.5; }
+}
+.star-border-container.star-border-cta { border-radius: var(--r-sm); }
+.star-border-cta .inner-content {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 42px;
+  height: 42px;
+  padding: 0 18px;
+  border-radius: var(--r-sm);
+  white-space: nowrap;
+  transition: background 120ms ease;
+}
+.star-border-cta:hover .inner-content,
+.star-border-cta:focus-visible .inner-content { background: var(--primary-hover) !important; }
+/* Patient portal reuses the StarBorder CTA as a real <button> (dashboard
+   header action); the demo skin targets <a>, so reset the UA button chrome. */
+button.star-border-container.star-border-cta {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* ============================================================
+   React Bits — Aurora wash on the auth visual columns
+   (Login / Register / Staff / Forgot). The animated WebGL layer
+   sits above the photo + gradient but below the brand/quote
+   content; reduced-motion users get the static photo back.
+   ============================================================ */
+.auth-visual-col {
+  position: relative;
+  overflow: hidden;
+}
+.auth-aurora {
+  position: absolute;
+  inset: 0;
+  opacity: 0.55;
+  pointer-events: none;
+}
+.auth-visual-col > :not(.auth-aurora) {
+  position: relative;
+  z-index: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-aurora { display: none; }
+}
+
+/* Auth panels slide-in (React Bits AnimatedContent wrappers).
+   The wrappers become the grid children, so they must stretch to
+   full row height and pass that height down to the real columns —
+   otherwise the visual col's photo background would stop filling
+   the column. */
+.auth-shell > .auth-slide { height: 100%; }
+.auth-slide > .auth-form-col,
+.auth-slide > .auth-visual-col { height: 100%; }
+
+/* ============================================================
+   React Bits — GlareHover / ClickSpark / Ribbons adaptations
+   - .glare-card: the hero portal preview swaps the grid centering
+     GlareHover ships with for plain block flow (our card content
+     is left-aligned rows, not centered tiles).
+   - .glare-map: kills the inline-block baseline gap around the map.
+   - .public-section--cta / .cta-ribbons: the ribbons canvas layer
+     sits under the CTA content; pointer-events stay on so the
+     ribbons can follow the cursor over the empty backdrop.
+   ============================================================ */
+.glare-hover.glare-card { display: block; padding: 16px; }
+.glare-hover.glare-card > * { width: 100%; }
+.glare-hover.glare-map { line-height: 0; }
+.public-section--cta {
+  position: relative;
+  overflow: hidden;
+}
+.public-section--cta > :not(.cta-ribbons) {
+  position: relative;
+  z-index: 1;
+}
+.cta-ribbons {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  opacity: 0.3;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cta-ribbons { display: none; }
+}
+
+/* ============================================================
+   Initial-visit splash — brand mark + spinner circle.
+   .app-splash uses display:grid + place-items:center so the
+   loader sits dead-center both vertically and horizontally.
+   Reuses the existing @keyframes spin from the design system.
+   ============================================================ */
+.app-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+}
+.app-splash.splash-fading {
+  opacity: 0;
+  transition: opacity 350ms ease;
+}
+.app-splash-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+/* No tile look: the logo PNG has a white background baked in, so
+   multiply-blend the mark into the splash backdrop — white turns
+   into the page background and only the logo artwork shows. */
+.app-splash-inner .sidebar-brand-mark {
+  mix-blend-mode: multiply;
+}
+.app-splash-spinner {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  animation: spin 0.7s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-splash-spinner { animation-duration: 2.5s; }
+}
+
 .public-hero-visual {
   padding: 24px;
   position: relative;
   min-height: 340px;
 }
-
-/* Hero mini stat cards (inside public-hero-visual) */
-.hero-stat {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 14px;
-}
-.hero-stat-label { font-size: 11px; color: var(--text-muted); font-weight: 500; }
-.hero-stat-value { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; margin-top: 2px; }
 
 .public-section { padding: 48px 32px; }
 .public-section-inner { max-width: 1100px; margin: 0 auto; }
@@ -1371,9 +1580,8 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
   .public-nav { height: auto; min-height: 0; flex-wrap: wrap; padding: 10px 16px; row-gap: 8px; }
   .public-nav-links, .public-nav-cta { display: none; }
   .public-nav-burger { display: inline-flex; }
-  .public-hero-actions, .public-hero-badges { flex-wrap: wrap; }
+  .public-hero-actions { flex-wrap: wrap; }
   .public-hero-visual { min-height: 0; padding: 0; }
-  .hero-stat-value { font-size: 19px; }
   .public-section { padding: 32px 16px; }
   .public-footer { padding: 20px 16px; }
   .grid-4 { grid-template-columns: repeat(2, 1fr); }
@@ -1550,3 +1758,23 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
   .page-btn { min-width: 44px; height: 44px; }
   .toast-close { width: 44px; height: 44px; }
 }
+
+/* ============================================================
+   Mobile drawer height chain — the React Bits AnimatedContent
+   wrapper between .mobile-nav and the inner .sidebar has auto
+   height, so the sidebar's height:100% resolves against nothing
+   and the user footer (.sidebar-footer) ends up right under the
+   nav with dead space below. Stretch the wrapper (same pattern
+   as .auth-shell > .auth-slide) so .sidebar-nav's flex:1 pushes
+   the footer to the drawer bottom. Global (not inside the media
+   query) because .mobile-nav only exists in the drawer DOM.
+   ============================================================ */
+.mobile-nav > .mobile-nav-slide { height: 100%; }
+
+/* Public mobile drawer height chain — same AnimatedContent wrapper issue as
+   .mobile-nav above: the wrapper's auto height stops .public-drawer-links'
+   flex:1 from stretching, so the Log in / Register CTA sits right under the
+   nav with dead space below instead of at the drawer bottom. Stretch the
+   wrapper (.public-drawer is fixed top/bottom, so it has a definite height
+   for the chain to resolve against). */
+.public-drawer > .public-drawer-slide { height: 100%; }

@@ -12,6 +12,14 @@ import {
   findDoctor, findPatient, formatDate, formatDateLong, initials, statusMeta, doctorStatusMeta,
   isSlotTaken, getSlotsFor, downloadFile,
 } from './data.js';
+// React Bits building blocks (same set the public pages use) — reused across
+// the patient portal so the app and marketing site share one motion language.
+import AnimatedContent from './reactbits/AnimatedContent.jsx';
+import FadeContent from './reactbits/FadeContent.jsx';
+import CountUp from './reactbits/CountUp.jsx';
+import ShinyText from './reactbits/ShinyText.jsx';
+import SpotlightCard from './reactbits/SpotlightCard.jsx';
+import StarBorder from './reactbits/StarBorder.jsx';
 
 
 // ============================================================
@@ -149,14 +157,35 @@ function PatientDashboard() {
     <AppShell current="dashboard">
       <div className="page">
         <PageHeader
-          title={`${greeting()}, ${me.name.split(' ')[0]}`}
+          title={(
+            // React Bits ShinyText — same greeting treatment as the public hero
+            <ShinyText
+              text={`${greeting()}, ${me.name.split(' ')[0]}`}
+              speed={4} color="#111827" shineColor="#2563EB" spread={120}
+            />
+          )}
           subtitle={loading
             ? <span className="skel" aria-hidden="true" style={{ width: 360, maxWidth: '100%', height: 14 }} />
             : subtitle}
           actions={
-            <button className="btn btn-primary" onClick={() => navigate('/patient/book')}>
-              <Icon name="calendar-plus" size={14} /> Book appointment
-            </button>
+            // React Bits StarBorder — the animated-border CTA from the public
+            // hero, reused as the dashboard's primary action
+            <StarBorder
+              as="button"
+              type="button"
+              onClick={() => navigate('/patient/book')}
+              color="#7CC0FF"
+              backgroundColor="var(--primary)"
+              textColor="#ffffff"
+              borderColor="var(--primary)"
+              speed="5s"
+              thickness={1}
+              className="star-border-cta"
+            >
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <Icon name="calendar-plus" size={14} /> Book appointment
+              </span>
+            </StarBorder>
           }
         />
 
@@ -178,6 +207,7 @@ function PatientDashboard() {
             </div>
           </div>
         ) : next ? (
+          <AnimatedContent distance={24} duration={0.6}>
           <div className="next-appt-card" style={{ marginBottom: 20 }}>
             <div className="next-appt-date">
               <div className="month">{nextDate.toLocaleDateString('en-US', { month: 'short' })}</div>
@@ -200,6 +230,7 @@ function PatientDashboard() {
               <button className="btn btn-primary" onClick={() => navigate('/patient/status')}>Check status</button>
             </div>
           </div>
+          </AnimatedContent>
         ) : (
           <div className="card" style={{ marginBottom: 20 }}>
             <EmptyState
@@ -212,6 +243,7 @@ function PatientDashboard() {
         )}
 
         {/* Stats + Quick actions */}
+        <AnimatedContent distance={24} duration={0.6} delay={0.08}>
         <div className="two-col" style={{ marginBottom: 20, alignItems: 'stretch' }}>
           <div className="card">
             <div className="card-header">
@@ -273,7 +305,11 @@ function PatientDashboard() {
                 ) : (
                   <>
                     <div className="stat-label"><Icon name={s.icon} size={14} /> {s.label}</div>
-                    <div className="stat-value">{s.value}</div>
+                    {/* React Bits CountUp — numeric stats count up on load; the
+                        "Last visit" stat is a date string and stays static */}
+                    <div className="stat-value">
+                      {typeof s.value === 'number' ? <CountUp to={s.value} duration={1.2} /> : s.value}
+                    </div>
                     <div className="stat-delta">{s.context}</div>
                   </>
                 )}
@@ -281,8 +317,10 @@ function PatientDashboard() {
             ))}
           </div>
         </div>
+        </AnimatedContent>
 
         {/* Recent activity */}
+        <FadeContent duration={700}>
         <div className="card">
           <div className="card-header">
             <h2 className="h-section">Recent activity</h2>
@@ -329,6 +367,7 @@ function PatientDashboard() {
             })}
           </div>
         </div>
+        </FadeContent>
       </div>
     </AppShell>
   );
@@ -445,12 +484,15 @@ function DoctorListing() {
         ) : (
           <>
             <div className="doctor-grid">
-              {visibleDoctors.map(d => (
+              {visibleDoctors.map((d, i) => (
+              // React Bits AnimatedContent + SpotlightCard wrap each card (same
+              // treatment as the public doctor grid). The interactive card keeps
               // role="button" instead of a real <button> because the card contains
               // its own nested buttons (View profile / Book); keyboard users get
               // Enter/Space activation via activateOnKey (guidelines 20 & 36)
+              <AnimatedContent className="card-anim" distance={40} duration={0.6} delay={(i % 3) * 0.1} key={d.id}>
+              <SpotlightCard className="doctor-card-wrap" spotlightColor="rgba(37, 99, 235, 0.10)">
               <div
-                key={d.id}
                 className="doctor-card"
                 role="button"
                 tabIndex={0}
@@ -487,6 +529,8 @@ function DoctorListing() {
                   </button>
                 </div>
               </div>
+              </SpotlightCard>
+              </AnimatedContent>
             ))}
             </div>
 
@@ -678,6 +722,7 @@ function DoctorAvailability({ doctorId }) {
             </p>
 
             {slot && (
+              <AnimatedContent distance={24} duration={0.5}>
               <div className="card" style={{ background: 'var(--primary-soft)', borderColor: '#DBEAFE' }}>
                 <div style={{ padding: 16 }}>
                   <div className="t-help" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--primary)' }}>Your selection</div>
@@ -687,6 +732,7 @@ function DoctorAvailability({ doctorId }) {
                   </div>
                 </div>
               </div>
+              </AnimatedContent>
             )}
           </div>
         </div>
@@ -779,6 +825,7 @@ function BookAppointment() {
 
         <div className="two-col">
           <form onSubmit={submit} noValidate>
+            <AnimatedContent distance={24} duration={0.6}>
             <div className="card">
               <div className="card-header"><h2 className="h-section">Appointment details</h2></div>
               <div className="card-body">
@@ -857,8 +904,10 @@ function BookAppointment() {
                 </button>
               </div>
             </div>
+            </AnimatedContent>
           </form>
 
+          <FadeContent duration={700}>
           <div className="stack lg">
             <div className="card">
               <div className="card-header"><h2 className="h-section">Summary</h2></div>
@@ -895,6 +944,7 @@ function BookAppointment() {
               </div>
             </div>
           </div>
+          </FadeContent>
         </div>
       </div>
     </AppShell>
@@ -1102,13 +1152,17 @@ function AppointmentStatus() {
               </div>
               <div className="appt-fact">
                 <div className="t-help">Fee</div>
-                <div style={{ fontSize: 15, fontWeight: 500 }}>₱{doctor.fee.toLocaleString()}</div>
+                <div style={{ fontSize: 15, fontWeight: 500 }}>
+                  {/* React Bits CountUp — the fee counts up when the page loads */}
+                  ₱<CountUp to={doctor.fee} duration={1.4} separator="," />
+                </div>
               </div>
             </div>
           </div>
         </div>
 
         <div className="two-col">
+          <FadeContent duration={800}>
           <div className="card">
             <div className="card-header"><h2 className="h-section">Progress timeline</h2></div>
             <div className="card-body">
@@ -1127,6 +1181,7 @@ function AppointmentStatus() {
               </div>
             </div>
           </div>
+          </FadeContent>
 
           <div className="card">
             <div className="card-header"><h2 className="h-section">What to bring</h2></div>

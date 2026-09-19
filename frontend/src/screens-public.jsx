@@ -12,7 +12,45 @@ import {
   APPOINTMENTS, AVAILABILITY_TEMPLATE,
   findDoctor, findPatient, formatDate, formatDateLong, initials, statusMeta, doctorStatusMeta,
 } from './data.js';
+import Aurora from './reactbits/Aurora.jsx';
+import ShinyText from './reactbits/ShinyText.jsx';
+import CountUp from './reactbits/CountUp.jsx';
+import SplitText from './reactbits/SplitText.jsx';
+import AnimatedContent from './reactbits/AnimatedContent.jsx';
+import SpotlightCard from './reactbits/SpotlightCard.jsx';
+import GradientText from './reactbits/GradientText.jsx';
+import FadeContent from './reactbits/FadeContent.jsx';
+import Magnet from './reactbits/Magnet.jsx';
+import ScrollVelocity from './reactbits/ScrollVelocity.jsx';
+import StarBorder from './reactbits/StarBorder.jsx';
+import GlareHover from './reactbits/GlareHover.jsx';
+import ClickSpark from './reactbits/ClickSpark.jsx';
+import Ribbons from './reactbits/Ribbons.jsx';
 
+
+// ============================================================
+// React Bits — shared public-page flourishes
+// ============================================================
+
+// Aurora WebGL wash behind every public hero (Landing + subpages share the
+// .public-hero pattern). Brand-blue color stops keep it on-palette; the
+// wrapper's positioning/opacity lives in styles.css (.public-hero-aurora).
+// aria-hidden + pointer-events:none keep it purely decorative.
+function HeroAurora() {
+  return (
+    <div className="public-hero-aurora" aria-hidden="true">
+      <Aurora colorStops={['#2563EB', '#7CC0FF', '#2563EB']} amplitude={0.9} blend={0.6} speed={0.7} />
+    </div>
+  );
+}
+
+// Shiny sweep for hero titles — one treatment across every public page so
+// the headings read as a family (dark ink with a brand-blue glint).
+function HeroTitle({ children }) {
+  return (
+    <h1><ShinyText text={children} speed={4} color="#111827" shineColor="#2563EB" spread={120} /></h1>
+  );
+}
 
 // ============================================================
 // Public screens — Landing / Register / Login
@@ -84,10 +122,6 @@ function Landing() {
   const pickedDoctors = pickedGuide
     ? DOCTORS.filter(d => d.specialty === pickedGuide.specialty && d.status === 'available').length
     : 0;
-  // Stat sources: live counts and the real fee floor from the app's seed data
-  // (no invented wait times or ratings — R-17)
-  const availableNow = DOCTORS.filter(d => d.status === 'available').length;
-  const minFee = Math.min(...DOCTORS.map(d => d.fee));
 
   return (
     <div>
@@ -95,6 +129,7 @@ function Landing() {
       <PublicNav activeLink="home" />
 
       <section className="public-hero">
+        <HeroAurora />
         <div className="public-hero-inner">
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
@@ -103,20 +138,24 @@ function Landing() {
               </div>
               <ClinicStatus />
             </div>
-            <h1>Book a MedicaCare specialist online, no phone calls needed.</h1>
+            <HeroTitle>Book a MedicaCare specialist online, no phone calls needed.</HeroTitle>
             <p>Pick from {DOCTORS.length} board-certified doctors across {SPECIALTIES.length} departments,
                view real-time availability, and get a confirmation in minutes. Reschedule anytime from your portal.</p>
             <div className="public-hero-actions">
-              <a className="btn btn-primary lg" href="#/register">Create patient account</a>
+              <StarBorder
+                as="a"
+                href="#/register"
+                color="#7CC0FF"
+                backgroundColor="var(--primary)"
+                textColor="#ffffff"
+                borderColor="var(--primary)"
+                speed="5s"
+                thickness={1}
+                className="star-border-cta"
+              >
+                Create patient account
+              </StarBorder>
               <a className="btn btn-secondary lg" href="#/login">Log in</a>
-            </div>
-            {/* Badges describe what the app actually shows (specialty count, HMO
-               flow, ER hours) — no accreditation/compliance claims the prototype
-               cannot back up (R-36) */}
-            <div className="public-hero-badges">
-              <div className="public-hero-badge">HMO-friendly</div>
-              <div className="public-hero-badge">24/7 emergency care</div>
-              <div className="public-hero-badge">{SPECIALTIES.length} specialties</div>
             </div>
           </div>
 
@@ -127,7 +166,17 @@ function Landing() {
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8, textAlign: 'right' }}>
                   A peek at your patient portal
                 </div>
-                <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 10, padding: 16 }}>
+                <GlareHover
+                  width="100%"
+                  height="auto"
+                  background="#fff"
+                  borderColor="var(--border)"
+                  borderRadius="10px"
+                  glareColor="#93C5FD"
+                  glareOpacity={0.3}
+                  glareSize={200}
+                  className="glare-card"
+                >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                     <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>Next appointment</div>
                     <StatusBadge status={previewAppt.status} />
@@ -146,36 +195,30 @@ function Landing() {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="clock" size={13} /> {previewAppt.time}</div>
                   </div>
-                </div>
+                </GlareHover>
               </>
             )}
-
-            {/* mini stat cards — number and label only; no icon chips, the value
-                itself is the information (icons only when they clarify).
-                Every figure is derived from the app's own seed data, never
-                invented marketing numbers (R-17: no unsourced statistics). */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 }}>
-              {[
-                { label: 'Specialists', value: String(DOCTORS.length) },
-                { label: 'Available now', value: String(availableNow) },
-                { label: 'Departments', value: String(SPECIALTIES.length) },
-                { label: 'Consultation from', value: `₱${minFee.toLocaleString()}` },
-              ].map(s => (
-                <div className="hero-stat" key={s.label}>
-                  <div className="hero-stat-label">{s.label}</div>
-                  <div className="hero-stat-value">{s.value}</div>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       </section>
 
+      {/* Trust ticker — React Bits ScrollVelocity. aria-hidden: decorative repeat. */}
+      <div className="trust-ticker" aria-hidden="true">
+        <ScrollVelocity
+          texts={['HMO-friendly · 24/7 emergency care · Online booking, no phone calls · Real-time doctor availability']}
+          velocity={40}
+          numCopies={6}
+          className="trust-ticker-text"
+        />
+      </div>
+
       <section className="public-section" style={{ background: 'var(--bg)' }}>
         <div className="public-section-inner">
           <div>
-            <h2>Not sure where to go for care?</h2>
-            <p className="public-section-sub">Pick the symptom closest to what you're feeling and we'll point you to the right specialist.</p>
+            <AnimatedContent distance={32} duration={0.7}>
+              <h2>Not sure where to go for care?</h2>
+              <p className="public-section-sub">Pick the symptom closest to what you're feeling and we'll point you to the right specialist.</p>
+            </AnimatedContent>
             <div className="chip-group care-chips">
               {CARE_GUIDE.map(g => (
                 <button
@@ -213,8 +256,10 @@ function Landing() {
 
       <section className="public-section">
         <div className="public-section-inner">
-          <h2>How it works</h2>
-          <p className="public-section-sub">Three straightforward steps to see a doctor at MedicaCare.</p>
+          <AnimatedContent distance={32} duration={0.7}>
+            <h2>How it works</h2>
+            <p className="public-section-sub">Three straightforward steps to see a doctor at MedicaCare.</p>
+          </AnimatedContent>
           {/* Numbered rail instead of the default 3-card grid (R-05): the steps
               are a sequence, so the composition shows order and progression. */}
           <ol className="how-steps">
@@ -262,39 +307,59 @@ function Landing() {
 
       <section className="public-section" style={{ background: 'var(--bg)', paddingTop: 32 }}>
         <div className="public-section-inner">
-          <h2>What patients say</h2>
-          <p className="public-section-sub">
-            {approvedStories.length > 0
-              ? 'Stories shared by patients from the MedicaCare portal, reviewed by our staff before publishing.'
-              : 'Fictional stories written for this prototype to show what booking with MedicaCare feels like.'}
-          </p>
-          <TestimonialCarousel
-            items={approvedStories.length > 0
-              ? approvedStories.map(t => ({ quote: t.quote, who: `${t.displayName} · patient` }))
-              : PROTOTYPE_STORIES}
-          />
+          <AnimatedContent distance={32} duration={0.7}>
+            <h2>What patients say</h2>
+            <p className="public-section-sub">
+              {approvedStories.length > 0
+                ? 'Stories shared by patients from the MedicaCare portal, reviewed by our staff before publishing.'
+                : 'Fictional stories written for this prototype to show what booking with MedicaCare feels like.'}
+            </p>
+          </AnimatedContent>
+          <FadeContent duration={900}>
+            <TestimonialCarousel
+              items={approvedStories.length > 0
+                ? approvedStories.map(t => ({ quote: t.quote, who: `${t.displayName} · patient` }))
+                : PROTOTYPE_STORIES}
+            />
+          </FadeContent>
         </div>
       </section>
 
       <section className="public-section">
         <div className="public-section-inner public-section--centered">
-          <h2>Common questions</h2>
-          <p className="public-section-sub">Quick answers before you create your account.</p>
-          <FaqAccordion items={LANDING_FAQS} />
+          <AnimatedContent distance={32} duration={0.7}>
+            <h2>Common questions</h2>
+            <p className="public-section-sub">Quick answers before you create your account.</p>
+          </AnimatedContent>
+          <FadeContent duration={900}>
+            <FaqAccordion items={LANDING_FAQS} />
+          </FadeContent>
         </div>
       </section>
 
-      <section className="public-section" style={{ paddingTop: 32 }}>
+      <section className="public-section public-section--cta" style={{ paddingTop: 32 }}>
+        {/* Ribbons layer — React Bits WebGL ribbons follow the cursor across the
+            empty CTA backdrop; brand-blue palette at low opacity. The layer
+            sits under the content (see .public-section--cta in styles.css). */}
+        <div className="cta-ribbons" aria-hidden="true">
+          <Ribbons colors={['#93C5FD', '#2563EB', '#7CC0FF']} baseThickness={20} speedMultiplier={0.5} />
+        </div>
+        <ClickSpark sparkColor="#2563EB" sparkSize={12} sparkRadius={20}>
         <div className="public-section-inner" style={{ textAlign: 'center' }}>
-          <h2 style={{ marginBottom: 8 }}>Ready to book your first visit?</h2>
+          <GradientText colors={['#2563EB', '#7CC0FF', '#1E40AF']} animationSpeed={6} className="gradient-text-center">
+            <h2 style={{ marginBottom: 8 }}>Ready to book your first visit?</h2>
+          </GradientText>
           <p className="public-section-sub" style={{ maxWidth: 520, margin: '0 auto 24px' }}>
             Create a free account, pick a specialist, and choose a slot that fits your schedule.
           </p>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <a className="btn btn-primary lg" href="#/register">Create patient account</a>
+            <Magnet padding={40} magnetStrength={3}>
+              <a className="btn btn-primary lg" href="#/register">Create patient account</a>
+            </Magnet>
             <a className="btn btn-secondary lg" href="#/doctors">Browse doctors</a>
           </div>
         </div>
+        </ClickSpark>
       </section>
 
       <PublicFooter />
@@ -316,8 +381,9 @@ function ServicesPage() {
     <div>
       <PublicNav activeLink="services" />
       <section className="public-hero page-hero">
+        <HeroAurora />
         <div className="public-hero-inner">
-          <h1>Our services</h1>
+          <HeroTitle>Our services</HeroTitle>
           <p className="public-hero-sub">Everything you need for outpatient care, all in one medical center.</p>
         </div>
       </section>
@@ -329,11 +395,15 @@ function ServicesPage() {
               reason, written down). */}
           <div className="feature-grid">
             {services.map((s, i) => (
-              <div className={`feature-card${i === 0 ? ' feature-card--featured' : ''}`} key={s.title}>
+              <SpotlightCard
+                className={`feature-card${i === 0 ? ' feature-card--featured' : ''}`}
+                spotlightColor="rgba(37, 99, 235, 0.08)"
+                key={s.title}
+              >
                 <div className="feature-card-icon"><Icon name={s.icon} size={18} /></div>
                 <h3>{s.title}</h3>
                 <p>{s.desc}</p>
-              </div>
+              </SpotlightCard>
             ))}
           </div>
         </div>
@@ -341,8 +411,11 @@ function ServicesPage() {
 
       <section className="public-section" style={{ background: 'var(--bg)', paddingTop: 32 }}>
         <div className="public-section-inner">
-          <h2>Departments & specialties</h2>
-          <p className="public-section-sub">Tap a department to see its specialists.</p>
+          <AnimatedContent distance={32} duration={0.7}>
+            <h2>Departments & specialties</h2>
+            <p className="public-section-sub">Tap a department to see its specialists.</p>
+          </AnimatedContent>
+          <FadeContent duration={900}>
           <div className="grid-4">
             {SPECIALTIES.map(s => (
               <button key={s} className="dept-chip" onClick={() => navigate(`/doctors?spec=${encodeURIComponent(s)}`)}>
@@ -351,26 +424,37 @@ function ServicesPage() {
               </button>
             ))}
           </div>
+          </FadeContent>
         </div>
       </section>
 
       <section className="public-section">
         <div className="public-section-inner public-section--centered">
-          <h2>Service FAQs</h2>
-          <p className="public-section-sub">Answers to what patients ask us most about our services.</p>
-          <FaqAccordion items={SERVICES_FAQS} />
+          <AnimatedContent distance={32} duration={0.7}>
+            <h2>Service FAQs</h2>
+            <p className="public-section-sub">Answers to what patients ask us most about our services.</p>
+          </AnimatedContent>
+          <FadeContent duration={900}>
+            <FaqAccordion items={SERVICES_FAQS} />
+          </FadeContent>
         </div>
       </section>
 
       <section className="public-section" style={{ paddingTop: 32 }}>
+        <ClickSpark sparkColor="#2563EB" sparkSize={12} sparkRadius={20}>
         <div className="public-section-inner">
-          <h2>Skip the phone queue: book online</h2>
+          <GradientText colors={['#2563EB', '#7CC0FF', '#1E40AF']} animationSpeed={6} className="gradient-text-start">
+            <h2>Skip the phone queue: book online</h2>
+          </GradientText>
           <p className="public-section-sub">Create a free patient account and see a specialist as early as tomorrow.</p>
           <div style={{ display: 'flex', gap: 10 }}>
-            <a className="btn btn-primary" href="#/register">Create patient account</a>
+            <Magnet padding={40} magnetStrength={3}>
+              <a className="btn btn-primary" href="#/register">Create patient account</a>
+            </Magnet>
             <a className="btn btn-secondary" href="#/doctors">Browse doctors</a>
           </div>
         </div>
+        </ClickSpark>
       </section>
 
       <PublicFooter />
@@ -440,8 +524,9 @@ function DoctorsPage({ initialSpecialty = '' }) {
     <div>
       <PublicNav activeLink="doctors" />
       <section className="public-hero page-hero">
+        <HeroAurora />
         <div className="public-hero-inner">
-          <h1>Find a doctor</h1>
+          <HeroTitle>Find a doctor</HeroTitle>
           <p className="public-hero-sub">
             {DOCTORS.length} specialists on staff. Availability is updated in real time once you're logged in.
           </p>
@@ -451,6 +536,7 @@ function DoctorsPage({ initialSpecialty = '' }) {
       <section className="public-section" style={{ paddingTop: 8 }}>
         <div className="public-section-inner">
           {/* Filter bar — mirrors the patient-side doctor listing filters */}
+          <FadeContent duration={900}>
           <div className="card" style={{ marginBottom: 16 }}>
             <div className="doctor-filters">
               <div className="input-group doctor-filter-search">
@@ -476,6 +562,7 @@ function DoctorsPage({ initialSpecialty = '' }) {
               </div>
             </div>
           </div>
+          </FadeContent>
 
           {loading ? (
             // Skeleton doctor cards mirroring the public card layout (32px
@@ -517,16 +604,21 @@ function DoctorsPage({ initialSpecialty = '' }) {
             </div>
           ) : (
             <div className="doctor-grid">
-              {visibleDoctors.map(d => (
-                <div
-                  className="doctor-card"
+              {visibleDoctors.map((d, i) => (
+                <AnimatedContent className="card-anim" distance={40} duration={0.6} delay={(i % 3) * 0.1}>
+                <SpotlightCard
+                  className="doctor-card-wrap"
+                  spotlightColor="rgba(37, 99, 235, 0.10)"
                   key={d.id}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`View profile of ${d.name}`}
-                  onClick={() => setSelectedDoctor(d)}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedDoctor(d); } }}
                 >
+                  <div
+                    className="doctor-card"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`View profile of ${d.name}`}
+                    onClick={() => setSelectedDoctor(d)}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedDoctor(d); } }}
+                  >
                   <div className="doctor-card-head">
                     <DoctorAvatar doctor={d} size={32} />
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -549,7 +641,9 @@ function DoctorsPage({ initialSpecialty = '' }) {
                       View profile
                     </span>
                   </div>
-                </div>
+                  </div>
+                </SpotlightCard>
+                </AnimatedContent>
               ))}
             </div>
           )}
@@ -565,6 +659,7 @@ function DoctorsPage({ initialSpecialty = '' }) {
             <Icon name="info" size={13} /> Doctor photos are placeholder portraits (randomuser.me), not real staff. Ratings shown are prototype demo data; ratings you submit from completed visits are added to them.
           </div>
 
+          <AnimatedContent distance={32} duration={0.7}>
           <div style={{ marginTop: 32, padding: 24, background: 'var(--primary-soft)', border: '1px solid var(--border)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
             <div style={{ flex: '1 1 240px' }}>
               <div style={{ fontWeight: 600 }}>Ready to book an appointment?</div>
@@ -573,10 +668,13 @@ function DoctorsPage({ initialSpecialty = '' }) {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
-              <a className="btn btn-primary" href="#/register">Register</a>
+              <Magnet padding={40} magnetStrength={3}>
+                <a className="btn btn-primary" href="#/register">Register</a>
+              </Magnet>
               <a className="btn btn-secondary" href="#/login">Log in</a>
             </div>
           </div>
+          </AnimatedContent>
         </div>
       </section>
 
@@ -640,11 +738,13 @@ function AboutPage() {
   // Every figure matches the app's own data or the fictional hospital's stated
   // lore (est. 1991); nothing invented beyond the disclosed fiction (R-17)
   const minFee = Math.min(...DOCTORS.map(d => d.fee));
+  // Numeric stats animate in with React Bits CountUp; the non-numeric
+  // '35 yrs' figure stays static. Same seed-data numbers as before (R-17).
   const stats = [
-    { value: String(DOCTORS.length), label: 'Board-certified specialists' },
-    { value: String(SPECIALTIES.length), label: 'Departments & centers' },
+    { to: DOCTORS.length, label: 'Board-certified specialists' },
+    { to: SPECIALTIES.length, label: 'Departments & centers' },
     { value: '35 yrs', label: 'Serving Quezon City (est. 1991)' },
-    { value: `₱${minFee.toLocaleString()}`, label: 'Consultation fees start at' },
+    { to: minFee, prefix: '₱', label: 'Consultation fees start at' },
   ];
   // Equal-weight by design: these values are peers, and the uniform treatment
   // IS the hierarchy decision (documented in DESIGN.md, RHYTHM note)
@@ -657,42 +757,51 @@ function AboutPage() {
     <div>
       <PublicNav activeLink="about" />
       <section className="public-hero page-hero">
+        <HeroAurora />
         <div className="public-hero-inner">
-          <h1>About MedicaCare</h1>
+          <HeroTitle>About MedicaCare</HeroTitle>
           <p className="public-hero-sub">{HOSPITAL.tagline}</p>
         </div>
       </section>
 
       <section className="public-section" style={{ paddingTop: 8 }}>
         <div className="public-section-inner">
-          <h2>Who we are</h2>
-          <p className="public-section-sub">
-            MedicaCare is a fictional private hospital along Rizal Avenue, Quezon City.
-            Since 1991 we have combined modern facilities with a personal approach to care, from routine
-            check-ups to specialty consultations, for families across Metro Manila.
-          </p>
+          <AnimatedContent distance={32} duration={0.7}>
+            <h2>Who we are</h2>
+            <p className="public-section-sub">
+              MedicaCare is a fictional private hospital along Rizal Avenue, Quezon City.
+              Since 1991 we have combined modern facilities with a personal approach to care, from routine
+              check-ups to specialty consultations, for families across Metro Manila.
+            </p>
+          </AnimatedContent>
+          <FadeContent duration={900}>
           <div className="grid-4">
             {stats.map(s => (
               // Value and label only — no icon chips; the number is the content
               <div key={s.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em' }}>{s.value}</div>
+                <div style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em' }}>
+                  {s.value || <>{s.prefix || ''}<CountUp to={s.to} duration={1.6} /></>}
+                </div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{s.label}</div>
               </div>
             ))}
           </div>
+          </FadeContent>
         </div>
       </section>
 
       <section className="public-section" style={{ background: 'var(--bg)', paddingTop: 32 }}>
         <div className="public-section-inner">
-          <h2>What we stand for</h2>
-          <p className="public-section-sub">The principles behind every consultation, lab result, and follow-up call.</p>
+          <AnimatedContent distance={32} duration={0.7}>
+            <h2>What we stand for</h2>
+            <p className="public-section-sub">The principles behind every consultation, lab result, and follow-up call.</p>
+          </AnimatedContent>
           <div className="feature-grid">
             {values.map(v => (
-              <div className="feature-card" key={v.title}>
+              <SpotlightCard className="feature-card" spotlightColor="rgba(37, 99, 235, 0.08)" key={v.title}>
                 <h3>{v.title}</h3>
                 <p>{v.desc}</p>
-              </div>
+              </SpotlightCard>
             ))}
           </div>
         </div>
@@ -700,8 +809,10 @@ function AboutPage() {
 
       <section className="public-section" style={{ paddingTop: 32 }}>
         <div className="public-section-inner">
-          <h2>Visit us</h2>
-          <p className="public-section-sub">We're open daily, with 24/7 emergency care.</p>
+          <AnimatedContent distance={32} duration={0.7}>
+            <h2>Visit us</h2>
+            <p className="public-section-sub">We're open daily, with 24/7 emergency care.</p>
+          </AnimatedContent>
           <div style={{ marginBottom: 16 }}>
             <ClinicStatus />
           </div>
@@ -717,7 +828,9 @@ function AboutPage() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
-            <a className="btn btn-primary" href="#/contact">Contact us</a>
+            <Magnet padding={40} magnetStrength={3}>
+              <a className="btn btn-primary" href="#/contact">Contact us</a>
+            </Magnet>
             <a className="btn btn-secondary" href="#/doctors">Meet our doctors</a>
           </div>
         </div>
@@ -759,8 +872,9 @@ function ContactPage() {
     <div>
       <PublicNav activeLink="contact" />
       <section className="public-hero page-hero">
+        <HeroAurora />
         <div className="public-hero-inner">
-          <h1>Contact us</h1>
+          <HeroTitle>Contact us</HeroTitle>
           {/* maxWidth 600 overrides the 480px hero-paragraph cap so the line
               stays on one line, and the bottom margin restores the gap the
               page-hero variant removes so the status pill doesn't touch the
@@ -791,6 +905,7 @@ function ContactPage() {
             ))}
           </div>
 
+          <FadeContent duration={900}>
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 24 }}>
             <h2 style={{ fontSize: 18, margin: '0 0 4px' }}>Send us a message</h2>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 16px' }}>
@@ -812,24 +927,39 @@ function ContactPage() {
               <button type="submit" className="btn btn-primary">Send message</button>
             </form>
           </div>
+          </FadeContent>
         </div>
       </section>
 
       <section className="public-section" style={{ paddingTop: 0 }}>
         <div className="public-section-inner">
-          <h2>Find us</h2>
-          <p className="public-section-sub">
-            We're along Rizal Avenue, a few minutes' walk from the LRT-2 Anonas station.
-            Parking is available for patients and visitors.
-          </p>
-          <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)', lineHeight: 0 }}>
+          <AnimatedContent distance={32} duration={0.7}>
+            <h2>Find us</h2>
+            <p className="public-section-sub">
+              We're along Rizal Avenue, a few minutes' walk from the LRT-2 Anonas station.
+              Parking is available for patients and visitors.
+            </p>
+          </AnimatedContent>
+          <FadeContent duration={900}>
+          <GlareHover
+            width="100%"
+            height="360px"
+            background="var(--surface)"
+            borderColor="var(--border)"
+            borderRadius="10px"
+            glareColor="#93C5FD"
+            glareOpacity={0.25}
+            glareSize={250}
+            className="glare-map"
+          >
             <iframe
               title="Map: MedicaCare location"
               src="https://www.openstreetmap.org/export/embed.html?bbox=121.02200%2C14.62500%2C121.04200%2C14.63500&layer=mapnik&marker=14.63000%2C121.03200"
               style={{ width: '100%', height: 360, border: 0 }}
               loading="lazy"
             />
-          </div>
+          </GlareHover>
+          </FadeContent>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-muted)' }}>
               <Icon name="map-pin" size={14} /> {HOSPITAL.address}
@@ -857,8 +987,9 @@ function LegalPage({ title, sub, updated, sections }) {
     <div>
       <PublicNav activeLink="" />
       <section className="public-hero page-hero">
+        <HeroAurora />
         <div className="public-hero-inner">
-          <h1>{title}</h1>
+          <HeroTitle>{title}</HeroTitle>
           <p className="public-hero-sub">{sub}</p>
         </div>
       </section>
@@ -979,6 +1110,7 @@ function Register() {
 
   return (
     <div className="auth-shell">
+      <AnimatedContent className="auth-slide" distance={260} direction="horizontal" reverse duration={0.7}>
       <div className="auth-form-col auth-compact">
         <div className="auth-form-inner">
           <div>
@@ -993,8 +1125,10 @@ function Register() {
               <div className="t-muted" style={{ fontSize: 12 }}>Patient portal</div>
             </div>
           </div>
-          <h1>Create your account</h1>
-          <p className="sub">It only takes a minute. All fields are required.</p>
+          <SplitText tag="h1" text="Create your account" splitType="chars" delay={30} duration={0.9} textAlign="left" rootMargin="0px" />
+          <AnimatedContent distance={20} duration={0.5} delay={0.55}>
+            <p className="sub">It only takes a minute. All fields are required.</p>
+          </AnimatedContent>
 
           <form onSubmit={submit} className="form-stack" noValidate>
             <Field label="Full name" required error={errors.name}>
@@ -1035,8 +1169,11 @@ function Register() {
           </form>
         </div>
       </div>
+      </AnimatedContent>
 
+      <AnimatedContent className="auth-slide" distance={260} direction="horizontal" duration={0.7}>
       <div className="auth-visual-col auth-visual-col--register">
+        <div className="auth-aurora" aria-hidden="true"><Aurora colorStops={['#60A5FA', '#E0F2FE', '#3B82F6']} amplitude={1.1} speed={0.6} blend={0.7} /></div>
         <BrandMark className="brand-mark" />
         <div>
           <div className="quote">"Booking my cardiology follow-up used to take a whole afternoon of phone calls. Now I do it in two taps before work."</div>
@@ -1046,6 +1183,7 @@ function Register() {
           MedicaCare · Quezon City, PH
         </div>
       </div>
+      </AnimatedContent>
     </div>
   );
 }
@@ -1110,7 +1248,9 @@ function Login() {
 
   return (
     <div className="auth-shell">
+      <AnimatedContent className="auth-slide" distance={260} direction="horizontal" reverse duration={0.7}>
       <div className="auth-visual-col auth-visual-col--login" style={{ order: 0 }}>
+        <div className="auth-aurora" aria-hidden="true"><Aurora colorStops={['#60A5FA', '#E0F2FE', '#3B82F6']} amplitude={1.1} speed={0.6} blend={0.7} /></div>
         <BrandMark className="brand-mark" />
         <div>
           <div className="quote">"Care that fits your schedule. See a specialist without the runaround."</div>
@@ -1120,6 +1260,8 @@ function Login() {
           © 2026 MedicaCare
         </div>
       </div>
+      </AnimatedContent>
+      <AnimatedContent className="auth-slide" distance={260} direction="horizontal" duration={0.7}>
       <div className="auth-form-col">
         <div className="auth-form-inner">
           <div>
@@ -1134,8 +1276,10 @@ function Login() {
               <div className="t-muted" style={{ fontSize: 12 }}>Patient portal</div>
             </div>
           </div>
-          <h1>Welcome back</h1>
-          <p className="sub">Log in to book appointments and view your records.</p>
+          <SplitText tag="h1" text="Welcome back" splitType="chars" delay={30} duration={0.9} textAlign="left" rootMargin="0px" />
+          <AnimatedContent distance={20} duration={0.5} delay={0.55}>
+            <p className="sub">Log in to book appointments and view your records.</p>
+          </AnimatedContent>
 
           {authError && (
             <div role="alert" style={{ background: 'var(--error-soft)', border: '1px solid #FCA5A5', color: 'var(--error-text)', padding: '10px 12px', borderRadius: 8, fontSize: 13, marginBottom: 14, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
@@ -1193,6 +1337,7 @@ function Login() {
           </div>
         </div>
       </div>
+      </AnimatedContent>
     </div>
   );
 }
@@ -1245,7 +1390,9 @@ function AdminLogin() {
 
   return (
     <div className="auth-shell">
+      <AnimatedContent className="auth-slide" distance={260} direction="horizontal" reverse duration={0.7}>
       <div className="auth-visual-col auth-visual-col--forgot" style={{ order: 0 }}>
+        <div className="auth-aurora" aria-hidden="true"><Aurora colorStops={['#60A5FA', '#E0F2FE', '#3B82F6']} amplitude={1.1} speed={0.6} blend={0.7} /></div>
         <BrandMark className="brand-mark" />
         <div>
           <div className="quote">"Behind every smooth appointment is a team that keeps the whole clinic in sync."</div>
@@ -1255,6 +1402,8 @@ function AdminLogin() {
           © 2026 MedicaCare
         </div>
       </div>
+      </AnimatedContent>
+      <AnimatedContent className="auth-slide" distance={260} direction="horizontal" duration={0.7}>
       <div className="auth-form-col">
         <div className="auth-form-inner">
           <div>
@@ -1269,8 +1418,10 @@ function AdminLogin() {
               <div className="t-muted" style={{ fontSize: 12 }}>Staff console</div>
             </div>
           </div>
-          <h1>Staff sign in</h1>
-          <p className="sub">Restricted access for authorized hospital staff only.</p>
+          <SplitText tag="h1" text="Staff sign in" splitType="chars" delay={30} duration={0.9} textAlign="left" rootMargin="0px" />
+          <AnimatedContent distance={20} duration={0.5} delay={0.55}>
+            <p className="sub">Restricted access for authorized hospital staff only.</p>
+          </AnimatedContent>
 
           {authError && (
             <div role="alert" style={{ background: 'var(--error-soft)', border: '1px solid #FCA5A5', color: 'var(--error-text)', padding: '10px 12px', borderRadius: 8, fontSize: 13, marginBottom: 14, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
@@ -1324,6 +1475,7 @@ function AdminLogin() {
           </div>
         </div>
       </div>
+      </AnimatedContent>
     </div>
   );
 }
@@ -1349,6 +1501,7 @@ function ForgotPassword() {
 
   return (
     <div className="auth-shell">
+      <AnimatedContent className="auth-slide" distance={260} direction="horizontal" reverse duration={0.7}>
       <div className="auth-form-col">
         <div className="auth-form-inner">
           <div>
@@ -1363,8 +1516,10 @@ function ForgotPassword() {
               <div className="t-muted" style={{ fontSize: 12 }}>Patient portal</div>
             </div>
           </div>
-          <h1>Forgot password</h1>
-          <p className="sub">Enter the email linked to your account and we'll send you a reset link.</p>
+          <SplitText tag="h1" text="Forgot password" splitType="chars" delay={30} duration={0.9} textAlign="left" rootMargin="0px" />
+          <AnimatedContent distance={20} duration={0.5} delay={0.55}>
+            <p className="sub">Enter the email linked to your account and we'll send you a reset link.</p>
+          </AnimatedContent>
 
           {sent ? (
             <div>
@@ -1397,8 +1552,11 @@ function ForgotPassword() {
           )}
         </div>
       </div>
+      </AnimatedContent>
 
+      <AnimatedContent className="auth-slide" distance={260} direction="horizontal" duration={0.7}>
       <div className="auth-visual-col auth-visual-col--forgot">
+        <div className="auth-aurora" aria-hidden="true"><Aurora colorStops={['#60A5FA', '#E0F2FE', '#3B82F6']} amplitude={1.1} speed={0.6} blend={0.7} /></div>
         <BrandMark className="brand-mark" />
         <div>
           <div className="quote">"Your health records, appointments, and prescriptions: all in one secure place."</div>
@@ -1408,6 +1566,7 @@ function ForgotPassword() {
           © 2026 MedicaCare
         </div>
       </div>
+      </AnimatedContent>
     </div>
   );
 }
