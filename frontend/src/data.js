@@ -45,6 +45,22 @@ DOCTORS.forEach((d, i) => {
   d.photo = `https://randomuser.me/api/portraits/${d.gender === 'F' ? 'women' : 'men'}/${((i + 1) * 5) % 99}.jpg`;
 });
 
+// Demo weekly availability — the admin Doctors table's Availability column
+// (and the weekly-availability chips in the doctor edit modal) need seed data,
+// otherwise every row reads "—". Deterministic per-doctor rotation so the
+// demo looks stable across reloads; staff can still change it via Edit doctor.
+const AVAIL_PATTERNS = [
+  ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+  ['Mon', 'Tue', 'Wed', 'Fri'],
+  ['Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+  ['Mon', 'Wed', 'Thu', 'Sat'],
+  ['Mon', 'Tue', 'Thu', 'Fri', 'Sat'],
+  ['Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+];
+DOCTORS.forEach((d, i) => {
+  d.avail = AVAIL_PATTERNS[i % AVAIL_PATTERNS.length];
+});
+
 // Demo visit ratings — fictional feedback from the fictional seed patients so
 // the rating system shows realistic computed averages from day one. Each row
 // is one fictional completed visit; appointment ids use the 'demo-' prefix so
@@ -117,12 +133,30 @@ const CURRENT_PATIENT = {
   allergies: 'Penicillin',
 };
 
+// Portrait: same dummy source as the patient registry — p1's photo, so the
+// logged-in patient's avatar matches their record everywhere in the portal
+// (sidebar, Profile header) instead of falling back to the initials circle.
+CURRENT_PATIENT.photo = (PATIENTS.find(p => p.id === CURRENT_PATIENT.id) || {}).photo;
+
 const CURRENT_ADMIN = {
   id: 'a1',
   name: 'Dr. Helena Cruz-Ilagan',
   email: 'helena.cruz@medicacare.ph',
   role: 'Administrator',
 };
+
+// Portrait: same dummy source as doctors/patients — the admin user card
+// (sidebar footer) shows a photo like the patient portal, falling back to the
+// initials circle when offline. Index 44 isn't used by any doctor/patient seed.
+CURRENT_ADMIN.photo = 'https://randomuser.me/api/portraits/women/44.jpg';
+// Demo doctor account — doctors have their own portal login (third prototype
+// role). d1 = Dr. Maria Elena Villanueva-Santos: she sees only her own
+// schedule and writes her own visit notes, which are attributed to her.
+// Portal access is admin-issued: the StoreProvider seeds this account into
+// store.users (role 'doctor'), DoctorLogin validates against that list, and
+// staff grant/reset/revoke access per doctor from the Admin console's
+// Doctors page — so doctors added later get their own credentials too.
+const DOCTOR_CREDENTIALS = { email: 'doctor@medicacare.ph', password: 'doctor123', doctorId: 'd1' };
 
 // "Today" appointments — dated relative to the current date (computed at load)
 // so the admin dashboard's Today's schedule always has live-looking rows no
@@ -139,8 +173,8 @@ function dayOffsetISO(offset) {
 const APPOINTMENTS = [
   // Patient p1 (current user)
   { id: 'ap1',  patientId: 'p1',  doctorId: 'd1',  date: '2026-09-11', time: '10:30 AM', reason: 'Annual cardiac check-up and ECG review',       status: 'confirmed', createdAt: '2026-09-04' },
-  { id: 'ap2',  patientId: 'p1',  doctorId: 'd9',  date: '2026-07-18', time: '2:00 PM',  reason: 'Follow-up on blood pressure medication',        status: 'completed', createdAt: '2026-07-02' },
-  { id: 'ap3',  patientId: 'p1',  doctorId: 'd3',  date: '2026-05-22', time: '11:15 AM', reason: 'Skin allergy consultation',                     status: 'completed', createdAt: '2026-05-15' },
+  { id: 'ap2',  patientId: 'p1',  doctorId: 'd9',  date: '2026-07-18', time: '2:00 PM',  reason: 'Follow-up on blood pressure medication',        status: 'completed', notes: 'Blood pressure 118/76 on current medication. Continue lifestyle changes; repeat CBC in 6 months.', createdAt: '2026-07-02' },
+  { id: 'ap3',  patientId: 'p1',  doctorId: 'd3',  date: '2026-05-22', time: '11:15 AM', reason: 'Skin allergy consultation',                     status: 'completed', notes: 'Allergic contact dermatitis. Prescribed topical steroid; avoid suspected irritant. Follow up if the rash persists after 2 weeks.', createdAt: '2026-05-15' },
   { id: 'ap4',  patientId: 'p1',  doctorId: 'd10', date: '2026-08-30', time: '9:00 AM',  reason: 'Routine wellness exam',                         status: 'cancelled', createdAt: '2026-08-15' },
   { id: 'ap5',  patientId: 'p1',  doctorId: 'd8',  date: '2026-09-24', time: '3:30 PM',  reason: 'Consultation for anxiety and sleep issues',     status: 'pending',   createdAt: '2026-09-06' },
 
@@ -154,10 +188,10 @@ const APPOINTMENTS = [
   { id: 'ap12', patientId: 'p8',  doctorId: 'd7',  date: '2026-09-10', time: '4:00 PM',  reason: 'Chronic sinusitis',                             status: 'pending',   createdAt: '2026-09-05' },
   { id: 'ap13', patientId: 'p9',  doctorId: 'd9',  date: '2026-09-11', time: '8:30 AM',  reason: 'Diabetes management review',                    status: 'confirmed', createdAt: '2026-09-04' },
   { id: 'ap14', patientId: 'p11', doctorId: 'd6',  date: '2026-09-11', time: '1:00 PM',  reason: 'Shoulder rehabilitation follow-up',             status: 'pending',   createdAt: '2026-09-07' },
-  { id: 'ap15', patientId: 'p12', doctorId: 'd14', date: '2026-09-08', time: '11:30 AM', reason: 'Post-stroke neuro assessment',                  status: 'completed', createdAt: '2026-09-01' },
-  { id: 'ap16', patientId: 'p13', doctorId: 'd8',  date: '2026-09-08', time: '2:00 PM',  reason: 'Therapy session',                               status: 'completed', createdAt: '2026-09-01' },
-  { id: 'ap17', patientId: 'p14', doctorId: 'd2',  date: '2026-09-07', time: '10:00 AM', reason: 'Pediatric wellness check',                      status: 'completed', createdAt: '2026-08-30' },
-  { id: 'ap18', patientId: 'p15', doctorId: 'd16', date: '2026-09-07', time: '3:00 PM',  reason: 'Fractured wrist follow-up',                     status: 'completed', createdAt: '2026-08-29' },
+  { id: 'ap15', patientId: 'p12', doctorId: 'd14', date: '2026-09-08', time: '11:30 AM', reason: 'Post-stroke neuro assessment',                  status: 'completed', notes: 'Stable neuro exam. Continue current medication and physical therapy; repeat imaging in 3 months.', createdAt: '2026-09-01' },
+  { id: 'ap16', patientId: 'p13', doctorId: 'd8',  date: '2026-09-08', time: '2:00 PM',  reason: 'Therapy session',                               status: 'completed', notes: 'Therapy session completed. Patient responding well to the current plan; next session to be scheduled.', createdAt: '2026-09-01' },
+  { id: 'ap17', patientId: 'p14', doctorId: 'd2',  date: '2026-09-07', time: '10:00 AM', reason: 'Pediatric wellness check',                      status: 'completed', notes: 'Growth on track, vaccinations up to date. Advised routine follow-up next year.', createdAt: '2026-08-30' },
+  { id: 'ap18', patientId: 'p15', doctorId: 'd16', date: '2026-09-07', time: '3:00 PM',  reason: 'Fractured wrist follow-up',                     status: 'completed', notes: 'Fracture healed well. Cast removed; referred to physical therapy for grip strengthening.', createdAt: '2026-08-29' },
   { id: 'ap19', patientId: 'p17', doctorId: 'd11', date: '2026-09-06', time: '9:30 AM',  reason: 'Palpitations and shortness of breath',          status: 'cancelled', createdAt: '2026-08-28' },
   { id: 'ap20', patientId: 'p18', doctorId: 'd17', date: '2026-09-12', time: '10:00 AM', reason: 'Tinnitus consultation',                         status: 'pending',   createdAt: '2026-09-07' },
   { id: 'ap21', patientId: 'p19', doctorId: 'd3',  date: '2026-09-12', time: '2:00 PM',  reason: 'Adult acne consultation',                       status: 'confirmed', createdAt: '2026-09-05' },
@@ -167,22 +201,64 @@ const APPOINTMENTS = [
   { id: 'ap25', patientId: 'p24', doctorId: 'd18', date: '2026-09-14', time: '2:30 PM',  reason: 'Medication adjustment consultation',            status: 'pending',   createdAt: '2026-09-08' },
 
   // Today's schedule (admin dashboard + appointments queue)
-  { id: 'apT1', patientId: 'p2',  doctorId: 'd13', date: dayOffsetISO(0), time: '9:00 AM',  reason: 'Recurring rash follow-up',                      status: 'completed', createdAt: dayOffsetISO(0) },
+  { id: 'apT1', patientId: 'p2',  doctorId: 'd13', date: dayOffsetISO(0), time: '9:00 AM',  reason: 'Recurring rash follow-up',                      status: 'completed', notes: 'Rash improving on current treatment. Continue antihistamine; return if it recurs.', createdAt: dayOffsetISO(0) },
   { id: 'apT2', patientId: 'p3',  doctorId: 'd1',  date: dayOffsetISO(0), time: '10:30 AM', reason: 'Blood pressure medication review',              status: 'confirmed', createdAt: dayOffsetISO(-2) },
-  { id: 'apT3', patientId: 'p5',  doctorId: 'd2',  date: dayOffsetISO(0), time: '1:30 PM',  reason: 'Pediatric wellness check',                      status: 'completed', createdAt: dayOffsetISO(0) },
+  { id: 'apT3', patientId: 'p5',  doctorId: 'd2',  date: dayOffsetISO(0), time: '1:30 PM',  reason: 'Pediatric wellness check',                      status: 'completed', notes: 'Well-child visit. No acute findings; immunizations current.', createdAt: dayOffsetISO(0) },
   { id: 'apT4', patientId: 'p6',  doctorId: 'd7',  date: dayOffsetISO(0), time: '3:00 PM',  reason: 'Chronic sinusitis re-evaluation',               status: 'confirmed', createdAt: dayOffsetISO(-1) },
   { id: 'apT5', patientId: 'p7',  doctorId: 'd9',  date: dayOffsetISO(0), time: '4:30 PM',  reason: 'Fasting blood sugar results consultation',      status: 'pending',   createdAt: dayOffsetISO(0) },
+  // Every doctor gets demo patients today so the printable daily schedule
+  // (Doctors page → printer icon) shows a full clinic day for anyone, not just
+  // the five doctors above. Regenerated daily by the apT* migration on load.
+  { id: 'apT6',  patientId: 'p1',  doctorId: 'd1',  date: dayOffsetISO(0), time: '8:30 AM',  reason: 'Post-ECG consultation and results review',      status: 'completed', notes: 'ECG within normal limits. Maintain current medication and low-sodium diet.', createdAt: dayOffsetISO(0) },
+  { id: 'apT7',  patientId: 'p8',  doctorId: 'd2',  date: dayOffsetISO(0), time: '9:30 AM',  reason: 'Cough and fever follow-up',                     status: 'confirmed', createdAt: dayOffsetISO(-1) },
+  { id: 'apT8',  patientId: 'p9',  doctorId: 'd3',  date: dayOffsetISO(0), time: '10:00 AM', reason: 'Eczema flare-up management',                    status: 'confirmed', createdAt: dayOffsetISO(-2) },
+  { id: 'apT9',  patientId: 'p10', doctorId: 'd4',  date: dayOffsetISO(0), time: '11:00 AM', reason: 'Migraine management follow-up',                 status: 'confirmed', createdAt: dayOffsetISO(-3) },
+  { id: 'apT10', patientId: 'p11', doctorId: 'd4',  date: dayOffsetISO(0), time: '2:00 PM',  reason: 'Numbness and tingling in both hands',           status: 'confirmed', createdAt: dayOffsetISO(-1) },
+  { id: 'apT11', patientId: 'p12', doctorId: 'd5',  date: dayOffsetISO(0), time: '9:00 AM',  reason: 'Prenatal check-up (2nd trimester)',             status: 'completed', notes: 'Vitals stable, fetal heart tone normal at 144 bpm. Continue prenatal vitamins.', createdAt: dayOffsetISO(0) },
+  { id: 'apT12', patientId: 'p13', doctorId: 'd6',  date: dayOffsetISO(0), time: '11:30 AM', reason: 'Knee pain evaluation',                          status: 'confirmed', createdAt: dayOffsetISO(-2) },
+  { id: 'apT13', patientId: 'p14', doctorId: 'd7',  date: dayOffsetISO(0), time: '10:30 AM', reason: 'Recurrent ear infection consultation',          status: 'confirmed', createdAt: dayOffsetISO(-1) },
+  { id: 'apT14', patientId: 'p15', doctorId: 'd8',  date: dayOffsetISO(0), time: '3:30 PM',  reason: 'Scheduled therapy session',                     status: 'confirmed', createdAt: dayOffsetISO(0) },
+  { id: 'apT15', patientId: 'p16', doctorId: 'd9',  date: dayOffsetISO(0), time: '9:30 AM',  reason: 'Diabetes management follow-up',                 status: 'completed', notes: 'HbA1c improved to 6.8%. Continue metformin; diet counseling reiterated.', createdAt: dayOffsetISO(0) },
+  { id: 'apT16', patientId: 'p17', doctorId: 'd10', date: dayOffsetISO(0), time: '8:30 AM',  reason: 'General health consultation',                   status: 'pending',   createdAt: dayOffsetISO(0) },
+  { id: 'apT17', patientId: 'p18', doctorId: 'd11', date: dayOffsetISO(0), time: '1:00 PM',  reason: 'Chest pain clearance for surgery',              status: 'confirmed', createdAt: dayOffsetISO(-2) },
+  { id: 'apT18', patientId: 'p19', doctorId: 'd12', date: dayOffsetISO(0), time: '2:30 PM',  reason: 'Child immunization (MMR booster)',              status: 'pending',   createdAt: dayOffsetISO(0) },
+  { id: 'apT19', patientId: 'p20', doctorId: 'd13', date: dayOffsetISO(0), time: '1:00 PM',  reason: 'Acne treatment progress check',                 status: 'pending',   createdAt: dayOffsetISO(0) },
+  { id: 'apT20', patientId: 'p21', doctorId: 'd14', date: dayOffsetISO(0), time: '9:30 AM',  reason: 'Seizure medication review',                     status: 'confirmed', createdAt: dayOffsetISO(-1) },
+  { id: 'apT21', patientId: 'p22', doctorId: 'd15', date: dayOffsetISO(0), time: '10:30 AM', reason: 'Contraception counseling',                      status: 'confirmed', createdAt: dayOffsetISO(-1) },
+  { id: 'apT22', patientId: 'p23', doctorId: 'd16', date: dayOffsetISO(0), time: '4:00 PM',  reason: 'Lower back pain follow-up',                     status: 'confirmed', createdAt: dayOffsetISO(-3) },
+  { id: 'apT23', patientId: 'p24', doctorId: 'd17', date: dayOffsetISO(0), time: '9:00 AM',  reason: 'Dizziness and ear pressure evaluation',         status: 'pending',   createdAt: dayOffsetISO(0) },
+  { id: 'apT24', patientId: 'p4',  doctorId: 'd18', date: dayOffsetISO(0), time: '10:00 AM', reason: 'Anxiety medication adjustment',                 status: 'confirmed', createdAt: dayOffsetISO(-2) },
 ];
 
-// Availability sample — used on doctor availability screen (per-doctor)
-const AVAILABILITY_TEMPLATE = {
-  '2026-09-09': { day: 'Wed', slots: [ ['8:30 AM', false], ['9:00 AM', false], ['9:30 AM', true],  ['10:00 AM', true], ['10:30 AM', false], ['11:00 AM', true], ['11:30 AM', true], ['2:00 PM', true], ['2:30 PM', false], ['3:00 PM', true] ] },
-  '2026-09-10': { day: 'Thu', slots: [ ['8:30 AM', true],  ['9:00 AM', true],  ['9:30 AM', true],  ['10:00 AM', false], ['10:30 AM', true],  ['11:00 AM', true], ['11:30 AM', true], ['2:00 PM', false], ['2:30 PM', true], ['3:00 PM', true] ] },
-  '2026-09-11': { day: 'Fri', slots: [ ['8:30 AM', true],  ['9:00 AM', false], ['9:30 AM', true],  ['10:00 AM', true], ['10:30 AM', true],  ['11:00 AM', false], ['11:30 AM', true], ['2:00 PM', true], ['2:30 PM', true], ['3:00 PM', false] ] },
-  '2026-09-12': { day: 'Sat', slots: [ ['9:00 AM', true],  ['9:30 AM', true],  ['10:00 AM', true], ['10:30 AM', true], ['11:00 AM', true],  ['11:30 AM', true] ] },
-  '2026-09-14': { day: 'Mon', slots: [ ['8:30 AM', true],  ['9:00 AM', true],  ['9:30 AM', false], ['10:00 AM', true], ['10:30 AM', true],  ['11:00 AM', true], ['11:30 AM', false], ['2:00 PM', true], ['2:30 PM', true], ['3:00 PM', true], ['3:30 PM', true], ['4:00 PM', true] ] },
-  '2026-09-15': { day: 'Tue', slots: [ ['9:00 AM', true],  ['10:00 AM', true], ['11:00 AM', true], ['2:00 PM', true],  ['3:00 PM', true],   ['4:00 PM', true] ] },
-};
+// Availability — ROLLING template computed from "today" so the booking flow
+// never goes stale (the old fixed Sep 2026 dates would eventually leave
+// patients with no bookable date at all). Generates the next 8 clinic days
+// (Sundays skipped — the clinic is closed), weekday/Saturday slot grids, and
+// a deterministic booked-slot mix for variety. Real appointments still block
+// slots at runtime via isSlotTaken.
+const AVAILABILITY_TEMPLATE = (() => {
+  const pad = (n) => String(n).padStart(2, '0');
+  const toISO = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const base = [
+    ['8:30 AM'], ['9:00 AM'], ['9:30 AM'], ['10:00 AM'], ['10:30 AM'],
+    ['11:00 AM'], ['11:30 AM'], ['2:00 PM'], ['2:30 PM'], ['3:00 PM'], ['4:00 PM'],
+  ];
+  const sat = base.slice(0, 6);
+  const tpl = {};
+  const d = new Date();
+  let added = 0;
+  while (added < 8) {
+    const day = d.getDay();
+    if (day !== 0) {
+      const iso = toISO(d);
+      const slots = (day === 6 ? sat : base).map(([t], i) => [t, (d.getDate() + i) % 4 !== 0]);
+      tpl[iso] = { day: d.toLocaleDateString('en-US', { weekday: 'short' }), slots };
+      added++;
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return tpl;
+})();
 
 // Demo patient-story submissions — two pending stories so the admin
 // "Patient stories" page demonstrates the moderation flow with data. They stay
@@ -199,6 +275,129 @@ export const SEED_TESTIMONIALS = [
     id: 'tDemo2', patientId: 'p7', displayName: 'Luis A.',
     quote: 'I used to call three times just to ask for available schedules. Now I can see the open slots myself and pick one.',
     status: 'pending', createdAt: '2026-09-14',
+  },
+  // Approved demo story — gives the admin "Approved & shown publicly" section
+  // demo data from day one; per the moderation rule, approved stories also
+  // surface on the public website's What patients say carousel
+  {
+    id: 'tDemo3', patientId: 'p5', displayName: 'Carlo R.',
+    quote: 'Booked my annual check-up while commuting and the confirmation was already waiting when I got to the office.',
+    status: 'approved', createdAt: '2026-09-10', reviewedAt: '2026-09-11',
+  },
+];
+
+// Demo activity log — fictional staff/doctor/portal actions so the admin
+// Activity page opens with a lived-in audit trail (timestamps are minutes
+// before "now" so the demo always reads fresh). Real actions prepend to
+// this list at runtime via store.pushActivity.
+function minutesAgo(m) { return Date.now() - m * 60 * 1000; }
+export const SEED_ACTIVITY = [
+  { id: 'actDemo1', actor: 'Dr. Maria Elena Villanueva-Santos', action: 'Completed visit', detail: 'Juan Miguel Bautista', at: minutesAgo(9) },
+  { id: 'actDemo2', actor: 'Dr. Helena Cruz-Ilagan', action: 'Status update', detail: 'Ref AP8 → Confirmed', at: minutesAgo(26) },
+  { id: 'actDemo3', actor: 'Kristine Joy Balagtas', action: 'Booked appointment', detail: 'Dr. Camila Reyes-Tan · today at 9:00 AM', at: minutesAgo(47) },
+  { id: 'actDemo4', actor: 'Dr. Emmanuel de la Cruz', action: 'Marked no-show', detail: 'Angelica Nicole de la Peña', at: minutesAgo(63) },
+  { id: 'actDemo5', actor: 'Dr. Helena Cruz-Ilagan', action: 'Story approved', detail: '"Kristina F."', at: minutesAgo(88) },
+  { id: 'actDemo6', actor: 'Dr. Katrina Salvador-Ramos', action: 'Amended visit notes', detail: 'Sofia Andrea Ramos', at: minutesAgo(121) },
+  { id: 'actDemo7', actor: 'Dr. Helena Cruz-Ilagan', action: 'Created appointment', detail: 'Marcos Julian Lozano with Dr. Maria Elena Villanueva-Santos', at: minutesAgo(154) },
+  { id: 'actDemo8', actor: 'Dr. Helena Cruz-Ilagan', action: 'Updated appointment', detail: 'Ref AP23 → rescheduled to a later slot', at: minutesAgo(206) },
+];
+
+// Demo lab results — fictional outpatient lab work for the demo patient (p1)
+// so the Medical Records page's "Lab results" section has realistic data from
+// day one. Registered accounts start with an empty history. Values are clearly
+// fictional and flagged in the UI as demo data.
+export const SEED_LABS = [
+  {
+    id: 'lab1', patientId: 'p1', date: '2026-07-16',
+    name: 'Complete Blood Count (CBC)', category: 'Hematology', status: 'Final',
+    results: [
+      { item: 'Hemoglobin', value: '14.2', unit: 'g/dL', range: '13.0–17.0', flag: '' },
+      { item: 'White blood cells', value: '7.1', unit: '10⁹/L', range: '4.5–11.0', flag: '' },
+      { item: 'Platelets', value: '245', unit: '10⁹/L', range: '150–400', flag: '' },
+    ],
+  },
+  {
+    id: 'lab2', patientId: 'p1', date: '2026-07-16',
+    name: 'Fasting Blood Sugar', category: 'Clinical Chemistry', status: 'Final',
+    results: [
+      { item: 'Glucose, fasting', value: '96', unit: 'mg/dL', range: '70–99', flag: '' },
+    ],
+  },
+  {
+    id: 'lab3', patientId: 'p1', date: '2026-05-20',
+    name: 'Lipid Panel', category: 'Clinical Chemistry', status: 'Final',
+    results: [
+      { item: 'Total cholesterol', value: '198', unit: 'mg/dL', range: '<200', flag: '' },
+      { item: 'LDL cholesterol', value: '141', unit: 'mg/dL', range: '<100', flag: 'high' },
+      { item: 'HDL cholesterol', value: '48', unit: 'mg/dL', range: '>40', flag: '' },
+      { item: 'Triglycerides', value: '132', unit: 'mg/dL', range: '<150', flag: '' },
+    ],
+  },
+];
+
+// Demo medications — fictional prescriptions tied to the demo patient's
+// completed visits (the visit notes even reference them). Surfaced on the
+// Medical Records page's Medications section.
+export const SEED_MEDICATIONS = [
+  {
+    id: 'med1', patientId: 'p1', name: 'Amlodipine', dose: '5 mg', form: 'Tablet',
+    frequency: 'Once daily, morning', prescriberId: 'd9', startDate: '2026-07-18',
+    status: 'Active', instructions: 'Take with or without food. Monitor blood pressure weekly.',
+  },
+  {
+    id: 'med2', patientId: 'p1', name: 'Hydrocortisone cream 1%', dose: 'Apply thinly', form: 'Topical cream',
+    frequency: 'Twice daily', prescriberId: 'd3', startDate: '2026-05-22',
+    status: 'Completed', instructions: 'Apply to the affected area for up to 2 weeks.',
+  },
+  {
+    id: 'med3', patientId: 'p1', name: 'Aspirin (low-dose)', dose: '81 mg', form: 'Tablet',
+    frequency: 'Once daily', prescriberId: 'd1', startDate: '2026-09-11',
+    status: 'Active', instructions: 'Take after meals.',
+  },
+];
+
+// Demo family members — proxy booking: the patient can book appointments on
+// behalf of these people (booking form → "Who is this visit for?"). Managed
+// on the Profile page; persisted like the rest of the demo data.
+export const SEED_FAMILY = [
+  { id: 'fam1', name: 'Maria Bautista', relation: 'Spouse', age: 33 },
+  { id: 'fam2', name: 'Sofia Bautista', relation: 'Daughter', age: 6 },
+];
+
+// Demo support tickets — patient portal "Message the clinic" submissions that
+// land on the admin console's Patient messages page. tkt1/tkt2 belong to other
+// patients so the admin list shows variety; tkt3/tkt4 belong to the demo
+// patient (p1) so the PORTAL side of the reply loop is demo-able — logging in
+// as the demo patient shows an awaiting-reply ticket and one already answered
+// by staff (the green "Staff reply:" box on Help & support).
+export const SEED_TICKETS = [
+  {
+    id: 'tkt1', patientId: 'p14', name: 'Regine Bianca Uy',
+    subject: 'HMO coverage question',
+    message: 'Hi! I just want to confirm if my HMO covers annual physical exams, or if I have to pay out of pocket first. Thank you!',
+    status: 'open', createdAt: '2026-09-15', reply: '', repliedAt: null,
+  },
+  {
+    id: 'tkt2', patientId: 'p2', name: 'Maria Kristina Del Rosario-Fernandez',
+    subject: 'Rescheduling my prenatal check-up',
+    message: 'Good morning, may I move my prenatal visit to a Saturday slot instead? Weekdays are difficult for me now.',
+    status: 'resolved', createdAt: '2026-09-12',
+    reply: 'Of course! Your prenatal check-up has been moved to the next available Saturday slot. See you then!',
+    repliedAt: '2026-09-12',
+  },
+  {
+    id: 'tkt3', patientId: 'p1', name: CURRENT_PATIENT.name,
+    subject: 'Clinic hours this coming holiday',
+    message: 'Hello! Will the outpatient department be open on the upcoming holiday? I want to book a follow-up visit that week.',
+    status: 'open', createdAt: '2026-09-18', reply: '', repliedAt: null,
+  },
+  {
+    id: 'tkt4', patientId: 'p1', name: CURRENT_PATIENT.name,
+    subject: 'Copy of my ECG results',
+    message: 'Hi, I had an ECG during my last visit. May I request a copy of the results for my HMO filing?',
+    status: 'resolved', createdAt: '2026-09-10',
+    reply: 'Hi Juan! Your ECG results are ready — you can view them under Medical records in your portal, or pick up a printed copy at the Records section, Ground Floor.',
+    repliedAt: '2026-09-11',
   },
 ];
 
@@ -219,6 +418,26 @@ function findPatient(id) {
   return undefined;
 }
 
+// Numeric minutes for 'h:mm AM/PM' slot strings — plain string comparison
+// sorts "10:30 AM" before "8:30 AM", which scrambles chronological order
+function timeValue(t) {
+  const m = /(\d{1,2}):(\d{2})\s*(AM|PM)/i.exec(String(t || ''));
+  if (!m) return 0;
+  let h = Number(m[1]) % 12;
+  if (m[3].toUpperCase() === 'PM') h += 12;
+  return h * 60 + Number(m[2]);
+}
+
+// Whether the date falls on the doctor's admin-managed weekly clinic days.
+// Doctors with no availability set keep the generic template (every clinic
+// day bookable) so newly added doctors stay bookable out of the box.
+function isClinicDay(doctorId, date) {
+  const doc = findDoctor(doctorId);
+  if (!doc || !Array.isArray(doc.avail) || !doc.avail.length) return true;
+  const weekday = new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' });
+  return doc.avail.includes(weekday);
+}
+
 // Slot availability = static template minus slots already occupied by an
 // active (pending/confirmed) appointment for this doctor+date. Cancelled and
 // completed visits free the slot again. excludeApptId keeps an appointment's
@@ -230,8 +449,18 @@ function isSlotTaken(doctorId, date, time, appointments = [], excludeApptId = nu
     (a.status === 'pending' || a.status === 'confirmed'));
 }
 function getSlotsFor(doctorId, date, appointments = [], excludeApptId = null) {
+  // Dates outside the doctor's clinic days offer no bookable slots — the
+  // weekly availability chips on the admin Doctors page are enforced here
+  if (!isClinicDay(doctorId, date)) return [];
   const base = (AVAILABILITY_TEMPLATE[date] && AVAILABILITY_TEMPLATE[date].slots) || [];
   return base.map(([t, ok]) => [t, ok && !isSlotTaken(doctorId, date, t, appointments, excludeApptId)]);
+}
+
+// Slot-interval preference (admin Settings): '60' trims the 30-minute grid
+// down to :00 slots; '15' and '30' show the full grid (base granularity is 30)
+function slotFitsInterval(time, interval) {
+  if (String(interval) !== '60') return true;
+  return /:00 (AM|PM)$/.test(String(time));
 }
 
 // Trigger a client-side file download without any dependency (shared helper)
@@ -262,12 +491,35 @@ function initials(name) {
   if (parts.length === 1) return parts[0][0];
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
+
+// Compact weekly-availability display for narrow table columns: consecutive
+// days collapse into ranges — ['Mon','Tue','Wed','Thu','Fri'] → "Mon–Fri",
+// ['Mon','Tue','Wed','Fri'] → "Mon–Wed, Fri". Keeps the Doctors table's
+// Availability column on one line instead of a long comma list.
+function formatDayRange(days) {
+  if (!Array.isArray(days) || !days.length) return '—';
+  const order = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const sorted = [...days].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  const parts = [];
+  let start = 0;
+  for (let i = 1; i <= sorted.length; i++) {
+    const consecutive = i < sorted.length && order.indexOf(sorted[i]) === order.indexOf(sorted[i - 1]) + 1;
+    if (!consecutive) {
+      parts.push(start === i - 1 ? sorted[start] : `${sorted[start]}–${sorted[i - 1]}`);
+      start = i;
+    }
+  }
+  return parts.join(', ');
+}
 function statusMeta(s) {
   return ({
     pending:   { label: 'Pending',   cls: 'badge-warning' },
     confirmed: { label: 'Confirmed', cls: 'badge-info' },
     completed: { label: 'Completed', cls: 'badge-success' },
     cancelled: { label: 'Cancelled', cls: 'badge-neutral' },
+    // Doctor-side action: the patient did not arrive (frees the slot like a
+    // cancellation — see isSlotTaken — but is reported, not just dropped)
+    'no-show': { label: 'No-show', cls: 'badge-error' },
   })[s] || { label: s, cls: 'badge-neutral' };
 }
 function doctorStatusMeta(s) {
@@ -280,15 +532,16 @@ function doctorStatusMeta(s) {
 
 Object.assign(window, {
   HOSPITAL, SPECIALTIES, DOCTORS, PATIENTS, CURRENT_PATIENT, CURRENT_ADMIN,
-  APPOINTMENTS, AVAILABILITY_TEMPLATE, SEED_RATINGS, SEED_TESTIMONIALS,
+  APPOINTMENTS, AVAILABILITY_TEMPLATE, SEED_RATINGS, SEED_TESTIMONIALS, SEED_ACTIVITY,
+  SEED_LABS, SEED_MEDICATIONS, SEED_FAMILY, SEED_TICKETS, DOCTOR_CREDENTIALS,
   findDoctor, findPatient, formatDate, formatDateLong, initials, statusMeta, doctorStatusMeta,
-  isSlotTaken, getSlotsFor, downloadFile,
+  isSlotTaken, getSlotsFor, slotFitsInterval, downloadFile, formatDayRange, isClinicDay, timeValue,
 });
 
 export {
-  HOSPITAL, SPECIALTIES, DOCTORS, PATIENTS, CURRENT_PATIENT, CURRENT_ADMIN,
+  HOSPITAL, SPECIALTIES, DOCTORS, PATIENTS, CURRENT_PATIENT, CURRENT_ADMIN, DOCTOR_CREDENTIALS,
   APPOINTMENTS, AVAILABILITY_TEMPLATE,
   findDoctor, findPatient, formatDate, formatDateLong, initials, statusMeta, doctorStatusMeta,
-  isSlotTaken, getSlotsFor, downloadFile,
+  isSlotTaken, getSlotsFor, slotFitsInterval, downloadFile, formatDayRange, isClinicDay, timeValue,
 };
 

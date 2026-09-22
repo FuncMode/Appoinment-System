@@ -39,6 +39,42 @@ function navigate(to) {
   window.scrollTo(0, 0);
 }
 
+// ---------- Desktop-only gate (staff portals) ----------
+// Live media-query hook — returns true when the viewport is wider than the
+// app's 720px mobile breakpoint, updating on resize/rotation so the gate
+// reacts live instead of only on load.
+function useIsDesktop() {
+  const [isDesktop, setIsDesktop] = useState(() => window.matchMedia('(min-width: 721px)').matches);
+  useEffect(() => {
+    const mql = window.matchMedia('(min-width: 721px)');
+    const onChange = (e) => setIsDesktop(e.matches);
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
+  return isDesktop;
+}
+
+// Full-page fallback for the Admin console and Doctor portal on small
+// screens: those consoles are dense tables/layouts built for desktop, so
+// instead of a broken mobile squeeze the portals are gated entirely.
+// App.jsx renders this in place of any /admin/* or /doctor/* route.
+function DesktopOnlyNotice({ role = 'admin' }) {
+  const label = role === 'doctor' ? 'The Doctor portal' : 'The Admin console';
+  return (
+    <div className="desktop-only" role="status">
+      <BrandMark size={44} />
+      <div className="desktop-only-icon">
+        <Icon name="monitor" size={24} />
+      </div>
+      <h1>Desktop only</h1>
+      <p>
+        {label} is designed for desktop screens. Please open it on a computer,
+        or widen your browser window to at least 720px.
+      </p>
+    </div>
+  );
+}
+
 // ---------- App-wide store (kept simple, in-memory + localStorage for appointments/role) ----------
 const StoreCtx = createContext(null);
 function useStore() { return useContext(StoreCtx); }
@@ -64,7 +100,16 @@ function StoreProvider({ children }) {
           // regenerated on every load with the current date — the same way a
           // real clinic's daily schedule is rebuilt each day. Everything else
           // in storage (user bookings, older seed rows) is kept as-is.
-          const kept = list.filter(a => !String(a.id).startsWith('apT'));
+          const seedById = new Map(window.APPOINTMENTS.map(a => [a.id, a]));
+          const kept = list
+            .filter(a => !String(a.id).startsWith('apT'))
+            // Upgrade: seed appointments now carry doctor's notes (medical
+            // records derive from them) — copy them into stored lists that
+            // predate the notes field
+            .map(a => {
+              const seed = seedById.get(a.id);
+              return (seed && seed.notes && !a.notes) ? { ...a, notes: seed.notes } : a;
+            });
           const freshToday = window.APPOINTMENTS.filter(a => String(a.id).startsWith('apT'));
           return [...freshToday, ...kept];
         }
@@ -79,22 +124,56 @@ function StoreProvider({ children }) {
   const [toasts, setToasts] = useState([]);
   // Registered accounts (prototype auth) — persisted so credentials survive reloads
   const [users, setUsers] = useState(() => {
+    // Demo doctor portal account. Portal access is admin-issued (created from
+    // the Admin console's Doctors page) and stored as user rows with
+    // role 'doctor' + a doctorId link — DoctorLogin validates against this
+    // list. This seeded row keeps the demo doctor login working out of the box.
+    const demoDoctorUser = {
+      id: 'udoctor',
+      name: (window.findDoctor(window.DOCTOR_CREDENTIALS.doctorId) || {}).name || 'Doctor',
+      email: window.DOCTOR_CREDENTIALS.email,
+      password: window.DOCTOR_CREDENTIALS.password,
+      role: 'doctor',
+      doctorId: window.DOCTOR_CREDENTIALS.doctorId,
+      createdAt: '2024-08-14',
+    };
     try {
       const saved = JSON.parse(localStorage.getItem('nmc.users'));
-      if (Array.isArray(saved) && saved.length) return saved.map(migratedEmail);
+      if (Array.isArray(saved) && saved.length) {
+        const list = saved.map(migratedEmail);
+        // Migration: stored lists predate admin-issued doctor accounts —
+        // inject the demo doctor account when missing so the demo login keeps
+        // working. Skipped when the demo doctor was removed from the
+        // directory, so a deleted doctor stays unloginnable.
+        const hasDemoDoctor = list.some(u => u.role === 'doctor' && u.doctorId === window.DOCTOR_CREDENTIALS.doctorId);
+        if (!hasDemoDoctor && window.findDoctor(window.DOCTOR_CREDENTIALS.doctorId)) {
+          list.unshift(demoDoctorUser);
+        }
+        return list;
+      }
     } catch { /* fall through to seed */ }
-    // Seed: demo patient account used by the Login screen
+    // Seed: demo patient account (Login screen) + demo doctor account (Doctor portal)
     return [{
       id: window.CURRENT_PATIENT.id, name: window.CURRENT_PATIENT.name,
       email: 'patient@medicacare.ph', phone: window.CURRENT_PATIENT.phone,
       password: 'patient123', role: 'patient',
-    }];
+    }, demoDoctorUser];
   });
   // Identity of the logged-in patient (demo patient by default)
   const [currentPatient, setCurrentPatient] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('nmc.currentPatient'));
-      if (saved && saved.id) return migratedEmail(saved);
+      if (saved && saved.id) {
+        const m = migratedEmail(saved);
+        // Photo backfill: profiles saved before the portrait pass carried no
+        // photo — merge the seed portrait so the avatar matches the patient
+        // registry instead of falling back to the initials circle
+        if (!m.photo) {
+          const seed = window.PATIENTS.find(p => p.id === m.id);
+          if (seed && seed.photo) return { ...m, photo: seed.photo };
+        }
+        return m;
+      }
     } catch { /* fall through */ }
     return window.CURRENT_PATIENT;
   });
@@ -106,6 +185,11 @@ function StoreProvider({ children }) {
   });
   const [adminSession, setAdminSession] = useState(() => {
     try { return JSON.parse(localStorage.getItem('nmc.adminSession')) || null; } catch { return null; }
+  });
+  // Doctor portal session — doctors log in to see their own schedule and
+  // write their own visit notes (attributed to them, not encoded by staff)
+  const [doctorSession, setDoctorSession] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('nmc.doctorSession')) || null; } catch { return null; }
   });
   // Visit ratings — one per completed appointment (submitted from the patient
   // portal), seeded with fictional demo feedback so the demo shows realistic
@@ -127,10 +211,114 @@ function StoreProvider({ children }) {
   const [testimonials, setTestimonials] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('nmc.testimonials'));
-      if (Array.isArray(saved) && saved.length) return saved;
+      if (Array.isArray(saved) && saved.length) {
+        // Migration: the approved demo story (tDemo3) was added to the seed
+        // after earlier saves existed — inject it into already-stored lists
+        // so the admin "Approved & shown publicly" section has demo data too
+        if (!saved.some(t => t.id === 'tDemo3')) {
+          const demoApproved = (window.SEED_TESTIMONIALS || []).filter(t => t.id === 'tDemo3');
+          return [...demoApproved, ...saved];
+        }
+        return saved;
+      }
     } catch { /* fall through to seed */ }
     return window.SEED_TESTIMONIALS || [];
   });
+
+  // Clinic info + appointment preferences — persisted, and clinic info is
+  // synced live to window.HOSPITAL so the public website reflects admin edits
+  const [clinic, setClinic] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('nmc.clinic'));
+      if (saved && saved.name) { Object.assign(window.HOSPITAL, saved); return saved; }
+    } catch { /* fall through to seed */ }
+    return { name: window.HOSPITAL.name, phone: window.HOSPITAL.phone, email: window.HOSPITAL.email, address: window.HOSPITAL.address };
+  });
+  const [prefs, setPrefs] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('nmc.prefs'));
+      if (saved) return saved;
+    } catch { /* fall through to seed */ }
+    return { emailNewAppointments: true, remindPatients: true, autoConfirm: false, slotInterval: '30' };
+  });
+  // Family members (proxy booking) — the patient can book appointments on
+  // their behalf from the booking form; managed on the Profile page. Persisted.
+  const [familyMembers, setFamilyMembers] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('nmc.family'));
+      if (Array.isArray(saved)) return saved;
+    } catch { /* fall through to seed */ }
+    return window.SEED_FAMILY || [];
+  });
+  // Support tickets — portal "Message the clinic" → admin "Patient messages"
+  // page. Seeded with fictional demo tickets; persisted like appointments.
+  // Support tickets — portal "Message the clinic" submissions that land on
+  // the admin console's Patient messages page; persisted like appointments.
+  // `thread` carries the conversation AFTER the first message (staff replies
+  // + patient follow-ups, so the loop is two-way). Older saved tickets only
+  // carry the legacy reply field — synthesized into a thread on load.
+  const [tickets, setTickets] = useState(() => {
+    const withThread = (t) => {
+      if (t.thread || !t.reply) return t;
+      return { ...t, thread: [{ id: t.id + '-s1', from: 'staff', text: t.reply, date: t.repliedAt || t.createdAt }] };
+    };
+    try {
+      const saved = JSON.parse(localStorage.getItem('nmc.tickets'));
+      if (Array.isArray(saved) && saved.length) {
+        // Migration: the demo tickets for the demo patient (tkt3/tkt4) were
+        // added later so the portal side of the reply loop is demo-able.
+        // Browsers with an older saved list would never see them, so merge
+        // the p1 seeds in when the saved list has none for that patient.
+        if (!saved.some(t => t.patientId === window.CURRENT_PATIENT.id)) {
+          const p1Demos = (window.SEED_TICKETS || []).filter(t => t.patientId === window.CURRENT_PATIENT.id);
+          if (p1Demos.length) return [...p1Demos, ...saved].map(withThread);
+        }
+        return saved.map(withThread);
+      }
+    } catch { /* fall through to seed */ }
+    return (window.SEED_TICKETS || []).map(withThread);
+  });
+  // Lab results + medications — staff-encoded (Admin console → Patients →
+  // Labs & medications) and shown on the patient's Medical Records page.
+  // Seeded with fictional demo rows for the demo patient; persisted.
+  const [labs, setLabs] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('nmc.labs'));
+      if (Array.isArray(saved)) return saved;
+    } catch { /* fall through to seed */ }
+    return window.SEED_LABS || [];
+  });
+  const [meds, setMeds] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('nmc.meds'));
+      if (Array.isArray(saved)) return saved;
+    } catch { /* fall through to seed */ }
+    return window.SEED_MEDICATIONS || [];
+  });
+  // Patient-side reminder preferences (Profile page → Notifications & reminders)
+  const [patientPrefs, setPatientPrefs] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('nmc.patientPrefs'));
+      if (saved) return saved;
+    } catch { /* fall through to defaults */ }
+    return { emailReminders: true, portalNotifs: true };
+  });
+  // Activity log — staff/doctor/portal actions surfaced on the admin Activity
+  // page. Persisted; seeded with fictional demo entries until real actions
+  // land (same pattern as ratings: an empty saved list falls back to seed)
+  const [activity, setActivity] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('nmc.activity'));
+      if (Array.isArray(saved) && saved.length) return saved;
+    } catch { /* fall through to seed */ }
+    return (window.SEED_ACTIVITY || []).slice();
+  });
+  const pushActivity = useCallback((actor, action, detail) => {
+    setActivity(prev => [
+      { id: 'act_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), actor, action, detail: detail || '', at: Date.now() },
+      ...prev,
+    ].slice(0, 20));
+  }, []);
 
   useEffect(() => { localStorage.setItem('nmc.role', role); }, [role]);
   useEffect(() => { localStorage.setItem('nmc.appointments', JSON.stringify(appointments)); }, [appointments]);
@@ -138,6 +326,24 @@ function StoreProvider({ children }) {
   useEffect(() => { localStorage.setItem('nmc.currentPatient', JSON.stringify(currentPatient)); }, [currentPatient]);
   useEffect(() => { localStorage.setItem('nmc.patientSession', JSON.stringify(patientSession)); }, [patientSession]);
   useEffect(() => { localStorage.setItem('nmc.adminSession', JSON.stringify(adminSession)); }, [adminSession]);
+  useEffect(() => { localStorage.setItem('nmc.doctorSession', JSON.stringify(doctorSession)); }, [doctorSession]);
+  useEffect(() => {
+    Object.assign(window.HOSPITAL, clinic);
+    try { localStorage.setItem('nmc.clinic', JSON.stringify(clinic)); } catch { /* private mode */ }
+  }, [clinic]);
+  useEffect(() => {
+    try { localStorage.setItem('nmc.prefs', JSON.stringify(prefs)); } catch { /* private mode */ }
+  }, [prefs]);
+  useEffect(() => { localStorage.setItem('nmc.family', JSON.stringify(familyMembers)); }, [familyMembers]);
+  useEffect(() => { localStorage.setItem('nmc.tickets', JSON.stringify(tickets)); }, [tickets]);
+  useEffect(() => { localStorage.setItem('nmc.labs', JSON.stringify(labs)); }, [labs]);
+  useEffect(() => { localStorage.setItem('nmc.meds', JSON.stringify(meds)); }, [meds]);
+  useEffect(() => {
+    try { localStorage.setItem('nmc.patientPrefs', JSON.stringify(patientPrefs)); } catch { /* private mode */ }
+  }, [patientPrefs]);
+  useEffect(() => {
+    try { localStorage.setItem('nmc.activity', JSON.stringify(activity)); } catch { /* private mode */ }
+  }, [activity]);
   useEffect(() => { localStorage.setItem('nmc.ratings', JSON.stringify(ratings)); }, [ratings]);
   useEffect(() => { localStorage.setItem('nmc.testimonials', JSON.stringify(testimonials)); }, [testimonials]);
 
@@ -160,6 +366,8 @@ function StoreProvider({ children }) {
     setAdminSession({ email: account.email, name: account.name, role: account.role, at: Date.now() });
   }, []);
   const logoutAdmin = useCallback(() => setAdminSession(null), []);
+  const loginDoctor = useCallback((session) => setDoctorSession({ ...session, at: Date.now() }), []);
+  const logoutDoctor = useCallback(() => setDoctorSession(null), []);
 
   const store = {
     role, setRole,
@@ -174,6 +382,14 @@ function StoreProvider({ children }) {
     currentPatient, setCurrentPatient,
     patientSession, loginPatient, logoutPatient,
     adminSession, loginAdmin, logoutAdmin,
+    doctorSession, loginDoctor, logoutDoctor,
+    clinic, setClinic,
+    prefs, setPrefs,
+    familyMembers, setFamilyMembers,
+    tickets, setTickets,
+    labs, setLabs, meds, setMeds,
+    patientPrefs, setPatientPrefs,
+    activity, pushActivity,
     pushToast, toasts, dismissToast,
   };
   return <StoreCtx.Provider value={store}>{children}</StoreCtx.Provider>;
@@ -206,6 +422,7 @@ function Sidebar({ role, current }) {
   ];
   const patientNav2 = [
     { id: 'profile',      label: 'Profile',       icon: 'user-round',   route: '/patient/profile' },
+    { id: 'messages',     label: 'My messages',   icon: 'inbox',        route: '/patient/messages' },
     { id: 'help',         label: 'Help & support',icon: 'life-buoy',    route: '/patient/help' },
   ];
   const adminNav = [
@@ -220,15 +437,42 @@ function Sidebar({ role, current }) {
     // appointments badge above
     { id: 'stories',      label: 'Patient stories', icon: 'message-square', route: '/admin/stories',
       count: store.testimonials.filter(t => t.status === 'pending').length },
+    // Live open-message count — same "badge means real state" rule as the
+    // other admin badges
+    { id: 'tickets',      label: 'Patient messages', icon: 'inbox',      route: '/admin/tickets',
+      count: (store.tickets || []).filter(t => t.status === 'open').length },
     { id: 'reports',      label: 'Reports',       icon: 'bar-chart-3',      route: '/admin/reports' },
+    { id: 'a-activity',   label: 'Activity log',  icon: 'history',          route: '/admin/activity' },
   ];
   const adminNav2 = [
     { id: 'settings',     label: 'Settings',      icon: 'settings',    route: '/admin/settings' },
   ];
+  // Doctor portal — doctors see only their own schedule and patients.
+  // Live badge: today's appointment count — same "badge means real state"
+  // rule as the admin console, so the sidebar isn't a dead two-item list.
+  const dNow = new Date();
+  const dToday = `${dNow.getFullYear()}-${String(dNow.getMonth() + 1).padStart(2, '0')}-${String(dNow.getDate()).padStart(2, '0')}`;
+  const doctorNav = [
+    { id: 'd-dashboard',  label: "Today's schedule", icon: 'calendar-check', route: '/doctor/dashboard',
+      count: store.appointments.filter(a => a.doctorId === ((store.doctorSession || {}).doctorId) && a.date === dToday).length },
+    { id: 'd-week',       label: 'This week',        icon: 'calendar-days',  route: '/doctor/week' },
+    { id: 'd-patients',   label: 'My patients',      icon: 'users-round',    route: '/doctor/patients' },
+    { id: 'd-feedback',   label: 'Patient feedback', icon: 'star',           route: '/doctor/feedback' },
+  ];
 
-  const primary = role === 'admin' ? adminNav : patientNav;
-  const secondary = role === 'admin' ? adminNav2 : patientNav2;
-  const me = role === 'admin' ? window.CURRENT_ADMIN : (store.currentPatient || window.CURRENT_PATIENT);
+  let primary, secondary;
+  if (role === 'admin') { primary = adminNav; secondary = adminNav2; }
+  else if (role === 'doctor') { primary = doctorNav; secondary = []; }
+  else { primary = patientNav; secondary = patientNav2; }
+
+  const doctorRec = role === 'doctor'
+    ? window.findDoctor(store.doctorSession && store.doctorSession.doctorId)
+    : null;
+  const me = role === 'admin'
+    ? window.CURRENT_ADMIN
+    : role === 'doctor'
+      ? (doctorRec || { name: 'Doctor', specialty: '—' })
+      : (store.currentPatient || window.CURRENT_PATIENT);
 
   return (
     <aside className="sidebar">
@@ -236,7 +480,7 @@ function Sidebar({ role, current }) {
         <BrandMark />
         <div className="sidebar-brand-text">
           <div className="sidebar-brand-title">MedicaCare</div>
-          <div className="sidebar-brand-sub">{role === 'admin' ? 'Admin console' : 'Patient portal'}</div>
+          <div className="sidebar-brand-sub">{role === 'admin' ? 'Admin console' : role === 'doctor' ? 'Doctor portal' : 'Patient portal'}</div>
         </div>
       </div>
       <div className="sidebar-nav">
@@ -253,27 +497,33 @@ function Sidebar({ role, current }) {
             {item.count != null && <span className="badge-count">{item.count}</span>}
           </button>
         ))}
-        <div className="sidebar-nav-label">Account</div>
-        {secondary.map(item => (
-          <button key={item.id} type="button"
-               className={'sidebar-item' + (current === item.id ? ' active' : '')}
-               onClick={() => navigate(item.route)}>
-            <Icon name={item.icon} size={18} />
-            <span>{item.label}</span>
-          </button>
-        ))}
+        {secondary.length > 0 && (
+          <Fragment>
+            <div className="sidebar-nav-label">Account</div>
+            {secondary.map(item => (
+              <button key={item.id} type="button"
+                   className={'sidebar-item' + (current === item.id ? ' active' : '')}
+                   onClick={() => navigate(item.route)}>
+                <Icon name={item.icon} size={18} />
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </Fragment>
+        )}
       </div>
       <div className="sidebar-footer">
-        {role === 'admin'
-          ? <div className="avatar">{window.initials(me.name)}</div>
-          : <PatientAvatar person={me} size={32} />}
+        {/* Admin card matches the portal: photo avatar with initials fallback
+            (same behavior as PatientAvatar/DoctorAvatar) instead of a bare
+            initials circle */}
+        <PatientAvatar person={me} size={32} />
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{me.name}</div>
-          <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{role === 'admin' ? me.role : 'Patient'}</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={me.name}>{me.name}</div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{role === 'admin' ? me.role : role === 'doctor' ? me.specialty : 'Patient'}</div>
         </div>
         <button className="btn-icon" title="Log out" aria-label="Log out" onClick={() => {
           // Clear the session for the active console, then bounce to its own login
           if (role === 'admin') { store.logoutAdmin(); navigate('/admin/login'); }
+          else if (role === 'doctor') { store.logoutDoctor(); navigate('/doctor/login'); }
           else { store.logoutPatient(); navigate('/login'); }
         }}>
           <Icon name="log-out" size={16} />
@@ -287,10 +537,33 @@ function Topbar({ onMenuClick }) {
   const store = useStore();
   const route = useHashRoute();
   const [notifOpen, setNotifOpen] = useState(false);
-  const [notifRead, setNotifRead] = useState(false);
+  // Read state persists per appointment id (localStorage), so "Mark all as
+  // read" survives reloads — a NEW appointment id re-triggers the unread dot
+  const [notifReadIds, setNotifReadIds] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('nmc.notifReadIds')) || []; } catch { return []; }
+  });
+  useEffect(() => { localStorage.setItem('nmc.notifReadIds', JSON.stringify(notifReadIds)); }, [notifReadIds]);
   const notifRef = useRef(null);
 
   const isAdmin = route.startsWith('/admin');
+  // Doctor portal: notifications come from the doctor's own appointments;
+  // the patient Help button is portal-only and hidden for staff roles
+  const isDoctor = route.startsWith('/doctor');
+
+  // Page context in the topbar — without it the strip is an empty 60px band
+  // on every console page (a leftover that reads as unfinished template UI).
+  // Label mirrors the sidebar's own wording so the two never disagree.
+  const sub = route.split('?')[0].split('/').filter(Boolean)[1] || '';
+  const pageTitle =
+    isDoctor && sub === 'dashboard' ? "Today's schedule"
+    : ({
+      dashboard: 'Dashboard', appointments: 'Appointments', patients: 'Patients',
+      doctors: 'Doctors', stories: 'Patient stories', tickets: 'Patient messages',
+      reports: 'Reports', activity: 'Activity log', settings: 'Settings',
+      book: 'Book appointment', availability: 'Availability', history: 'My appointments',
+      status: 'Appointment status', appointment: 'Appointment details', records: 'Medical records',
+      messages: 'My messages', profile: 'Profile', help: 'Help & support', week: 'This week', feedback: 'Patient feedback',
+    })[sub] || '';
 
   // Close the notifications dropdown on outside click or Escape
   useEffect(() => {
@@ -319,8 +592,10 @@ function Topbar({ onMenuClick }) {
   const meId = (store.currentPatient || window.CURRENT_PATIENT).id;
   const appts = isAdmin
     ? store.appointments
-    : store.appointments.filter(a => a.patientId === meId);
-  const notifIcon = { pending: 'clock', confirmed: 'calendar-check', completed: 'check-circle-2', cancelled: 'calendar-x' };
+    : isDoctor
+      ? store.appointments.filter(a => a.doctorId === (store.doctorSession || {}).doctorId)
+      : store.appointments.filter(a => a.patientId === meId);
+  const notifIcon = { pending: 'clock', confirmed: 'calendar-check', completed: 'check-circle-2', cancelled: 'calendar-x', 'no-show': 'user-x' };
   const notifications = appts.slice(0, 4).map(a => {
     const doc = window.findDoctor(a.doctorId);
     return {
@@ -329,10 +604,22 @@ function Topbar({ onMenuClick }) {
       title: a.status === 'pending' ? 'Appointment request received'
         : a.status === 'confirmed' ? 'Appointment confirmed'
         : a.status === 'completed' ? 'Visit completed'
+        : a.status === 'no-show' ? 'Appointment marked as no-show'
         : 'Appointment cancelled',
       msg: `${doc ? doc.name : 'Your doctor'} • ${window.formatDate(a.date)} at ${a.time}`,
     };
   });
+  const hasUnread = notifications.some(n => !notifReadIds.includes(n.id));
+
+  // Clicking a notification opens the related appointment (and marks it read).
+  // Staff consoles route to their own queues instead of a patient detail page.
+  const openNotification = (n) => {
+    setNotifReadIds(ids => (ids.includes(n.id) ? ids : [...ids, n.id]));
+    setNotifOpen(false);
+    if (isAdmin) navigate('/admin/appointments');
+    else if (isDoctor) navigate('/doctor/dashboard');
+    else navigate('/patient/appointment/' + n.id);
+  };
 
   return (
     <div className="topbar">
@@ -341,17 +628,18 @@ function Topbar({ onMenuClick }) {
           <Icon name="menu" size={20} />
         </button>
       )}
+      {pageTitle && <div className="topbar-title">{pageTitle}</div>}
       <div className="topbar-right">
         <div className="notif-wrap" ref={notifRef}>
           <button className="btn-icon" title="Notifications" aria-label="Notifications" aria-haspopup="true" aria-expanded={notifOpen} onClick={() => setNotifOpen(o => !o)}>
             <Icon name="bell" size={18} />
-            {!notifRead && notifications.length > 0 && <span className="dot" />}
+            {hasUnread && notifications.length > 0 && <span className="dot" />}
           </button>
           {notifOpen && (
             <div className="notif-panel">
               <div className="notif-head">
                 <span>Notifications</span>
-                <button className="btn btn-link" disabled={notifLoading} onClick={() => setNotifRead(true)}>Mark all as read</button>
+                <button className="btn btn-link" disabled={notifLoading || !hasUnread} onClick={() => setNotifReadIds(ids => [...ids, ...notifications.map(n => n.id)].slice(-200))}>Mark all as read</button>
               </div>
               {notifLoading ? (
                 /* Skeleton rows mirroring the notif-item layout (icon + 2 lines) */
@@ -369,19 +657,25 @@ function Topbar({ onMenuClick }) {
               ) : notifications.length === 0 ? (
                 <div className="notif-empty">You're all caught up: no notifications yet.</div>
               ) : notifications.map(n => (
-                <div key={n.id} className="notif-item">
+                <button
+                  type="button"
+                  key={n.id}
+                  className="notif-item notif-link"
+                  onClick={() => openNotification(n)}
+                  title="Open appointment"
+                >
                   <span className="notif-icon"><Icon name={n.icon} size={15} /></span>
                   <div style={{ minWidth: 0 }}>
                     <div className="notif-title">{n.title}</div>
                     <div className="notif-msg">{n.msg}</div>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}
         </div>
-        {/* Help & support is patient-portal only — hidden in the admin console */}
-        {!isAdmin && (
+        {/* Help & support is patient-portal only — hidden in staff consoles */}
+        {!isAdmin && !isDoctor && (
           <button className="btn-icon" title="Help" aria-label="Help" onClick={() => navigate('/patient/help')}>
             <Icon name="help-circle" size={18} />
           </button>
@@ -398,7 +692,7 @@ function AppShell({ current, children }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const path = route.split('/').filter(Boolean)[0];
   // derive role directly from URL to keep sidebar in sync during navigation
-  const role = path === 'admin' ? 'admin' : path === 'patient' ? 'patient' : store.role;
+  const role = path === 'admin' ? 'admin' : path === 'patient' ? 'patient' : path === 'doctor' ? 'doctor' : store.role;
 
   // Close the mobile drawer on navigation and when Escape is pressed
   useEffect(() => { setMobileNavOpen(false); }, [route]);
@@ -542,6 +836,12 @@ function PublicNav({ activeLink = 'home' }) {
 function PublicFooter() {
   return (
     <footer className="public-footer">
+      {/* Always-on urgent-care line (NHS pattern: red is reserved for urgent
+          guidance). Complements the dismissible NoticeBar at the top. */}
+      <div className="footer-emergency">
+        <Icon name="siren" size={13} />
+        <span><strong>Emergencies:</strong> go directly to the ER or call 911. Online booking is for scheduled visits only.</span>
+      </div>
       <div>
         <div>© 2026 {window.HOSPITAL.name} · {window.HOSPITAL.address} · {window.HOSPITAL.phone}</div>
         <div style={{ marginTop: 4 }}>Clinic hours: Mon–Fri 8:00 AM – 5:00 PM · Sat 9:00 AM – 1:00 PM · Closed on Sundays</div>
@@ -574,6 +874,14 @@ function NoticeBar({ phone }) {
   const [dismissed, setDismissed] = useState(() => {
     try { return sessionStorage.getItem('nmc.noticeDismissed') === '1'; } catch { return false; }
   });
+  // Mirror the dismissed state onto <html> so the Landing hero can subtract
+  // the notice bar from its viewport-height math (see html.notice-dismissed
+  // rules in styles.css) — otherwise dismissing the bar leaves a dead gap
+  // under the trust ticker on the fold
+  useEffect(() => {
+    document.documentElement.classList.toggle('notice-dismissed', dismissed);
+    return () => document.documentElement.classList.remove('notice-dismissed');
+  }, [dismissed]);
   if (dismissed) return null;
   const dismiss = () => {
     try { sessionStorage.setItem('nmc.noticeDismissed', '1'); } catch { /* private mode */ }
@@ -881,11 +1189,13 @@ function ToastLayer() {
     <div className="toast-container">
       {toasts.map(t => (
         <div key={t.id} className={`toast ${t.kind}`}>
-          <Icon className="toast-icon" name={
-            t.kind === 'error' ? 'x-circle' :
-            t.kind === 'warning' ? 'alert-triangle' :
-            t.kind === 'info' ? 'info' : 'check-circle-2'
-          } size={18} />
+          <div className="toast-icon">
+            <Icon name={
+              t.kind === 'error' ? 'x-circle' :
+              t.kind === 'warning' ? 'alert-triangle' :
+              t.kind === 'info' ? 'info' : 'check-circle-2'
+            } size={17} />
+          </div>
           <div className="toast-body">
             <div className="toast-title">{t.title}</div>
             {t.msg && <div className="toast-msg">{t.msg}</div>}
@@ -1059,6 +1369,155 @@ function ConfirmModal({ open, onClose, onConfirm, title, message, confirmLabel =
   );
 }
 
+// ---------- OTP verification (prototype demo) ----------
+// Second login step for every portal: a 6-character code "emailed" to the
+// user — 3 digits + 3 letters, shuffled so the two mix. PROTOTYPE ONLY: no
+// real email is sent; the code is displayed in the modal's demo notice so
+// the demo flow stays completable. A real backend must generate, deliver,
+// and expire these codes server-side (and rate-limit the attempts).
+function generateOtp() {
+  const digits = '0123456789';
+  // Unambiguous letter charset (no I/L/O) so a code read from the demo box
+  // is easy to re-type — same rule as the generated portal passwords
+  const letters = 'ABCDEFGHJKMNPQRSTUVWXYZ';
+  const pick = (set) => {
+    const buf = new Uint32Array(1);
+    window.crypto.getRandomValues(buf);
+    return set[buf[0] % set.length];
+  };
+  const chars = [pick(digits), pick(digits), pick(digits), pick(letters), pick(letters), pick(letters)];
+  // Fisher–Yates shuffle so digits and letters mix instead of clustering
+  for (let i = chars.length - 1; i > 0; i--) {
+    const buf = new Uint32Array(1);
+    window.crypto.getRandomValues(buf);
+    const j = buf[0] % (i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join('');
+}
+
+function OtpVerifyModal({ open, onClose, onVerified, email, title = 'Verify it\'s you', subtitle }) {
+  const [sentCode, setSentCode] = useState('');
+  const [entry, setEntry] = useState(() => Array(6).fill(''));
+  const [error, setError] = useState('');
+  const [sending, setSending] = useState(false);
+  const [resend, setResend] = useState(0);
+  const inputRefs = useRef([]);
+
+  // (Re)send: a fresh code each time the modal opens or Resend is clicked.
+  // The short "sending" window is the same simulated-fetch theater the other
+  // flows use (skeletons/spinners for ~600–900ms).
+  useEffect(() => {
+    if (!open) return undefined;
+    setSentCode(generateOtp());
+    setEntry(Array(6).fill(''));
+    setError('');
+    setSending(true);
+    const t = setTimeout(() => setSending(false), 900);
+    requestAnimationFrame(() => { if (inputRefs.current[0]) inputRefs.current[0].focus(); });
+    return () => clearTimeout(t);
+  }, [open, resend]);
+
+  const submit = (value) => {
+    const code = (value || entry.join('')).toUpperCase();
+    if (code.length < 6) { setError('Enter all 6 characters of the code.'); return; }
+    if (code !== sentCode) {
+      setError('That code doesn\'t match. Check it and try again, or resend a new code.');
+      return;
+    }
+    onVerified();
+  };
+
+  const setChar = (i, raw) => {
+    const c = String(raw || '').replace(/[^0-9a-zA-Z]/g, '').slice(-1).toUpperCase();
+    const next = entry.slice();
+    next[i] = c;
+    setEntry(next);
+    if (error) setError('');
+    if (c && i < 5) inputRefs.current[i + 1].focus();
+    // All 6 filled — verify automatically, no button press needed
+    if (next.every(x => x)) submit(next.join(''));
+  };
+
+  const onInputKey = (i, e) => {
+    if (e.key === 'Backspace' && !entry[i] && i > 0) inputRefs.current[i - 1].focus();
+    // Arrow keys move between boxes like a normal code input
+    if (e.key === 'ArrowLeft' && i > 0) inputRefs.current[i - 1].focus();
+    if (e.key === 'ArrowRight' && i < 5) inputRefs.current[i + 1].focus();
+  };
+
+  const onPaste = (i, e) => {
+    e.preventDefault();
+    const text = (e.clipboardData.getData('text') || '').toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 6 - i);
+    if (!text) return;
+    const next = entry.slice();
+    text.split('').forEach((ch, k) => { next[i + k] = ch; });
+    setEntry(next);
+    const fill = next.findIndex(x => !x);
+    inputRefs.current[fill === -1 ? 5 : fill].focus();
+    if (next.every(x => x)) submit(next.join(''));
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={title}
+      subtitle={subtitle}
+      icon="mail-check"
+      iconKind="info"
+      footer={
+        <>
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={() => submit()}>Verify code</button>
+        </>
+      }
+    >
+      <div className="stack md">
+        {/* Demo notice — this prototype sends no real email, so the "emailed"
+            code is shown here. Labeled clearly so it never reads as a leak. */}
+        <div className="otp-demo-box" role="note">
+          <Icon name="info" size={14} />
+          <div style={{ flex: 1 }}>
+            <div><strong>Prototype demo:</strong> no real email is sent. Your code would arrive at <strong>{email || 'your inbox'}</strong> — it is shown here instead.</div>
+            <div className="otp-demo-code" aria-label="Your verification code">
+              {sending
+                ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> Sending code to your Gmail…</span>
+                : sentCode}
+            </div>
+          </div>
+        </div>
+
+        <Field label="Enter the 6-character code" error={error}>
+          <div className="otp-inputs">
+            {entry.map((ch, i) => (
+              <input
+                key={i}
+                ref={el => { inputRefs.current[i] = el; }}
+                className={'input otp-input' + (error ? ' error' : '')}
+                value={ch}
+                autoComplete="one-time-code"
+                inputMode="text"
+                aria-label={`Character ${i + 1} of 6`}
+                onChange={e => setChar(i, e.target.value)}
+                onKeyDown={e => onInputKey(i, e)}
+                onPaste={e => onPaste(i, e)}
+              />
+            ))}
+          </div>
+        </Field>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <button type="button" className="btn btn-link" disabled={sending} onClick={() => setResend(r => r + 1)}>
+            Resend a new code
+          </button>
+          <span className="t-help">Tip: the code mixes 3 numbers and 3 letters — case doesn't matter.</span>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 // ---------- Simple placeholder chart (visits over week) ----------
 // Optional `trend` draws a line connecting the bar tops.
 function MiniBarChart({ data, height = 120, trend = false, delay = 0, stagger = 80 }) {
@@ -1181,10 +1640,10 @@ function computeDoctorRating(ratings, doctorId) {
   return { count: list.length, avg: Math.round(avg * 10) / 10 };
 }
 
-function DoctorRatingPill({ ratings, doctorId }) {
+function DoctorRatingPill({ ratings, doctorId, compact = false }) {
   const { count, avg } = computeDoctorRating(ratings, doctorId);
   if (!count) return <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>No ratings yet</span>;
-  const label = `${count} patient rating${count === 1 ? '' : 's'}`;
+  const label = `${count} ${compact ? 'rating' : 'patient rating'}${count === 1 ? '' : 's'}`;
   return (
     <span
       className="rating-cell"
@@ -1199,25 +1658,60 @@ function DoctorRatingPill({ ratings, doctorId }) {
   );
 }
 
+// ---------- Password input with show/hide toggle ----------
+// Small shared wrapper so every password field (patient login, profile change
+// password) gets the eye toggle without each screen re-implementing it.
+function PwField({ label, required, error, help, value, onChange, autoComplete }) {
+  const [show, setShow] = useState(false);
+  return (
+    <Field label={label} required={required} error={error} help={help}>
+      <div className="input-group">
+        <input
+          className={'input' + (error ? ' error' : '')}
+          type={show ? 'text' : 'password'}
+          value={value}
+          onChange={onChange}
+          autoComplete={autoComplete}
+          style={{ paddingRight: 40 }}
+        />
+        <button
+          type="button"
+          className="pw-toggle"
+          aria-label={show ? 'Hide password' : 'Show password'}
+          title={show ? 'Hide password' : 'Show password'}
+          onClick={() => setShow(s => !s)}
+        >
+          <Icon name={show ? 'eye-off' : 'eye'} size={16} />
+        </button>
+      </div>
+    </Field>
+  );
+}
+
 // ---------- Export everything ----------
 Object.assign(window, {
   Icon, useHashRoute, navigate, StoreProvider, useStore,
+  useIsDesktop, DesktopOnlyNotice,
   Sidebar, Topbar, AppShell, PublicNav, PublicFooter, PageHeader,
   Badge, StatusBadge, DoctorStatusBadge, DoctorAvatar, PatientAvatar,
   Modal, ConfirmModal, ToastLayer,
   Field, TextInput, TextArea, SelectInput,
   Pagination, SkeletonRows, SortableTh, PageSpinner, EmptyState, ErrorState, MiniBarChart, Sparkline,
   NoticeBar, ClinicStatus, FaqAccordion, TestimonialCarousel,
-  computeDoctorRating, DoctorRatingPill,
+  computeDoctorRating, DoctorRatingPill, PwField,
+  OtpVerifyModal, generateOtp,
 });
 
 export {
   Icon, useHashRoute, navigate, useStore, StoreProvider,
+  useIsDesktop, DesktopOnlyNotice,
   Sidebar, Topbar, AppShell, PublicNav, PublicFooter, PageHeader, BrandMark,
   Badge, StatusBadge, DoctorStatusBadge, DoctorAvatar, PatientAvatar,
   Modal, ToastLayer, Field, TextInput, TextArea, SelectInput,
   Pagination, SkeletonRows, SortableTh, PageSpinner, EmptyState, ErrorState, ConfirmModal, MiniBarChart, Sparkline,
   NoticeBar, ClinicStatus, FaqAccordion, TestimonialCarousel,
   computeDoctorRating, DoctorRatingPill,
+  PwField,
+  OtpVerifyModal, generateOtp,
 };
 

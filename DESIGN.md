@@ -15,7 +15,7 @@
 | Dial | Value | Why |
 | --- | --- | --- |
 | **ENERGY** | 1 (Calm) | Healthcare. Patients arrive worried or in a hurry; the page must reassure, not excite. Anchor feel: GOV.UK/Stripe clarity, never agency-flashy. |
-| **RHYTHM** | 2 (Consistent with a few breaks) | The public pages share a consistent h2 + sub + content rhythm, deliberately broken by: the interactive care-finder panel (left accent rail), the numbered "How it works" rail (no cards), the live clinic-status pill, the portal-preview hero visual, and the centered FAQ sections (Landing/Services — the 760px accordion reads better centered ahead of the centered closing CTA). Those breaks are the identity. |
+| **RHYTHM** | 2 (Consistent with a few breaks) | The public pages share a consistent h2 + sub + content rhythm, deliberately broken by: the interactive care-finder panel (left accent rail), the numbered "How it works" rail (no cards), the live clinic-status pill, the portal-preview hero visual, the mono section captions (NHS/GOV.UK caption-above-heading pattern) on public sections, and the centered FAQ sections (Landing/Services — the 760px accordion reads better centered ahead of the centered closing CTA). Those breaks are the identity. |
 | **MOTION** | 1 (Hover states only) | Motion budget goes to functional transitions only: FAQ/accordion reveal, carousel slide, 120ms control feedback. No scroll-reveal, no parallax, nothing decorative (also removed once already as R-19/R-01 hygiene). |
 
 ## Identity

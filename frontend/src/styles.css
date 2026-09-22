@@ -160,6 +160,9 @@ a { color: inherit; text-decoration: none; }
   position: sticky; top: 0; z-index: 20;
 }
 .topbar-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+/* Page context label on the left of the topbar — replaces the empty strip.
+   Hidden on mobile where the menu button + narrow width make it noise. */
+.topbar-title { font-size: 14px; font-weight: 600; color: var(--text); letter-spacing: -0.01em; }
 .mobile-menu-btn { display: none; }
 .topbar-icon-btn {
   width: 36px; height: 36px; border-radius: var(--r-sm);
@@ -388,8 +391,10 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
    cards keep the inline label icon (guide §11/§28) */
 .dashboard-stats .quick-action-icon { display: none; }
 
-/* Dashboard stats: 2x2 grid beside quick actions on desktop */
-.dashboard-stats { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 12px; height: 100%; }
+/* Dashboard stats: 2x2 grid beside quick actions on desktop. align-self +
+   align-content are pinned explicitly so the first card's top edge always
+   lines up with the Quick actions card, whatever the row height resolves to */
+.dashboard-stats { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 12px; height: 100%; align-self: stretch; align-content: stretch; }
 .dashboard-stats .stat-card-span { grid-column: 1 / -1; }
 .stat-card .stat-delta.up { color: var(--success); }
 .stat-card .stat-delta.warn { color: var(--warning-text); }
@@ -437,6 +442,15 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
 }
 .table .col-checkbox { width: 32px; padding-right: 0; }
 .table .td-nowrap { white-space: nowrap; }
+
+/* Compact table variant (admin Doctors): tighter cell padding so all 8
+   columns fit the desktop content width without a horizontal scrollbar.
+   Desktop only — the ≤720px stacked-card rules override cell padding for
+   the mobile card layout, and this rule must not out-carry them. */
+@media (min-width: 721px) {
+  .table-compact thead th,
+  .table-compact tbody td { padding: 10px 8px; }
+}
 
 /* Mini bar chart */
 .mini-chart-bar {
@@ -498,8 +512,10 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
 .th-sort:hover { color: var(--primary); }
 .th-sort svg { width: 12px; height: 12px; opacity: 0.55; }
 
-/* Rating cell: lucide star icon instead of a text emoji (guideline 11) */
-.rating-cell { display: inline-flex; align-items: center; gap: 4px; }
+/* Rating cell: lucide star icon instead of a text emoji (guideline 11).
+   nowrap: inside table columns the "4.8 · N patient ratings" text used to
+   wrap onto a second line, doubling every row's height — keep it on one. */
+.rating-cell { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 
 /* Rate-your-visit star picker (patient portal). Lucide stars are stroke-only,
    so the selected state fills the svg shape via CSS. 44px touch targets. */
@@ -630,29 +646,33 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
 .toast {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-left: 3px solid var(--success);
-  border-radius: var(--r-md);
-  padding: 12px 16px;
-  min-width: 300px; max-width: 400px;
-  display: flex; align-items: flex-start; gap: 10px;
-  box-shadow: var(--shadow-md);
-  animation: toast-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: var(--r-lg);
+  padding: 14px 16px;
+  min-width: 320px; max-width: 400px;
+  display: flex; align-items: flex-start; gap: 12px;
+  box-shadow: 0 12px 32px -8px rgba(15, 23, 42, 0.22), 0 4px 12px -4px rgba(15, 23, 39, 0.1);
+  animation: toast-in 320ms cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: auto;
 }
-.toast.error { border-left-color: var(--error); }
-.toast.warning { border-left-color: var(--warning); }
-.toast.info { border-left-color: var(--info); }
-.toast-icon { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; color: var(--success); }
-.toast.error .toast-icon { color: var(--error); }
-.toast.warning .toast-icon { color: var(--warning); }
-.toast.info .toast-icon { color: var(--info); }
+/* Tinted circular icon chip — same visual language as .modal-icon, so
+   notifications read as part of the app's own family (replaces the old
+   generic left-stripe treatment) */
+.toast-icon {
+  width: 34px; height: 34px; border-radius: 50%;
+  display: grid; place-items: center;
+  flex-shrink: 0; margin-top: 1px;
+  background: var(--success-soft); color: var(--success);
+}
+.toast.error .toast-icon { background: var(--error-soft); color: var(--error); }
+.toast.warning .toast-icon { background: var(--warning-soft); color: var(--warning); }
+.toast.info .toast-icon { background: var(--info-soft); color: var(--info); }
 .toast-body { flex: 1; min-width: 0; }
 .toast-title { font-weight: 600; font-size: 13.5px; color: var(--text); }
-.toast-msg { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+.toast-msg { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; line-height: 1.5; }
 .toast-close { background: transparent; border: 0; padding: 0; color: var(--text-muted); cursor: pointer;
   /* Fixed hit area (audit-002 #8): the bare icon was a ~14px tap target */
   width: 24px; height: 24px; display: grid; place-items: center; flex-shrink: 0; border-radius: 4px; }
-@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes toast-in { from { opacity: 0; transform: translateY(14px) scale(0.97); } to { opacity: 1; transform: none; } }
 
 /* ============================================================
    Skeleton
@@ -771,6 +791,26 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
   font-size: 12px; color: var(--text-muted); text-align: center;
 }
 .footer-disclaimer svg { flex-shrink: 0; }
+/* Always-on urgent-care line in the public footer (NHS pattern: red is
+   reserved for urgent guidance). Complements the dismissible NoticeBar at
+   the top of every public page. */
+.footer-emergency {
+  flex-basis: 100%;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 10px 12px; margin-bottom: 4px;
+  background: var(--error-soft); color: var(--error-text);
+  border-radius: var(--r-sm); font-size: 12.5px; text-align: center;
+}
+.footer-emergency strong { color: var(--error); font-weight: 600; }
+.footer-emergency svg { flex-shrink: 0; color: var(--error); }
+
+/* Security reassurance at the register hand-over moment (patient-portal
+   best practice: state who can see the patient's data when they give it). */
+.auth-trust-line {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  margin-top: 12px; font-size: 12px; color: var(--text-muted); text-align: center;
+}
+.auth-trust-line svg { flex-shrink: 0; color: var(--success); }
 
 .public-hero {
   background: var(--surface);
@@ -784,6 +824,16 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
 .public-hero h1 { font-size: 40px; line-height: 1.15; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 16px; }
 .public-hero p { font-size: 16px; color: var(--text-secondary); margin: 0 0 24px; max-width: 480px; }
 .public-hero-actions { display: flex; gap: 10px; }
+
+/* Quiet reassurance microcopy — lives in the right hero column under the
+   portal preview card, centered to balance the column */
+.public-hero-microcopy {
+  display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap;
+  margin: 16px 0 0;
+  font-size: 12.5px; color: var(--text-muted);
+}
+.public-hero-microcopy span { display: inline-flex; align-items: center; gap: 5px; }
+.public-hero-microcopy svg { width: 13px; height: 13px; color: var(--success); }
 
 /* Compact single-column hero variant used by the subpages
    (Services / Doctors / About / Contact / legal). Kept as a class instead of
@@ -806,6 +856,84 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
 }
 .public-hero:not(.page-hero) .public-hero-inner { flex: 1; }
 
+/* Notice bar dismissed (session-persisted, mirrored to <html> by NoticeBar):
+   the top strip is gone, so subtract it (~37px) from the hero's viewport
+   math too — keeping notice bar + nav + hero + ticker = exactly one fold
+   with no dead gap under the ticker. Desktop only: the ≤720px query below
+   sets min-height: 0 for the mobile hero and this rule would out-carry it. */
+@media (min-width: 721px) {
+  html.notice-dismissed .public-hero:not(.page-hero) {
+    min-height: calc(100vh - 123px);
+    min-height: calc(100dvh - 123px);
+  }
+}
+
+/* Landing-only photo variant — three crossfading full-bleed photos behind a
+   strong brand-blue gradient veil (same recipe as .auth-visual-col: the veil
+   keeps the light text readable and the photos read as texture, not
+   decoration). Purely decorative: aria-hidden layers, no indicators, no
+   controls. Local PNGs so the portal works offline; Aurora is skipped on
+   this variant (the photos ARE the backdrop here — the wash stays on the
+   subpages). */
+.public-hero--photo { background: var(--primary-pressed); }
+.public-hero-slides { position: absolute; inset: 0; z-index: 0; }
+.hero-slide {
+  position: absolute; inset: 0;
+  background-position: center; background-size: cover; background-repeat: no-repeat;
+  opacity: 0;
+  animation: heroBgFade 21s linear infinite;
+}
+.hero-slide.s1 { background-image: url('./assets/hero-slide-1.png'); }
+.hero-slide.s2 { background-image: url('./assets/hero-slide-2.png'); animation-delay: -7s; }
+.hero-slide.s3 { background-image: url('./assets/hero-slide-3.png'); animation-delay: -14s; }
+/* 3 slides × 7s: each holds ~6s, then crossfades ~1s while the next fades
+   in. Negative delays offset the shared keyframes so slide 1 is already
+   fully visible at t=0 (no fade-in from a blank hero on load). */
+@keyframes heroBgFade {
+  0%, 30% { opacity: 1; }
+  33% { opacity: 0; }
+  96% { opacity: 0; }
+  100% { opacity: 1; }
+}
+/* Blue gradient veil above the slides — the readability layer. Lightened
+   from 0.9/0.82 so the photo actually shows through instead of reading as a
+   flat texture. Floor: ~0.8 alpha still blends to ≥4.5:1 white-text contrast
+   over worst-case pure-white photo areas, and ~0.68 at the bottom keeps the
+   headline (large text, 3:1 floor) comfortable everywhere. */
+.public-hero-veil {
+  position: absolute; inset: 0; z-index: 0;
+  background: linear-gradient(160deg, rgba(30, 64, 175, 0.8) 0%, rgba(37, 99, 235, 0.68) 100%);
+}
+/* Reduced motion: no rotation — static first slide */
+@media (prefers-reduced-motion: reduce) {
+  .hero-slide { animation: none; opacity: 0; }
+  .hero-slide.s1 { opacity: 1; }
+}
+/* Light-on-dark text overrides for the photo variant. Scoped so the subpage
+   heroes (Aurora + white surface) keep their dark-ink family treatment. */
+.public-hero--photo p { color: rgba(255, 255, 255, 0.88); }
+.public-hero--photo .public-hero-microcopy { color: rgba(255, 255, 255, 0.78); }
+.public-hero--photo .public-hero-microcopy svg { color: #6EE7B7; }
+/* Ghost "Log in" on the photo hero: two filled-white buttons read as equal
+   weight on the dark backdrop; the outlined ghost keeps the white primary
+   CTA visually dominant */
+.public-hero--photo .btn-secondary {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.55);
+  color: #fff;
+}
+.public-hero--photo .btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.85);
+  color: #fff;
+}
+/* White StarBorder CTA (set in JSX): the global hover turns .inner-content
+   dark blue — wrong on a dark hero, so hover/focus go to a soft near-white */
+.public-hero--photo .star-border-cta:hover .inner-content,
+.public-hero--photo .star-border-cta:focus-visible .inner-content {
+  background: #EAF1FF !important;
+}
+
 /* ============================================================
    React Bits — Aurora hero backdrop (public pages)
    The canvas wash sits behind the hero content; .public-hero
@@ -821,7 +949,10 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  opacity: 0.45;
+  /* Boosted from 0.45 — at the old opacity the wash was invisible on the
+     white surface and the hero read as empty; 0.65 keeps the text at full
+     contrast while the backdrop finally shows */
+  opacity: 0.65;
 }
 .public-hero .public-hero-inner { position: relative; z-index: 1; }
 /* Respect reduced-motion users: skip the animated wash entirely */
@@ -844,20 +975,22 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
   border-radius: var(--r-lg);
   padding: 20px;
 }
-/* Doctor cards: SpotlightCard is a transparent wrapper AROUND the interactive
-   .doctor-card (SpotlightCard drops extra props, so the real card keeps its
-   role="button" and click handling). The glow plays over the card surface. */
-.card-spotlight.doctor-card-wrap {
+/* Doctor cards: .doctor-card-wrap is a plain full-height wrapper AROUND the
+   interactive .doctor-card (both portals). It must NOT be a SpotlightCard —
+   its dark demo skin (.card-spotlight) loads after styles.css and its
+   equal-specificity #111 background wins the cascade, rendering a black box;
+   the cursor glow is invisible anyway behind the opaque .doctor-card. */
+.doctor-card-wrap {
   background: transparent;
   border: 0;
   padding: 0;
   border-radius: var(--r-lg);
+  height: 100%;
 }
-.card-spotlight.doctor-card-wrap .doctor-card { height: 100%; }
-/* Per-card scroll entrances: the AnimatedContent wrapper is the grid item,
-   so stretch it (and the spotlight wrapper inside) to full row height. */
+.doctor-card-wrap .doctor-card { height: 100%; }
+/* Doctor grids (both portals): the AnimatedContent wrapper is the grid item,
+   so stretch it to full row height. */
 .doctor-grid > .card-anim { height: 100%; }
-.card-anim > .card-spotlight.doctor-card-wrap { height: 100%; }
 .public-section .animated-gradient-text { cursor: default; }
 .animated-gradient-text.gradient-text-center { margin: 0 auto; }
 .animated-gradient-text.gradient-text-start { margin: 0; }
@@ -1013,6 +1146,17 @@ button.star-border-container.star-border-cta {
   animation: spin 0.7s linear infinite;
 }
 @media (prefers-reduced-motion: reduce) {
+/* Section caption (NHS/GOV.UK caption-above-heading pattern): a small mono
+   kicker above each public h2. Wayfinding, not decoration — same "machine
+   label" role as IBM Plex Mono receipts. */
+.section-kicker {
+  display: block;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11px; font-weight: 500;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--primary);
+  margin: 0 0 8px;
+}
   .app-splash-spinner { animation-duration: 2.5s; }
 }
 
@@ -1055,16 +1199,16 @@ button.star-border-container.star-border-cta {
   .feature-card--featured { grid-column: span 2; }
 }
 
-/* "How it works" numbered rail (Landing) — replaces the generic 3-card grid
-   (R-05): steps are a sequence, so the composition shows progression. The
-   horizontal-rule rhythm also breaks the card-grid repetition between the
-   care-finder and departments sections. */
+/* "How it works" (Landing) — three steps in a row on desktop. Steps are a
+   sequence, so each keeps its number circle and a hairline above it — the
+   top borders read as the "rail" laid flat, preserving the progression
+   instead of becoming three unrelated cards (R-05 intent kept). Stacks
+   back into the numbered list on small screens (media query below). */
 .how-steps {
-  list-style: none; margin: 0; padding: 0; max-width: 640px;
-  display: flex; flex-direction: column;
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px;
 }
-.how-steps li { display: flex; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--border); }
-.how-steps li:last-child { border-bottom: 0; }
+.how-steps li { display: flex; gap: 14px; padding-top: 16px; border-top: 1px solid var(--border); }
 .how-step-num {
   flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%;
   background: var(--primary-soft); color: var(--primary-text);
@@ -1126,7 +1270,10 @@ button.star-border-container.star-border-cta {
    screen (login / register / forgot). The brand-blue gradient on top keeps
    the quote text readable over the photos. */
 .auth-visual-col {
-  background-image: linear-gradient(160deg, rgba(30,64,175,0.9) 0%, rgba(37,99,235,0.82) 100%);
+  /* Same lightened veil as the landing hero: ~0.8 alpha blends to ≥4.5:1
+     white-text contrast over worst-case pure-white photo areas, and ~0.68 at
+     the bottom keeps the large bold quote (3:1 floor) comfortable everywhere */
+  background-image: linear-gradient(160deg, rgba(30,64,175,0.8) 0%, rgba(37,99,235,0.68) 100%);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -1135,9 +1282,9 @@ button.star-border-container.star-border-cta {
   display: flex; flex-direction: column; justify-content: space-between;
   position: relative; overflow: hidden;
 }
-.auth-visual-col--login { background-image: linear-gradient(160deg, rgba(30,64,175,0.9) 0%, rgba(37,99,235,0.82) 100%), url('./assets/auth-bg-login.png'); }
-.auth-visual-col--register { background-image: linear-gradient(160deg, rgba(30,64,175,0.9) 0%, rgba(37,99,235,0.82) 100%), url('./assets/auth-bg-register.png'); }
-.auth-visual-col--forgot { background-image: linear-gradient(160deg, rgba(30,64,175,0.9) 0%, rgba(37,99,235,0.82) 100%), url('./assets/auth-bg-forgot.png'); }
+.auth-visual-col--login { background-image: linear-gradient(160deg, rgba(30,64,175,0.8) 0%, rgba(37,99,235,0.68) 100%), url('./assets/auth-bg-login.png'); }
+.auth-visual-col--register { background-image: linear-gradient(160deg, rgba(30,64,175,0.8) 0%, rgba(37,99,235,0.68) 100%), url('./assets/auth-bg-register.png'); }
+.auth-visual-col--forgot { background-image: linear-gradient(160deg, rgba(30,64,175,0.8) 0%, rgba(37,99,235,0.68) 100%), url('./assets/auth-bg-forgot.png'); }
 /* ::before radial glows removed (R-01): pure decoration with no stated
    purpose. The linear gradient overlay's job (keeping the quote text readable
    over the photos) is documented above and stays. */
@@ -1193,6 +1340,14 @@ button.star-border-container.star-border-cta {
 .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
 .stat-grid.three { grid-template-columns: repeat(3, 1fr); }
 .two-col { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; align-items: start; }
+/* Grid items must be allowed to shrink below their content's min width.
+   Without this, the Availability page's date-chip row (nowrap flex row of
+   8 chips, ~740px intrinsic) and the doctor summary card's detail rows
+   (180px label + nowrap rating pill) force the 2fr/1fr tracks wider than
+   the container and the whole page grows a horizontal scrollbar. With
+   min-width: 0, the chip row scrolls inside its card (its own
+   overflow-x: auto) and the detail rows adapt instead. */
+.two-col > * { min-width: 0; }
 .three-col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 
 .next-appt-card {
@@ -1267,9 +1422,20 @@ button.star-border-container.star-border-cta {
   cursor: pointer;
 }
 .doctor-card:hover { border-color: var(--primary); box-shadow: var(--shadow-md); }
-.doctor-card-head { display: flex; align-items: center; gap: 12px; }
+/* min-height covers the worst case (2-line name + specialty ≈ 56px — taller
+   than the 52px avatar) so 1-line and 2-line name cards end at the same head
+   height and the meta rows align across the grid — without dead space inside
+   the name block itself */
+.doctor-card-head { display: flex; align-items: center; gap: 12px; min-height: 56px; }
 .doctor-card-head .avatar { width: 52px; height: 52px; font-size: 15px; }
-.doctor-card-name { font-size: 15px; font-weight: 600; color: var(--text); line-height: 1.25; }
+.doctor-card-name {
+  font-size: 15px; font-weight: 600; color: var(--text); line-height: 1.25;
+  /* Clamp at 2 lines only — NO reserved min-height here: an always-2-line
+     name area pushed the specialty line down on 1-line names and left the
+     avatar floating in the gap. The head's min-height below is what keeps
+     every card's head the same height. */
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
 .doctor-card-spec { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
 .doctor-card-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12.5px; color: var(--text-muted); }
 .doctor-card-meta svg { width: 14px; height: 14px; }
@@ -1282,8 +1448,9 @@ button.star-border-container.star-border-cta {
 .doctor-filter-field.sm .select { max-width: 180px; }
 .doctor-filter-count { margin-left: auto; font-size: 13px; color: var(--text-muted); }
 
-/* Availability date chips */
-.date-chip-row { padding: 16px; display: flex; gap: 8px; overflow-x: auto; }
+/* Availability date chips — wrap into rows instead of scrolling horizontally
+   (a scrollbar inside the card read as broken; wrapping keeps every day visible) */
+.date-chip-row { padding: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
 .date-chip { min-width: 78px; }
 
 /* ============================================================
@@ -1291,13 +1458,18 @@ button.star-border-container.star-border-cta {
    ============================================================ */
 .detail-list { display: flex; flex-direction: column; }
 .detail-row {
-  display: grid; grid-template-columns: 180px 1fr;
+  display: grid; grid-template-columns: minmax(130px, 180px) 1fr;
   padding: 12px 0; border-bottom: 1px solid var(--border);
   gap: 16px; font-size: 14px;
 }
 .detail-row:last-child { border-bottom: 0; }
 .detail-row .label { color: var(--text-muted); font-weight: 500; }
-.detail-row .value { color: var(--text); }
+.detail-row .value { color: var(--text); min-width: 0; }
+/* The rating pill can sit in a narrow side column (doctor summary card on
+   the Availability page) — let it wrap there instead of forcing the column
+   wider than the card. Wide contexts (tables, modals) never reach the
+   wrap point, so the nowrap look is unchanged where it matters. */
+.detail-row .value .rating-cell { white-space: normal; }
 /* Stacked variant for narrow/side cards — the fixed 180px label column of the
    default detail-row leaves too little room for values (e.g., phone numbers). */
 .detail-row.compact { grid-template-columns: 1fr; gap: 2px; padding: 10px 0; }
@@ -1388,6 +1560,9 @@ button.star-border-container.star-border-cta {
   /* Portal mobile nav: hamburger in the topbar + slide-out drawer */
   .mobile-menu-btn { display: grid; place-items: center; width: 44px; height: 44px; }
   .mobile-menu-btn svg { width: 20px; height: 20px; }
+  /* Topbar page title: the drawer + page header already carry the context
+     on small screens — the label just narrows the row here */
+  .topbar-title { display: none; }
   /* Notifications dropdown: 340px absolute panel anchored to the bell
      overflows the left viewport edge on narrow screens — pin it as a
      near full-width sheet just below the sticky topbar instead */
@@ -1429,12 +1604,25 @@ button.star-border-container.star-border-cta {
   .page-header { flex-wrap: wrap; }
   .page-header-actions { flex-wrap: wrap; }
 
-  /* Next appointment banner: stack vertically; the date block becomes a
-     compact inline chip so the text gets the full card width */
-  .next-appt-card { flex-direction: column; align-items: stretch; row-gap: 12px; }
+  /* Next appointment banner (mobile): the info block takes the full card
+     width so "NEXT APPOINTMENT" and the doctor's name never wrap; the date
+     chip is lifted out of the flow and pinned over the right side of the
+     last meta line (Cardiology · 10:30 AM · Cardio Wing • Rm 402).
+     bottom = card padding (20px) + actions height (44px) + row gap (12px). */
+  .next-appt-card { flex-direction: column; align-items: stretch; row-gap: 12px; position: relative; }
+  .next-appt-info { min-width: 0; }
+  .next-appt-info .t-help,
+  .next-appt-info .doctor { white-space: nowrap; }
+  .next-appt-info .doctor {
+    font-size: 14px;
+    /* Safety: longer names clip with an ellipsis instead of spilling out */
+    overflow: hidden; text-overflow: ellipsis;
+  }
   .next-appt-date {
+    position: absolute; right: 20px; bottom: 76px;
     display: inline-flex; align-items: baseline; gap: 5px;
-    align-self: flex-start; width: auto; padding: 5px 12px;
+    width: auto; padding: 5px 12px;
+    flex-shrink: 0;
   }
   .next-appt-actions { width: 100%; }
   .next-appt-actions .btn { flex: 1; }
@@ -1530,6 +1718,18 @@ button.star-border-container.star-border-cta {
      under its label instead of squeezing beside one */
   .table-responsive-stack td.record-cell { display: block; text-align: left; }
   .table-responsive-stack td.record-cell::before { display: block; margin-bottom: 4px; }
+  /* Desktop column truncation (nowrap + ellipsis + max-width) clips the
+     stacked card's value mid-word (e.g. Medical records → Billing summary
+     "Service", admin queue "Reason") with no way to read the rest —
+     truncation is a narrow-table-column affordance, so unwrap it in the
+     stacked layout */
+  .table-responsive-stack td.cell-primary-truncate {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    /* !important: these cells carry an inline style={{ maxWidth: N }} in JSX */
+    max-width: none !important;
+  }
   /* Action buttons: side by side, splitting the card width */
   .table-responsive-stack .appt-actions { flex: 1; }
   .table-responsive-stack .appt-actions .btn { flex: 1; height: 44px; }
@@ -1537,12 +1737,26 @@ button.star-border-container.star-border-cta {
   /* Dashboard quick actions: single column */
   .quick-actions-grid { grid-template-columns: 1fr; }
 
-  /* Dashboard stats: full-width stat rows on mobile — icon chip + label
-     left, value right. The 3-across compact columns forced wrapped labels
-     and misaligned values (guide §28: readable compact summaries) */
-  .dashboard-stats { grid-template-columns: 1fr; gap: 8px; height: auto; }
+  /* Dashboard stats: merged into ONE card on mobile — three compact rows
+     (icon chip + label left, value right) separated by hairline dividers,
+     the same divider language as the contact info list on the public site.
+     Three separate floating cards read as disconnected widgets on small
+     screens; a single grouped card reads as one "health summary" block. */
+  .dashboard-stats {
+    grid-template-columns: 1fr; gap: 0; height: auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+  }
   .dashboard-stats .stat-card-span { grid-column: auto; }
-  .dashboard-stats .stat-card { flex-direction: row; align-items: center; gap: 12px; padding: 12px 14px; }
+  .dashboard-stats .stat-card {
+    flex-direction: row; align-items: center; gap: 12px;
+    padding: 14px 16px;
+    /* the container is the card now — rows drop their own borders */
+    border: 0; border-radius: 0;
+  }
+  .dashboard-stats .stat-card + .stat-card { border-top: 1px solid var(--border); }
   .dashboard-stats .stat-card .quick-action-icon { display: grid; order: -1; }
   .dashboard-stats .stat-label { font-size: 13px; min-height: 0; flex: 1; }
   .dashboard-stats .stat-label svg { display: none; }
@@ -1560,8 +1774,23 @@ button.star-border-container.star-border-cta {
   .auth-shell { grid-template-columns: 1fr; }
   .auth-visual-col { display: none; }
   .feature-grid { grid-template-columns: 1fr; }
+  /* How it works: back to the stacked numbered list on small screens —
+     one full-width step per row, hairline dividers between them */
+  .how-steps { grid-template-columns: 1fr; gap: 0; }
+  .how-steps li { border-top: 0; border-bottom: 1px solid var(--border); padding: 16px 0; }
+  .how-steps li:last-child { border-bottom: 0; }
   .public-hero { padding: 32px 20px; }
   .public-hero h1 { font-size: 30px; }
+  /* Photo hero on mobile: drop the full-viewport min-height so the preview
+     card and microcopy come into view after one scroll instead of nearly
+     two screens; stack the CTAs full-width (standard mobile pattern) */
+  .public-hero:not(.page-hero) {
+    min-height: 0;
+    padding: 40px 20px 44px;
+  }
+  .public-hero-actions { flex-direction: column; align-items: stretch; }
+  .public-hero-actions > .star-border-container { width: 100%; }
+  .public-hero-actions .star-border-cta .inner-content { width: 100%; }
   .public-hero.page-hero { padding: 28px 16px 24px; }
   .public-hero.page-hero h1 { font-size: 25px; }
   .detail-row { grid-template-columns: 1fr; gap: 2px; }
@@ -1688,14 +1917,19 @@ button.star-border-container.star-border-cta {
   animation: publicFadeIn 200ms ease;
 }
 
-/* "Find the right care" symptom-guide result panel — left accent marks it as
-   a system response, no icon needed */
+/* "Find the right care" symptom-guide result — a soft brand-tinted card
+   (same recipe as the portal's next-appointment banner: primary-soft fill,
+   #DBEAFE border, large radius) so it reads as part of the page's card
+   family instead of a generic left-stripe callout */
 .care-finder-panel {
-  margin-top: 16px; padding: 14px 16px;
-  border: 1px solid var(--border); border-left: 3px solid var(--primary);
-  border-radius: var(--r-sm); background: var(--surface);
+  margin-top: 16px; padding: 18px 20px;
+  background: var(--primary-soft);
+  border: 1px solid #DBEAFE; border-radius: var(--r-lg);
   animation: publicFadeIn 200ms ease;
 }
+/* Secondary CTA on the tinted fill: keep it quiet so the primary
+   "See {specialty} doctors" stays the one strong action */
+.care-finder-panel .btn-secondary { background: var(--surface); }
 
 /* Testimonial carousel */
 .testimonial-carousel { position: relative; overflow: hidden; }
@@ -1778,3 +2012,166 @@ button.star-border-container.star-border-cta {
    wrapper (.public-drawer is fixed top/bottom, so it has a definite height
    for the chain to resolve against). */
 .public-drawer > .public-drawer-slide { height: 100%; }
+
+/* ============================================================
+   Doctor portal — week view, chart-history links, clinical
+   context chips on the Complete-visit modal
+   ============================================================ */
+.doctor-week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+.doctor-week-day {
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--surface-muted);
+  padding: 8px; min-height: 96px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+/* Past days of the week read as history, not actionable space */
+.doctor-week-day.past { opacity: 0.55; }
+.doctor-week-day.today { border-color: var(--primary); background: var(--primary-soft); }
+.dw-day-head { display: flex; align-items: baseline; justify-content: space-between; }
+.dw-day-name { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; color: var(--text-muted); }
+.doctor-week-day.today .dw-day-name { color: var(--primary); }
+.dw-day-num { font-size: 14px; font-weight: 600; color: var(--text); }
+.dw-count { font-size: 10px; font-weight: 600; line-height: 15px; padding: 0 6px; border-radius: var(--r-pill); background: var(--primary); color: #fff; }
+/* Status dot (same colors as the badge system) instead of a left color
+   stripe — the chip reads as a clean calendar tile; full detail (time ·
+   patient · status) is on hover via the title attribute */
+.dw-appt {
+  display: flex; gap: 6px; align-items: flex-start;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 4px; padding: 5px 7px; font-size: 11px; line-height: 1.35;
+}
+.dw-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; background: var(--text-muted); }
+.dw-appt.st-confirmed .dw-dot { background: var(--primary); }
+.dw-appt.st-pending .dw-dot { background: var(--warning); }
+.dw-appt.st-completed .dw-dot { background: var(--success); }
+.dw-appt.st-cancelled .dw-dot { background: var(--text-muted); }
+.dw-appt.st-no-show .dw-dot { background: var(--error); }
+.dw-body { min-width: 0; flex: 1; }
+.dw-time { display: block; font-weight: 600; color: var(--text); }
+.dw-pat { display: block; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Clickable patient names inside the doctor's lists (chart history) —
+   blue reads as a link; the underline only appears on hover so rows of
+   names don't turn into a wall of underlined text */
+.link-btn {
+  background: none; border: 0; padding: 0; font: inherit; font-weight: inherit;
+  color: var(--primary); cursor: pointer; text-align: left;
+}
+.link-btn:hover { color: var(--primary-hover); text-decoration: underline; text-underline-offset: 2px; }
+/* Clinical context chips on the Complete-visit modal */
+.ctx-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.ctx-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px; border-radius: var(--r-pill);
+  background: var(--surface-muted); border: 1px solid var(--border);
+  font-size: 12px; color: var(--text-secondary);
+}
+.ctx-chip.alert { background: var(--error-soft); border-color: #FCA5A5; color: var(--error-text); font-weight: 500; }
+@media (max-width: 1100px) { .doctor-week-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 720px) {
+  .doctor-week-grid { grid-template-columns: repeat(2, 1fr); }
+  .doctor-week-day { min-height: 0; }
+}
+
+/* ============================================================
+   Patient portal additions — password show/hide toggle,
+   clickable notification rows, lab-result flags
+   ============================================================ */
+.input-group .pw-toggle {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  background: none; border: 0; padding: 6px; margin: 0;
+  color: var(--text-muted); cursor: pointer;
+  display: grid; place-items: center; border-radius: 6px;
+}
+.input-group .pw-toggle:hover { color: var(--text); background: var(--surface-muted); }
+.pw-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* Notification rows are real <button>s that open the related appointment */
+.notif-item.notif-link {
+  background: none; border: 0; width: 100%; font: inherit; text-align: left;
+  cursor: pointer;
+}
+.notif-item.notif-link:hover { background: var(--surface-muted); }
+.notif-item.notif-link:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+
+/* Billing summary figures (patient Medical records): desktop keeps the
+   auto-fit responsive grid from the old inline style; on mobile the three
+   figures sit side by side in one row instead of stacking into a tall
+   column — they are a single related group, not separate widgets. */
+.billing-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+@media (max-width: 720px) {
+  /* Content-sized columns spread across the row so the longest label
+     ("To settle at cashier") stays on ONE line instead of wrapping */
+  .billing-stats { grid-template-columns: repeat(3, auto); justify-content: space-between; gap: 10px; }
+  .billing-stats .t-muted { font-size: 11px; white-space: nowrap; }
+}
+
+/* ============================================================
+   Desktop-only fallback (Admin console / Doctor portal on small
+   screens) — App.jsx renders DesktopOnlyNotice in place of the
+   portal when the viewport is ≤720px. Centered, brand-marked.
+   ============================================================ */
+.desktop-only {
+  min-height: 100vh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; text-align: center;
+  padding: 32px 24px;
+  background: var(--bg);
+}
+.desktop-only-icon {
+  width: 48px; height: 48px; border-radius: 50%;
+  background: var(--primary-soft); color: var(--primary);
+  display: grid; place-items: center;
+  margin-top: 4px;
+}
+.desktop-only-icon svg { width: 24px; height: 24px; }
+.desktop-only h1 { font-size: 20px; font-weight: 600; margin: 0; color: var(--text); }
+.desktop-only p { font-size: 13.5px; color: var(--text-muted); max-width: 320px; margin: 0; line-height: 1.6; }
+
+/* Out-of-range lab finding pill (Medical Records → Lab results detail) */
+.lab-flag {
+  display: inline-block; font-size: 10.5px; font-weight: 700;
+  padding: 1px 7px; border-radius: var(--r-pill);
+  background: var(--error-soft); color: var(--error-text);
+  letter-spacing: 0.04em;
+}
+
+/* ============================================================
+   OTP verification (login step 2) — 6 one-character code boxes
+   + the labeled demo notice that shows the "emailed" code
+   (this prototype sends no real email)
+   ============================================================ */
+.otp-inputs { display: flex; gap: 8px; justify-content: center; }
+.otp-input {
+  width: 48px; height: 56px; padding: 0;
+  text-align: center; font-size: 20px; font-weight: 600;
+  text-transform: uppercase; font-family: 'IBM Plex Mono', ui-monospace, monospace;
+}
+.otp-input::selection { background: var(--primary-soft); }
+.otp-demo-box {
+  display: flex; gap: 10px; align-items: flex-start;
+  background: var(--info-soft); border: 1px solid var(--info-border);
+  border-radius: var(--r-sm); padding: 10px 12px;
+  font-size: 12.5px; line-height: 1.55; color: var(--info-text);
+}
+.otp-demo-box svg { flex-shrink: 0; color: var(--info); margin-top: 2px; }
+.otp-demo-code {
+  margin-top: 6px; font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 16px; font-weight: 700; letter-spacing: 0.14em;
+}
+@media (max-width: 720px) {
+  /* 6×48px boxes + gaps overflow the modal body on narrow screens */
+  .otp-input { width: 40px; height: 48px; font-size: 18px; }
+  .otp-inputs { gap: 6px; }
+  .otp-demo-code { font-size: 15px; }
+}
+
+/* Doctor portal — read-only star display for the Patient feedback card.
+   Lucide stars are stroke-only; the filled state colors the stroke and
+   fills the shape (same recipe as .rate-star.on). */
+.star-on svg { color: #F59E0B; fill: #F59E0B; }
+.star-off svg { color: var(--border-strong); }

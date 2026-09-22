@@ -4,22 +4,15 @@ import {
   Sidebar, Topbar, AppShell, PublicNav, PageHeader,
   Badge, StatusBadge, DoctorStatusBadge, DoctorAvatar, PatientAvatar,
   Modal, ToastLayer, Field, TextInput, TextArea, SelectInput,
-  Pagination, SkeletonRows, SortableTh, PageSpinner, EmptyState, ErrorState, ConfirmModal, MiniBarChart, DoctorRatingPill,
+  Pagination, SkeletonRows, SortableTh, PageSpinner, EmptyState, ErrorState, ConfirmModal, MiniBarChart, DoctorRatingPill, PwField,
 } from './components.jsx';
 import {
   HOSPITAL, SPECIALTIES, DOCTORS, PATIENTS, CURRENT_PATIENT, CURRENT_ADMIN,
   APPOINTMENTS, AVAILABILITY_TEMPLATE,
   findDoctor, findPatient, formatDate, formatDateLong, initials, statusMeta, doctorStatusMeta,
-  isSlotTaken, getSlotsFor, downloadFile,
+  isSlotTaken, getSlotsFor, slotFitsInterval, downloadFile, isClinicDay, timeValue,
 } from './data.js';
-// React Bits building blocks (same set the public pages use) — reused across
-// the patient portal so the app and marketing site share one motion language.
-import AnimatedContent from './reactbits/AnimatedContent.jsx';
-import FadeContent from './reactbits/FadeContent.jsx';
-import CountUp from './reactbits/CountUp.jsx';
-import ShinyText from './reactbits/ShinyText.jsx';
-import SpotlightCard from './reactbits/SpotlightCard.jsx';
-import StarBorder from './reactbits/StarBorder.jsx';
+
 
 
 // ============================================================
@@ -37,15 +30,6 @@ function activateOnKey(action) {
       action();
     }
   };
-}
-
-// Time-aware greeting (guideline 15 — realistic data: a fixed
-// "Good morning" is wrong in the afternoon or evening)
-function greeting() {
-  const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 18) return 'Good afternoon';
-  return 'Good evening';
 }
 
 // "2026-09-11" + "10:30 AM" → ICS timestamp "20260911T103000" (floating local time)
@@ -106,13 +90,82 @@ function buildReceipt(appt, doctor, patient) {
 </html>`;
 }
 
+// Local (not UTC) YYYY-MM-DD so "today" matches the user's timezone
+function localToday() {
+  const n = new Date();
+  const pad = (x) => String(x).padStart(2, '0');
+  return `${n.getFullYear()}-${pad(n.getMonth() + 1)}-${pad(n.getDate())}`;
+}
+
+// Printable full medical summary (visit records + medications + lab results +
+// billing) — downloaded from the Medical Records page as a print-friendly HTML
+// file the browser can "Save as PDF". Same pattern as the appointment receipt;
+// addresses the privacy page's "you may request a copy of your records" right.
+function buildRecordsHTML(patient, records, meds, labs, bills) {
+  const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const row = (label, value) => `<tr><td class="l">${esc(label)}</td><td>${esc(value)}</td></tr>`;
+  const recordRows = records.map(r =>
+    `<tr><td>${esc(window.formatDate(r.date))}</td><td>${esc((window.findDoctor(r.doctorId) || {}).name || '—')}</td><td>${esc(r.title)}</td><td>${esc(r.summary)}</td></tr>`).join('');
+  const medRows = meds.map(m =>
+    `<tr><td><strong>${esc(m.name)}</strong></td><td>${esc(m.dose)} · ${esc(m.form)}</td><td>${esc(m.frequency)}</td><td>${esc((window.findDoctor(m.prescriberId) || {}).name || '—')}</td><td>${esc(m.status)}</td></tr>`).join('');
+  const labBlocks = labs.map(l =>
+    `<h3>${esc(l.name)} — ${esc(window.formatDate(l.date))} <span class="muted">(${esc(l.category)})</span></h3>
+    <table>${l.results.map(r => `<tr><td class="l">${esc(r.item)}</td><td${r.flag ? ' class="flag"' : ''}><strong>${esc(r.value)} ${esc(r.unit)}</strong>${r.flag ? ` <span class="flagchip">${esc(r.flag.toUpperCase())}</span>` : ''}</td><td class="muted">${esc(r.range)}</td></tr>`).join('')}</table>`).join('');
+  const billRows = bills.map(b =>
+    `<tr><td>${esc(window.formatDate(b.date))}</td><td>${esc(b.service)}</td><td>${esc(b.doctor)}</td><td>₱${Number(b.amount).toLocaleString()}</td><td>${esc(b.status)}</td></tr>`).join('');
+  return `<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Medical records — ${esc(patient.name)} · MedicaCare</title>
+<style>
+  @page { margin: 14mm; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; max-width: 720px; margin: 40px auto; font-size: 13px; line-height: 1.55; }
+  h1 { margin: 0; font-size: 22px; }
+  .head { border-bottom: 2px solid #1e293b; padding-bottom: 12px; margin-bottom: 6px; }
+  .muted { color: #64748b; font-weight: 400; }
+  h2 { font-size: 14px; margin: 24px 0 6px; text-transform: uppercase; letter-spacing: .06em; }
+  h3 { font-size: 13px; margin: 14px 0 4px; }
+  table { border-collapse: collapse; width: 100%; margin: 4px 0 10px; }
+  td { padding: 6px 8px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+  td.l { color: #64748b; width: 180px; }
+  td.flag { color: #b91c1c; }
+  .flagchip { background: #fef2f2; color: #b91c1c; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 999px; }
+  .foot { margin-top: 28px; padding-top: 10px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; }
+</style>
+</head>
+<body>
+  <div class="head">
+    <h1>MedicaCare</h1>
+    <div class="muted">221 Rizal Avenue, Quezon City · +63 (2) 8567 4400 · care@medicacare.ph</div>
+  </div>
+  <h2>Patient</h2>
+  <table>
+    ${row('Name', patient.name)}
+    ${row('Date of birth', patient.dob || '—')}
+    ${row('Blood type', patient.bloodType || '—')}
+    ${row('Known allergies', patient.allergies || 'None')}
+    ${row('Emergency contact', patient.emergencyContact || '—')}
+  </table>
+  <h2>Visit records</h2>
+  ${recordRows ? `<table><tr><td class="l">Date</td><td class="l">Doctor</td><td class="l">Reason for visit</td><td>Notes</td></tr>${recordRows}</table>` : '<p class="muted">No completed visits yet.</p>'}
+  <h2>Medications</h2>
+  ${medRows ? `<table><tr><td class="l">Medicine</td><td class="l">Dose / form</td><td class="l">Frequency</td><td class="l">Prescriber</td><td>Status</td></tr>${medRows}</table>` : '<p class="muted">No medications on file.</p>'}
+  <h2>Lab results</h2>
+  ${labBlocks || '<p class="muted">No lab results on file.</p>'}
+  <h2>Billing summary</h2>
+  ${billRows ? `<table><tr><td class="l">Date</td><td class="l">Service</td><td class="l">Doctor</td><td class="l">Amount</td><td>Status</td></tr>${billRows}</table>` : '<p class="muted">No bills yet.</p>'}
+  <p class="foot">Generated by the MedicaCare patient portal on ${esc(window.formatDateLong(localToday()))} · Prototype: fictional demo data — not a medical document.</p>
+</body>
+</html>`;
+}
+
 
 // ============================================================
 // Patient screens
 // ============================================================
 
 // ---------- Patient Dashboard ----------
-// Patient-specific, state-aware: the greeting subtitle, stats, and banner all
+// Patient-specific, state-aware: the subtitle, stats, and banner all
 // reflect this patient's actual schedule (no generic template copy).
 function PatientDashboard() {
   const store = useStore();
@@ -124,7 +177,7 @@ function PatientDashboard() {
   const myAppts = store.appointments.filter(a => a.patientId === me.id);
   const upcoming = myAppts
     .filter(a => a.status === 'confirmed' || a.status === 'pending')
-    .sort((a, b) => a.date.localeCompare(b.date));
+    .sort((a, b) => a.date.localeCompare(b.date) || timeValue(a.time) - timeValue(b.time));
   const next = upcoming[0];
   // Fallback keeps the banner rendering if this doctor was removed in the admin console
   const nextDoctor = next ? (window.findDoctor(next.doctorId) || { name: 'Unknown doctor', specialty: '—', room: '—' }) : null;
@@ -144,7 +197,7 @@ function PatientDashboard() {
 
   const stats = [
     { label: 'Upcoming', value: upcoming.length, context: next ? `Next on ${window.formatDate(next.date)}` : 'No appointments booked', icon: 'calendar-days' },
-    { label: 'Completed visits', value: completed12mo.length, context: 'In the last 12 months', icon: 'check-circle-2' },
+    { label: 'Completed visits', value: completed12mo.length, context: completed12mo.length ? `Across ${new Set(completed12mo.map(a => a.doctorId)).size} doctor${new Set(completed12mo.map(a => a.doctorId)).size === 1 ? '' : 's'}` : 'No visits in the last 12 months', icon: 'check-circle-2' },
     { label: 'Last visit', value: lastVisitShort, context: lastVisitDoctor ? `With ${lastVisitDoctor.name}` : 'No past visits yet', icon: 'clock' },
   ];
 
@@ -156,58 +209,43 @@ function PatientDashboard() {
   return (
     <AppShell current="dashboard">
       <div className="page">
+        {/* Subtitle skeletoned during the same 600ms loading window as the
+            banner/stats below so every row of the page fades in together;
+            the title is static ("Dashboard") so it stays */}
         <PageHeader
-          title={(
-            // React Bits ShinyText — same greeting treatment as the public hero
-            <ShinyText
-              text={`${greeting()}, ${me.name.split(' ')[0]}`}
-              speed={4} color="#111827" shineColor="#2563EB" spread={120}
-            />
-          )}
+          title="Dashboard"
           subtitle={loading
-            ? <span className="skel" aria-hidden="true" style={{ width: 360, maxWidth: '100%', height: 14 }} />
+            ? <span className="skel" aria-hidden="true" style={{ width: 430, maxWidth: '100%', height: 14 }} />
             : subtitle}
           actions={
-            // React Bits StarBorder — the animated-border CTA from the public
-            // hero, reused as the dashboard's primary action
-            <StarBorder
-              as="button"
-              type="button"
-              onClick={() => navigate('/patient/book')}
-              color="#7CC0FF"
-              backgroundColor="var(--primary)"
-              textColor="#ffffff"
-              borderColor="var(--primary)"
-              speed="5s"
-              thickness={1}
-              className="star-border-cta"
-            >
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <Icon name="calendar-plus" size={14} /> Book appointment
-              </span>
-            </StarBorder>
+            <button type="button" className="btn btn-primary" onClick={() => navigate('/patient/book')}>
+              <Icon name="calendar-plus" size={14} /> Book appointment
+            </button>
           }
         />
 
-        {/* Next appointment banner (skeleton while loading) */}
+        {/* Next appointment banner (skeleton while loading) — mirrors the
+            real banner's layout on both breakpoints: compact date chip,
+            label + name + two meta lines in the info block, and two
+            equal-width action buttons at the bottom */}
         {loading ? (
           <div className="next-appt-card" style={{ marginBottom: 20 }} aria-hidden="true">
-            <div className="next-appt-date" style={{ display: 'grid', placeItems: 'center', padding: '14px 8px' }}>
-              <span className="skel" style={{ width: 30, height: 12 }} />
-              <span className="skel" style={{ width: 24, height: 24, marginTop: 5 }} />
+            <div className="next-appt-date">
+              <span className="skel" style={{ display: 'block', width: 26, height: 10, margin: '0 auto' }} />
+              <span className="skel" style={{ display: 'block', width: 22, height: 18, margin: '5px auto 0' }} />
             </div>
             <div className="next-appt-info">
-              <span className="skel" style={{ width: 150, height: 11, display: 'block' }} />
-              <span className="skel" style={{ width: 260, maxWidth: '100%', height: 20, display: 'block', marginTop: 10 }} />
-              <span className="skel" style={{ width: 330, maxWidth: '100%', height: 12, display: 'block', marginTop: 12 }} />
+              <span className="skel" style={{ width: 140, height: 10, display: 'block' }} />
+              <span className="skel" style={{ width: '72%', height: 15, display: 'block', marginTop: 9 }} />
+              <span className="skel" style={{ width: '52%', height: 12, display: 'block', marginTop: 10 }} />
+              <span className="skel" style={{ width: '44%', height: 12, display: 'block', marginTop: 8 }} />
             </div>
             <div className="next-appt-actions">
-              <span className="skel" style={{ width: 100, height: 34 }} />
-              <span className="skel" style={{ width: 114, height: 34 }} />
+              <span className="skel" style={{ flex: 1, maxWidth: 130, height: 44 }} />
+              <span className="skel" style={{ flex: 1, maxWidth: 114, height: 44 }} />
             </div>
           </div>
         ) : next ? (
-          <AnimatedContent distance={24} duration={0.6}>
           <div className="next-appt-card" style={{ marginBottom: 20 }}>
             <div className="next-appt-date">
               <div className="month">{nextDate.toLocaleDateString('en-US', { month: 'short' })}</div>
@@ -227,10 +265,11 @@ function PatientDashboard() {
             </div>
             <div className="next-appt-actions">
               <button className="btn btn-secondary" onClick={() => navigate('/patient/appointment/' + next.id)}>View details</button>
-              <button className="btn btn-primary" onClick={() => navigate('/patient/status')}>Check status</button>
+              {/* Ghost, not primary — the header's "Book appointment" is this
+                  view's single primary CTA (one saturated button per screen) */}
+              <button className="btn btn-ghost" onClick={() => navigate('/patient/status')}>Check status</button>
             </div>
           </div>
-          </AnimatedContent>
         ) : (
           <div className="card" style={{ marginBottom: 20 }}>
             <EmptyState
@@ -243,21 +282,33 @@ function PatientDashboard() {
         )}
 
         {/* Stats + Quick actions */}
-        <AnimatedContent distance={24} duration={0.6} delay={0.08}>
         <div className="two-col" style={{ marginBottom: 20, alignItems: 'stretch' }}>
           <div className="card">
             <div className="card-header">
               <h2 className="h-section">Quick actions</h2>
             </div>
             <div className="quick-actions-grid">
-              <button type="button" className="quick-action" onClick={() => navigate('/patient/book')}>
-                <div className="quick-action-icon"><Icon name="calendar-plus" size={18} /></div>
-                <div className="quick-action-body">
-                  <div className="quick-action-title">Book appointment</div>
-                  <div className="quick-action-sub">Find a doctor and time slot</div>
-                </div>
-                <Icon name="chevron-right" size={16} className="quick-action-arrow" />
-              </button>
+              {/* Context-aware first tile: with an upcoming visit the top action
+                  is managing that visit; without one it's booking a new one */}
+              {next ? (
+                <button type="button" className="quick-action" onClick={() => navigate('/patient/appointment/' + next.id)}>
+                  <div className="quick-action-icon"><Icon name="calendar-clock" size={18} /></div>
+                  <div className="quick-action-body">
+                    <div className="quick-action-title">Reschedule next visit</div>
+                    <div className="quick-action-sub">Currently {window.formatDate(next.date)}, {next.time}</div>
+                  </div>
+                  <Icon name="chevron-right" size={16} className="quick-action-arrow" />
+                </button>
+              ) : (
+                <button type="button" className="quick-action" onClick={() => navigate('/patient/book')}>
+                  <div className="quick-action-icon"><Icon name="calendar-plus" size={18} /></div>
+                  <div className="quick-action-body">
+                    <div className="quick-action-title">Book appointment</div>
+                    <div className="quick-action-sub">Find a doctor and time slot</div>
+                  </div>
+                  <Icon name="chevron-right" size={16} className="quick-action-arrow" />
+                </button>
+              )}
               <button type="button" className="quick-action" onClick={() => navigate('/patient/doctors')}>
                 <div className="quick-action-icon"><Icon name="stethoscope" size={18} /></div>
                 <div className="quick-action-body">
@@ -305,11 +356,7 @@ function PatientDashboard() {
                 ) : (
                   <>
                     <div className="stat-label"><Icon name={s.icon} size={14} /> {s.label}</div>
-                    {/* React Bits CountUp — numeric stats count up on load; the
-                        "Last visit" stat is a date string and stays static */}
-                    <div className="stat-value">
-                      {typeof s.value === 'number' ? <CountUp to={s.value} duration={1.2} /> : s.value}
-                    </div>
+                    <div className="stat-value">{s.value}</div>
                     <div className="stat-delta">{s.context}</div>
                   </>
                 )}
@@ -317,10 +364,8 @@ function PatientDashboard() {
             ))}
           </div>
         </div>
-        </AnimatedContent>
 
         {/* Recent activity */}
-        <FadeContent duration={700}>
         <div className="card">
           <div className="card-header">
             <h2 className="h-section">Recent activity</h2>
@@ -367,7 +412,6 @@ function PatientDashboard() {
             })}
           </div>
         </div>
-        </FadeContent>
       </div>
     </AppShell>
   );
@@ -485,13 +529,12 @@ function DoctorListing() {
           <>
             <div className="doctor-grid">
               {visibleDoctors.map((d, i) => (
-              // React Bits AnimatedContent + SpotlightCard wrap each card (same
-              // treatment as the public doctor grid). The interactive card keeps
-              // role="button" instead of a real <button> because the card contains
-              // its own nested buttons (View profile / Book); keyboard users get
-              // Enter/Space activation via activateOnKey (guidelines 20 & 36)
-              <AnimatedContent className="card-anim" distance={40} duration={0.6} delay={(i % 3) * 0.1} key={d.id}>
-              <SpotlightCard className="doctor-card-wrap" spotlightColor="rgba(37, 99, 235, 0.10)">
+              // Plain wrapper — no entrance or spotlight-glow animation. The
+              // interactive card keeps role="button" instead of a real <button>
+              // because the card contains its own nested buttons (View profile /
+              // Book); keyboard users get Enter/Space activation via
+              // activateOnKey (guidelines 20 & 36)
+              <div className="doctor-card-wrap" key={d.id}>
               <div
                 className="doctor-card"
                 role="button"
@@ -529,8 +572,7 @@ function DoctorListing() {
                   </button>
                 </div>
               </div>
-              </SpotlightCard>
-              </AnimatedContent>
+              </div>
             ))}
             </div>
 
@@ -598,7 +640,8 @@ function DoctorAvailability({ doctorId }) {
   const store = useStore();
   const doctor = window.findDoctor(doctorId);
   const dates = Object.keys(window.AVAILABILITY_TEMPLATE);
-  const [date, setDate] = useState(dates[0]);
+  // Default to the first date that falls on the doctor's clinic days
+  const [date, setDate] = useState(() => dates.find(d => isClinicDay(doctorId, d)) || dates[0]);
   const [slot, setSlot] = useState(null);
 
   if (!doctor) {
@@ -609,7 +652,24 @@ function DoctorAvailability({ doctorId }) {
     );
   }
 
-  const slots = getSlotsFor(doctor.id, date, store.appointments);
+  // On-leave doctors are not bookable — the list pages disable the Book
+  // button; this guards the same flow against a typed deep link
+  if (doctor.status === 'on-leave') {
+    return (
+      <AppShell current="doctors">
+        <div className="page">
+          <ErrorState
+            title="This doctor is on leave"
+            message={`${doctor.name} is not accepting bookings right now. Browse other specialists and check back when they return.`}
+            onRetry={() => navigate('/patient/doctors')}
+          />
+        </div>
+      </AppShell>
+    );
+  }
+
+  const interval = (store.prefs || {}).slotInterval || '30';
+  const slots = getSlotsFor(doctor.id, date, store.appointments).filter(([t]) => slotFitsInterval(t, interval));
 
   const cont = () => {
     if (!slot) return;
@@ -642,14 +702,16 @@ function DoctorAvailability({ doctorId }) {
                 {dates.map(d => {
                   const dt = new Date(d + 'T00:00:00');
                   const on = d === date;
+                  const clinicDay = isClinicDay(doctorId, d);
                   return (
-                    <button key={d} onClick={() => { setDate(d); setSlot(null); }}
+                    <button key={d} disabled={!clinicDay} title={clinicDay ? undefined : 'Not a clinic day'}
+                      onClick={() => { setDate(d); setSlot(null); }}
                       className="chip date-chip"
                       style={{
                         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
                         padding: '10px 14px', borderRadius: 8,
-                        background: on ? 'var(--primary)' : 'var(--surface)',
-                        color: on ? '#fff' : 'var(--text-secondary)',
+                        background: on ? 'var(--primary)' : clinicDay ? 'var(--surface)' : 'var(--surface-muted)',
+                        color: on ? '#fff' : clinicDay ? 'var(--text-secondary)' : 'var(--text-subtle)',
                         borderColor: on ? 'var(--primary)' : 'var(--border-strong)',
                       }}>
                       <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 500 }}>
@@ -669,20 +731,28 @@ function DoctorAvailability({ doctorId }) {
                 <span className="t-muted" style={{ fontSize: 12 }}>{window.formatDateLong(date)}</span>
               </div>
               <div style={{ padding: 20 }}>
-                <div className="chip-group">
-                  {slots.map(([t, ok]) => (
-                    <button key={t} className={'chip' + (slot === t ? ' on' : '')}
-                      disabled={!ok}
-                      onClick={() => setSlot(t)}>
-                      {t}
-                    </button>
-                  ))}
-                </div>
+                {slots.length === 0 ? (
+                  <p className="t-muted" style={{ margin: 0 }}>
+                    No bookable slots on this date — it falls outside the doctor's clinic days. Please pick another date.
+                  </p>
+                ) : (
+                  <>
+                    <div className="chip-group">
+                      {slots.map(([t, ok]) => (
+                        <button key={t} className={'chip' + (slot === t ? ' on' : '')}
+                          disabled={!ok}
+                          onClick={() => setSlot(t)}>
+                          {t}
+                        </button>
+                      ))}
+                    </div>
                 <div style={{ display: 'flex', gap: 16, marginTop: 20, fontSize: 12, color: 'var(--text-muted)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border-strong)' }} /> Available</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, borderRadius: 999, background: 'var(--surface-muted)' }} /> Booked</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, borderRadius: 999, background: 'var(--primary)' }} /> Selected</div>
-                </div>
+                    </div>
+                  </>
+                )}
               </div>
               <div className="card-footer">
                 <button className="btn btn-secondary" onClick={() => navigate('/patient/doctors')}>Cancel</button>
@@ -705,12 +775,18 @@ function DoctorAvailability({ doctorId }) {
                 </div>
                 <DoctorStatusBadge status={doctor.status} />
                 <div className="divider" />
+                {/* Stacked label/value rows (detail-row compact): this card sits in
+                    the narrow 1fr side column — the fixed 180px label column of the
+                    default detail-row leaves too little room for values like
+                    "Outpatient • Rm 120" or the rating pill, so they wrapped onto a
+                    second line. Compact gives each value the full card width on one
+                    line (same pattern as the Book Appointment summary card). */}
                 <div className="detail-list">
-                  <div className="detail-row"><div className="label">Consultation fee</div><div className="value">₱{doctor.fee.toLocaleString()}</div></div>
-                  <div className="detail-row"><div className="label">Experience</div><div className="value">{doctor.exp} years</div></div>
-                  <div className="detail-row"><div className="label">Rating</div><div className="value"><DoctorRatingPill ratings={store.ratings} doctorId={doctor.id} /></div></div>
-                  <div className="detail-row"><div className="label">Room</div><div className="value">{doctor.room}</div></div>
-                  <div className="detail-row"><div className="label">Consultation length</div><div className="value">30 minutes</div></div>
+                  <div className="detail-row compact"><div className="label">Consultation fee</div><div className="value">₱{doctor.fee.toLocaleString()}</div></div>
+                  <div className="detail-row compact"><div className="label">Experience</div><div className="value">{doctor.exp} years</div></div>
+                  <div className="detail-row compact"><div className="label">Rating</div><div className="value"><DoctorRatingPill ratings={store.ratings} doctorId={doctor.id} /></div></div>
+                  <div className="detail-row compact"><div className="label">Room</div><div className="value">{doctor.room}</div></div>
+                  <div className="detail-row compact"><div className="label">Consultation length</div><div className="value">30 minutes</div></div>
                 </div>
               </div>
             </div>
@@ -722,7 +798,6 @@ function DoctorAvailability({ doctorId }) {
             </p>
 
             {slot && (
-              <AnimatedContent distance={24} duration={0.5}>
               <div className="card" style={{ background: 'var(--primary-soft)', borderColor: '#DBEAFE' }}>
                 <div style={{ padding: 16 }}>
                   <div className="t-help" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--primary)' }}>Your selection</div>
@@ -732,7 +807,6 @@ function DoctorAvailability({ doctorId }) {
                   </div>
                 </div>
               </div>
-              </AnimatedContent>
             )}
           </div>
         </div>
@@ -758,6 +832,7 @@ function BookAppointment() {
     notes: '',
     contact: me.phone,
     isFirstVisit: 'yes',
+    forWhom: 'self',
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -785,6 +860,9 @@ function BookAppointment() {
     setTimeout(() => {
       setLoading(false);
       const id = 'ap' + Date.now();
+      // Admin "Auto-confirm" preference drives the initial status — when on,
+      // bookings skip the pending review queue entirely
+      const status = (store.prefs && store.prefs.autoConfirm) ? 'confirmed' : 'pending';
       const newAppt = {
         id,
         patientId: me.id,
@@ -792,10 +870,15 @@ function BookAppointment() {
         date: form.date,
         time: form.time,
         reason: form.reason.trim(),
-        status: 'pending',
+        status,
         createdAt: new Date().toISOString().slice(0, 10),
+        // Proxy booking: who the visit is actually for (account owner or a
+        // family member saved on the Profile page)
+        bookedFor: form.forWhom === 'self' ? me.name : form.forWhom,
       };
       store.setAppointments([newAppt, ...store.appointments]);
+      store.pushActivity(me.name, 'Booked appointment',
+        `${doctor ? doctor.name : 'A doctor'} · ${window.formatDate(form.date)} at ${form.time}`);
       store.setLastBookingId(id);
       store.setPendingBooking(null);
       navigate('/patient/confirmation');
@@ -825,7 +908,6 @@ function BookAppointment() {
 
         <div className="two-col">
           <form onSubmit={submit} noValidate>
-            <AnimatedContent distance={24} duration={0.6}>
             <div className="card">
               <div className="card-header"><h2 className="h-section">Appointment details</h2></div>
               <div className="card-body">
@@ -838,8 +920,18 @@ function BookAppointment() {
                       if (e.target.value !== prev) setForm(f => ({ ...f, date: '', time: '' }));
                     }} error={errors.doctorId}>
                       <option value="">Select a doctor...</option>
-                      {store.doctors.map(d => (
+                      {/* On-leave doctors are hidden here too so the dropdown
+                          can't bypass the availability page's on-leave guard */}
+                      {store.doctors.filter(d => d.status !== 'on-leave').map(d => (
                         <option key={d.id} value={d.id}>{d.name} ({d.specialty})</option>
+                      ))}
+                    </SelectInput>
+                  </Field>
+                  <Field label="Who is this visit for?" help="Book for yourself or a family member saved on your Profile page.">
+                    <SelectInput value={form.forWhom} onChange={e => update('forWhom', e.target.value)}>
+                      <option value="self">Myself ({me.name})</option>
+                      {(store.familyMembers || []).map(f => (
+                        <option key={f.id} value={f.name}>{f.name} ({f.relation})</option>
                       ))}
                     </SelectInput>
                   </Field>
@@ -852,17 +944,24 @@ function BookAppointment() {
                         if (e.target.value !== prev) setForm(f => ({ ...f, time: '' }));
                       }} error={errors.date}>
                         <option value="">Choose a date...</option>
-                        {Object.keys(window.AVAILABILITY_TEMPLATE).map(d => (
-                          <option key={d} value={d}>{window.formatDateLong(d)}</option>
-                        ))}
+                        {Object.keys(window.AVAILABILITY_TEMPLATE).map(d => {
+                          const clinicDay = !form.doctorId || isClinicDay(form.doctorId, d);
+                          return (
+                            <option key={d} value={d}>
+                              {window.formatDateLong(d)}{clinicDay ? '' : ' — not a clinic day'}
+                            </option>
+                          );
+                        })}
                       </SelectInput>
                     </Field>
                     <Field label="Time slot" required error={errors.time}>
                       <SelectInput value={form.time} onChange={e => update('time', e.target.value)} error={errors.time}>
                         <option value="">Choose a time...</option>
-                        {getSlotsFor(form.doctorId, form.date, store.appointments).filter(s => s[1]).map(([t]) => (
-                          <option key={t} value={t}>{t}</option>
-                        ))}
+                        {getSlotsFor(form.doctorId, form.date, store.appointments)
+                          .filter(s => s[1] && slotFitsInterval(s[0], (store.prefs || {}).slotInterval || '30'))
+                          .map(([t]) => (
+                            <option key={t} value={t}>{t}</option>
+                          ))}
                       </SelectInput>
                     </Field>
                   </div>
@@ -904,10 +1003,8 @@ function BookAppointment() {
                 </button>
               </div>
             </div>
-            </AnimatedContent>
           </form>
 
-          <FadeContent duration={700}>
           <div className="stack lg">
             <div className="card">
               <div className="card-header"><h2 className="h-section">Summary</h2></div>
@@ -922,10 +1019,14 @@ function BookAppointment() {
                       </div>
                     </div>
                     <div className="detail-list">
-                      <div className="detail-row"><div className="label">Date</div><div className="value">{form.date ? window.formatDateLong(form.date) : '—'}</div></div>
-                      <div className="detail-row"><div className="label">Time</div><div className="value">{form.time || '—'}</div></div>
-                      <div className="detail-row"><div className="label">Location</div><div className="value">{doctor.room}</div></div>
-                      <div className="detail-row"><div className="label">Consultation fee</div><div className="value">₱{doctor.fee.toLocaleString()}</div></div>
+                      {/* Compact stacked rows: this card sits in the narrow 1fr
+                          side column — the side-by-side label/value grid leaves
+                          too little room for values like long dates (same
+                          pattern as the other narrow side cards) */}
+                      <div className="detail-row compact"><div className="label">Date</div><div className="value">{form.date ? window.formatDateLong(form.date) : '—'}</div></div>
+                      <div className="detail-row compact"><div className="label">Time</div><div className="value">{form.time || '—'}</div></div>
+                      <div className="detail-row compact"><div className="label">Location</div><div className="value">{doctor.room}</div></div>
+                      <div className="detail-row compact"><div className="label">Consultation fee</div><div className="value">₱{doctor.fee.toLocaleString()}</div></div>
                     </div>
                   </>
                 ) : (
@@ -938,13 +1039,13 @@ function BookAppointment() {
               <div style={{ padding: 16, display: 'flex', gap: 12 }}>
                 <Icon name="info" size={18} style={{ color: 'var(--info)', marginTop: 2 }} />
                 <div style={{ fontSize: 13, color: 'var(--info-text)', lineHeight: 1.6 }}>
-                  Your appointment will be reviewed by our staff. Its status will update here in the portal.
-                  You can cancel free of charge any time before your visit.
+                  {(store.prefs || {}).autoConfirm
+                    ? 'Your appointment is confirmed instantly — no waiting for staff review. You can cancel free of charge any time before your visit.'
+                    : 'Your appointment will be reviewed by our staff. Its status will update here in the portal. You can cancel free of charge any time before your visit.'}
                 </div>
               </div>
             </div>
           </div>
-          </FadeContent>
         </div>
       </div>
     </AppShell>
@@ -967,7 +1068,9 @@ function BookingConfirmation() {
           </div>
           <h1 className="h-page" style={{ marginBottom: 8 }}>Appointment successfully booked</h1>
           <p className="t-muted" style={{ fontSize: 14, maxWidth: 400, margin: '0 auto 24px' }}>
-            Your appointment request has been received. You can track your appointment status any time from your dashboard.
+            {appt && appt.status === 'confirmed'
+              ? 'Your appointment is confirmed — no waiting for staff review. You can track it any time from your dashboard.'
+              : 'Your appointment request has been received. You can track your appointment status any time from your dashboard.'}
           </p>
 
           {appt && doctor && (
@@ -978,7 +1081,7 @@ function BookingConfirmation() {
                   <div style={{ fontWeight: 600 }}>{doctor.name}</div>
                   <div className="t-muted" style={{ fontSize: 13 }}>{doctor.specialty}</div>
                 </div>
-                <div style={{ marginLeft: 'auto' }}><StatusBadge status="pending" /></div>
+                <div style={{ marginLeft: 'auto' }}><StatusBadge status={appt.status} /></div>
               </div>
               <div className="divider" />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -1022,7 +1125,7 @@ function AppointmentStatus() {
   useEffect(() => { const t = setTimeout(() => setLoading(false), 600); return () => clearTimeout(t); }, []);
   const active = store.appointments
     .filter(a => a.patientId === me.id && (a.status === 'pending' || a.status === 'confirmed'))
-    .sort((a, b) => a.date.localeCompare(b.date));
+    .sort((a, b) => a.date.localeCompare(b.date) || timeValue(a.time) - timeValue(b.time));
 
   const appt = active[0] || store.appointments.find(a => a.patientId === me.id);
 
@@ -1032,7 +1135,7 @@ function AppointmentStatus() {
   if (loading) {
     return (
       <AppShell current="dashboard">
-        <div className="page" style={{ maxWidth: 900 }}>
+        <div className="page" style={{ maxWidth: 900, margin: '0 auto' }}>
           <PageHeader
             title="Appointment status"
             subtitle="Track your current appointment's progress."
@@ -1119,7 +1222,7 @@ function AppointmentStatus() {
 
   return (
     <AppShell current="dashboard">
-      <div className="page" style={{ maxWidth: 900 }}>
+      <div className="page" style={{ maxWidth: 900, margin: '0 auto' }}>
         <PageHeader
           title="Appointment status"
           subtitle="Track your current appointment's progress."
@@ -1152,17 +1255,13 @@ function AppointmentStatus() {
               </div>
               <div className="appt-fact">
                 <div className="t-help">Fee</div>
-                <div style={{ fontSize: 15, fontWeight: 500 }}>
-                  {/* React Bits CountUp — the fee counts up when the page loads */}
-                  ₱<CountUp to={doctor.fee} duration={1.4} separator="," />
-                </div>
+                <div style={{ fontSize: 15, fontWeight: 500 }}>₱{doctor.fee.toLocaleString()}</div>
               </div>
             </div>
           </div>
         </div>
 
         <div className="two-col">
-          <FadeContent duration={800}>
           <div className="card">
             <div className="card-header"><h2 className="h-section">Progress timeline</h2></div>
             <div className="card-body">
@@ -1181,7 +1280,6 @@ function AppointmentStatus() {
               </div>
             </div>
           </div>
-          </FadeContent>
 
           <div className="card">
             <div className="card-header"><h2 className="h-section">What to bring</h2></div>
@@ -1254,8 +1352,8 @@ function AppointmentHistory() {
   const sorted = filtered.slice().sort((a, b) => {
     const va = sortVal(a), vb = sortVal(b);
     if (va !== vb) return (va < vb ? -1 : 1) * dir;
-    // Tie-breaker: equal values keep the newest-first date order
-    return b.date.localeCompare(a.date);
+    // Tie-breaker: equal values keep newest-first date order, then true time order
+    return b.date.localeCompare(a.date) || timeValue(a.time) - timeValue(b.time);
   });
 
   const paged = sorted.slice((page - 1) * PAGE, page * PAGE);
@@ -1301,6 +1399,7 @@ function AppointmentHistory() {
               <option value="confirmed">Confirmed</option>
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
+              <option value="no-show">No-show</option>
             </SelectInput>
           </div>
 
@@ -1479,7 +1578,7 @@ function AppointmentDetails({ apptId }) {
 
   return (
     <AppShell current="history">
-      <div className="page" style={{ maxWidth: 960 }}>
+      <div className="page" style={{ maxWidth: 960, margin: '0 auto' }}>
         <PageHeader
           title="Appointment details"
           breadcrumbs={[{ label: 'Home', to: '/patient/dashboard' }, { label: 'Appointments', to: '/patient/history' }, { label: 'Details' }]}
@@ -1507,6 +1606,7 @@ function AppointmentDetails({ apptId }) {
               <div className="divider" />
               <div className="detail-list">
                 <div className="detail-row"><div className="label">Reference number</div><div className="value t-mono">{appt.id.toUpperCase()}</div></div>
+                <div className="detail-row"><div className="label">Booked for</div><div className="value">{appt.bookedFor || me.name}</div></div>
                 <div className="detail-row"><div className="label">Date</div><div className="value">{window.formatDateLong(appt.date)}</div></div>
                 <div className="detail-row"><div className="label">Time</div><div className="value">{appt.time}</div></div>
                 <div className="detail-row"><div className="label">Location</div><div className="value">{doctor.room} · MedicaCare</div></div>
@@ -1723,6 +1823,11 @@ function Profile() {
   const [saving, setSaving] = useState(false);
   const [savingPw, setSavingPw] = useState(false);
   const photoInputRef = useRef(null);
+  // Family members (proxy booking) and reminder-preference state
+  const [famForm, setFamForm] = useState({ name: '', relation: 'Spouse' });
+  const [famErrors, setFamErrors] = useState({});
+  const [confirmRemoveFam, setConfirmRemoveFam] = useState(null);
+  const [removingFam, setRemovingFam] = useState(false);
   // Uploaded photo (localStorage) wins; otherwise fall back to the patient's
   // dummy portrait from the seed data
   const [photo, setPhoto] = useState(() => {
@@ -1754,6 +1859,41 @@ function Profile() {
   };
   const update = (k, v) => { setForm(f => ({ ...f, [k]: v })); if (errors[k]) setErrors(e => ({ ...e, [k]: null })); };
   const updatePw = (k, v) => { setPw(p => ({ ...p, [k]: v })); if (pwErrors[k]) setPwErrors(e => ({ ...e, [k]: null })); };
+
+  // "Member since" — derived from the patient's record; registered accounts
+  // get it from their user record's createdAt (previously a hardcoded date)
+  const joinedISO = me.joined
+    || (store.patients.find(p => p.id === me.id) || {}).joined
+    || (store.users.find(u => u.id === me.id) || {}).createdAt
+    || '';
+  const joinedLabel = joinedISO
+    ? new Date(joinedISO + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+    : '';
+
+  // Family members — saved in the store so the booking form can offer them
+  const updateFam = (k, v) => { setFamForm(f => ({ ...f, [k]: v })); if (famErrors[k]) setFamErrors(e => ({ ...e, [k]: null })); };
+  const addFam = (evt) => {
+    evt.preventDefault();
+    const errs = {};
+    if (!famForm.name.trim()) errs.name = 'Name is required';
+    setFamErrors(errs);
+    if (Object.keys(errs).length) return;
+    store.setFamilyMembers([
+      ...(store.familyMembers || []),
+      { id: 'fam' + Date.now(), name: famForm.name.trim(), relation: famForm.relation, age: null },
+    ]);
+    setFamForm({ name: '', relation: famForm.relation });
+    store.pushToast({ title: 'Family member added', msg: 'You can now book appointments on their behalf.' });
+  };
+  const doRemoveFam = () => {
+    setRemovingFam(true);
+    setTimeout(() => {
+      store.setFamilyMembers((store.familyMembers || []).filter(f => f.id !== confirmRemoveFam.id));
+      setRemovingFam(false);
+      setConfirmRemoveFam(null);
+      store.pushToast({ title: 'Family member removed', msg: `${confirmRemoveFam.name} has been removed.` });
+    }, 500);
+  };
 
   const saveProfile = (evt) => {
     evt.preventDefault();
@@ -1811,7 +1951,7 @@ function Profile() {
 
   return (
     <AppShell current="profile">
-      <div className="page" style={{ maxWidth: 960 }}>
+      <div className="page" style={{ maxWidth: 960, margin: '0 auto' }}>
         <PageHeader title="Profile" subtitle="Manage your personal information and password."
           breadcrumbs={[{ label: 'Home', to: '/patient/dashboard' }, { label: 'Profile' }]} />
 
@@ -1822,7 +1962,7 @@ function Profile() {
               : <PatientAvatar person={me} size={72} />}
             <div className="appt-head-info">
               <div style={{ fontSize: 18, fontWeight: 600 }}>{me.name}</div>
-              <div className="t-muted">Patient · Member since Aug 2024</div>
+              <div className="t-muted">Patient{joinedLabel ? ` · Member since ${joinedLabel}` : ''}</div>
             </div>
             <input ref={photoInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onPhotoChange} />
             <button className="btn btn-secondary profile-photo-btn" onClick={() => photoInputRef.current && photoInputRef.current.click()}>
@@ -1878,20 +2018,17 @@ function Profile() {
           </form>
         </div>
 
-        <div className="card">
+        <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-header"><h2 className="h-section">Change password</h2></div>
           <form onSubmit={savePw}>
             <div className="card-body">
               <div className="pw-grid">
-                <Field label="Current password" required error={pwErrors.current}>
-                  <TextInput type="password" value={pw.current} onChange={e => updatePw('current', e.target.value)} error={pwErrors.current} />
-                </Field>
-                <Field label="New password" required error={pwErrors.next} help={!pwErrors.next && 'At least 8 characters'}>
-                  <TextInput type="password" value={pw.next} onChange={e => updatePw('next', e.target.value)} error={pwErrors.next} />
-                </Field>
-                <Field label="Confirm new password" required error={pwErrors.confirm}>
-                  <TextInput type="password" value={pw.confirm} onChange={e => updatePw('confirm', e.target.value)} error={pwErrors.confirm} />
-                </Field>
+                  <PwField label="Current password" required error={pwErrors.current} autoComplete="current-password"
+                    value={pw.current} onChange={e => updatePw('current', e.target.value)} />
+                  <PwField label="New password" required error={pwErrors.next} help={!pwErrors.next && 'At least 8 characters'}
+                    autoComplete="new-password" value={pw.next} onChange={e => updatePw('next', e.target.value)} />
+                  <PwField label="Confirm new password" required error={pwErrors.confirm} autoComplete="new-password"
+                    value={pw.confirm} onChange={e => updatePw('confirm', e.target.value)} />
               </div>
             </div>
             <div className="card-footer">
@@ -1899,13 +2036,96 @@ function Profile() {
             </div>
           </form>
         </div>
+
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-header"><h2 className="h-section">Family members</h2></div>
+          <form onSubmit={addFam}>
+            <div className="card-body stack md">
+              <p className="t-muted" style={{ fontSize: 13, margin: 0, lineHeight: 1.55 }}>
+                You can book appointments for the people below — they appear as options in the booking form's "Who is this visit for?" dropdown.
+              </p>
+              {(store.familyMembers || []).length === 0 ? (
+                <EmptyState icon="users-round" title="No family members yet" message="Add one so you can book on their behalf." />
+              ) : (store.familyMembers || []).map(f => (
+                <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderTop: '1px solid var(--border)' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 500 }}>{f.name}</div>
+                    {/* Relation only — the form doesn't collect an age, and the
+                        booking form uses name + relation only, so showing the
+                        seed rows' ages read as inconsistent */}
+                    <div className="t-muted" style={{ fontSize: 12 }}>{f.relation}</div>
+                  </div>
+                  <button type="button" className="btn-icon" title="Remove" aria-label={`Remove ${f.name}`} style={{ color: 'var(--error)' }} onClick={() => setConfirmRemoveFam(f)}>
+                    <Icon name="trash-2" size={16} />
+                  </button>
+                </div>
+              ))}
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto', gap: 10, alignItems: 'end' }}>
+                <Field label="Name" error={famErrors.name}>
+                  <TextInput value={famForm.name} onChange={e => updateFam('name', e.target.value)} error={famErrors.name} placeholder="e.g., Maria Bautista" />
+                </Field>
+                <Field label="Relation">
+                  <SelectInput value={famForm.relation} onChange={e => updateFam('relation', e.target.value)}>
+                    {['Spouse', 'Child', 'Parent', 'Sibling', 'Other'].map(r => <option key={r} value={r}>{r}</option>)}
+                  </SelectInput>
+                </Field>
+                <div style={{ paddingBottom: 1 }}>
+                  <button type="submit" className="btn btn-primary"><Icon name="user-plus" size={14} /> Add</button>
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <div className="card">
+          <div className="card-header"><h2 className="h-section">Notifications &amp; reminders</h2></div>
+          <div className="card-body stack lg">
+            <label className="checkbox">
+              <input
+                type="checkbox"
+                checked={(store.patientPrefs || {}).emailReminders}
+                onChange={e => {
+                  store.setPatientPrefs({ ...(store.patientPrefs || {}), emailReminders: e.target.checked });
+                  store.pushToast({ title: 'Preference saved', msg: `Email reminders ${e.target.checked ? 'on' : 'off'}.` });
+                }}
+              />
+              <span>Email me a reminder the day before my appointment</span>
+            </label>
+            <label className="checkbox">
+              <input
+                type="checkbox"
+                checked={(store.patientPrefs || {}).portalNotifs}
+                onChange={e => {
+                  store.setPatientPrefs({ ...(store.patientPrefs || {}), portalNotifs: e.target.checked });
+                  store.pushToast({ title: 'Preference saved', msg: `Portal notifications ${e.target.checked ? 'on' : 'off'}.` });
+                }}
+              />
+              <span>Show status-change notifications in the portal</span>
+            </label>
+            <p className="t-help" style={{ margin: 0 }}>
+              Saved instantly in this browser. Clinic-wide reminder settings are managed by staff.
+            </p>
+          </div>
+        </div>
       </div>
+
+      <ConfirmModal
+        open={!!confirmRemoveFam}
+        onClose={() => setConfirmRemoveFam(null)}
+        onConfirm={doRemoveFam}
+        loading={removingFam}
+        title="Remove family member?"
+        message={confirmRemoveFam ? `${confirmRemoveFam.name} will be removed. You will no longer be able to book on their behalf.` : ''}
+        confirmLabel="Remove"
+        kind="danger"
+      />
     </AppShell>
   );
 }
 
 // ---------- Medical Records ----------
-// Prototype page — all records below are FICTIONAL dummy data (real patient data is not allowed).
+// Prototype page — records derive from the logged-in patient's completed
+// appointments; all seed data is fictional (real patient data is not allowed).
 function MedicalRecords() {
   const store = useStore();
   const me = store.currentPatient || window.CURRENT_PATIENT;
@@ -1913,22 +2133,76 @@ function MedicalRecords() {
   // other patient pages
   const [loading, setLoading] = useState(true);
   useEffect(() => { const t = setTimeout(() => setLoading(false), 600); return () => clearTimeout(t); }, []);
-  const records = [
-    { id: 'mr1', date: '2026-08-14', type: 'Consultation',      doctorId: 'd1',  title: 'Hypertension follow-up',     summary: 'Blood pressure well controlled on current medication. Continue lifestyle changes; repeat ECG in 6 months.' },
-    { id: 'mr2', date: '2026-07-02', type: 'Laboratory result', doctorId: 'd9',  title: 'Complete blood count (CBC)', summary: 'All values within normal range. No further action required.' },
-    { id: 'mr3', date: '2026-05-22', type: 'Laboratory result', doctorId: 'd1',  title: 'Lipid profile',              summary: 'LDL slightly elevated. Advised diet adjustment and retest after 3 months.' },
-    { id: 'mr4', date: '2026-03-10', type: 'Consultation',      doctorId: 'd10', title: 'General check-up',           summary: 'No acute findings. Vaccinations up to date. Annual physical exam recommended.' },
-  ];
+  const [doctorFilter, setDoctorFilter] = useState('all');
+  const [viewLab, setViewLab] = useState(null);
+  const today = localToday();
+
+  // Records come from real completed visits: when staff mark an appointment
+  // completed in the admin console they capture the doctor's notes, and that
+  // visit lands here automatically (no hardcoded demo list)
+  const records = store.appointments
+    .filter(a => a.patientId === me.id && a.status === 'completed')
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .map(a => ({
+      id: a.id,
+      date: a.date,
+      type: 'Consultation',
+      doctorId: a.doctorId,
+      title: a.reason,
+      summary: a.notes || 'No consultation notes were recorded for this visit.',
+    }));
+  const recordDoctors = [...new Set(records.map(r => r.doctorId))]
+    .map(id => window.findDoctor(id))
+    .filter(Boolean);
+  const filteredRecords = doctorFilter === 'all'
+    ? records
+    : records.filter(r => r.doctorId === doctorFilter);
+
+  // Lab results + medications — staff-encoded entries from the shared store
+  // (Admin console → Patients → Labs & medications). Seed rows are fictional
+  // demo data for the demo account; registered accounts start empty.
+  const labs = (store.labs || [])
+    .filter(l => l.patientId === me.id)
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const meds = (store.meds || []).filter(m => m.patientId === me.id);
+
+  // Billing summary — a record of bills, NOT a payment portal: consultation
+  // fees are settled at the cashier during the visit (the prototype has no
+  // online payment on purpose). Visits completed today haven't been to the
+  // cashier yet, so they read as "Settle at cashier"; older ones are Paid
+  // receipts. Official receipts live on each appointment's details page.
+  const bills = store.appointments
+    .filter(a => a.patientId === me.id && a.status === 'completed')
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .map(a => {
+      const doc = window.findDoctor(a.doctorId);
+      return {
+        id: a.id,
+        date: a.date,
+        service: a.reason,
+        doctor: doc ? doc.name : '—',
+        amount: doc ? doc.fee : 0,
+        status: a.date < today ? 'Paid' : 'Settle at cashier',
+      };
+    });
+  const totalPaid = bills.filter(b => b.status === 'Paid').reduce((s, b) => s + b.amount, 0);
+  const totalDue = bills.filter(b => b.status !== 'Paid').reduce((s, b) => s + b.amount, 0);
+
+  const downloadRecords = () => {
+    downloadFile(`medicacare-records-${me.id}.html`, buildRecordsHTML(me, records, meds, labs, bills), 'text/html;charset=utf-8');
+    store.pushToast({ title: 'Records downloaded', msg: 'Open the file to view or print your full medical summary.' });
+  };
 
   return (
     <AppShell current="records">
-      <div className="page" style={{ maxWidth: 960 }}>
+      <div className="page" style={{ maxWidth: 960, margin: '0 auto' }}>
         <PageHeader
           title="Medical records"
           subtitle={loading
             ? <span className="skel" aria-hidden="true" style={{ width: 280, maxWidth: '100%', height: 14 }} />
-            : "Summary of your past visits and lab results."}
+            : "Visits, lab results, medications, and billing — everything from your completed appointments."}
           breadcrumbs={[{ label: 'Home', to: '/patient/dashboard' }, { label: 'Medical records' }]}
+          actions={<button className="btn btn-secondary" onClick={downloadRecords}><Icon name="download" size={14} /> Download records</button>}
         />
 
         <div className="card" style={{ marginBottom: 16 }}>
@@ -1962,8 +2236,149 @@ function MedicalRecords() {
           </div>
         </div>
 
+        {/* Billing summary — computed from completed visits (consultation fees) */}
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-header"><h2 className="h-section">Billing summary</h2></div>
+          <div className="card-body" style={{ paddingBottom: 0 }}>
+            <div className="billing-stats">
+              {loading ? (
+                [0, 1, 2].map(i => (
+                  <div key={i} aria-hidden="true">
+                    <span className="skel" style={{ width: 90, height: 11, display: 'block', marginBottom: 9 }} />
+                    <span className="skel" style={{ width: '55%', height: 16, display: 'block' }} />
+                  </div>
+                ))
+              ) : (
+                <>
+                  <div>
+                    <div className="t-muted" style={{ fontSize: 12, marginBottom: 4 }}>Total paid</div>
+                    <div style={{ fontWeight: 600, fontSize: 18 }}>₱{totalPaid.toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <div className="t-muted" style={{ fontSize: 12, marginBottom: 4 }}>To settle at cashier</div>
+                    <div style={{ fontWeight: 600, fontSize: 18 }}>
+                      {totalDue ? `₱${totalDue.toLocaleString()}` : '₱0 — all settled'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="t-muted" style={{ fontSize: 12, marginBottom: 4 }}>Invoices</div>
+                    <div style={{ fontWeight: 600, fontSize: 18 }}>{bills.length}</div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="card-body" style={{ padding: 0 }}>
+            <div className="table-wrap">
+              <table className="table table-responsive-stack records-table">
+                <thead><tr><th>Date</th><th>Service</th><th>Doctor</th><th>Amount</th><th>Status</th><th className="col-actions">Receipt</th></tr></thead>
+                <tbody>
+                  {loading ? <SkeletonRows rows={3} cols={6} /> : bills.length === 0 ? (
+                    <tr><td colSpan={6} className="empty-cell" style={{ padding: 0 }}>
+                      <EmptyState icon="receipt" title="No bills yet" message="A bill appears here once a visit is completed." />
+                    </td></tr>
+                  ) : bills.map(b => (
+                    <tr key={b.id}>
+                      <td data-label="Date">{window.formatDate(b.date)}</td>
+                      <td data-label="Service" className="cell-primary-truncate" style={{ maxWidth: 220 }}>{b.service}</td>
+                      <td data-label="Doctor" className="td-nowrap">{b.doctor}</td>
+                      <td data-label="Amount" className="td-nowrap">₱{b.amount.toLocaleString()}</td>
+                      <td data-label="Status"><Badge kind={b.status === 'Paid' ? 'success' : 'warning'} dot={false}>{b.status}</Badge></td>
+                      <td className="col-actions"><button className="btn btn-ghost sm" onClick={() => navigate('/patient/appointment/' + b.id)}>View</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <p className="t-help" style={{ padding: '10px 20px 16px', margin: 0 }}>
+            This is a record of your bills, not a payment portal — consultation fees are settled at the cashier during your visit. Download the official receipt from each appointment's details page.
+          </p>
+        </div>
+
+        {/* Medications — fictional demo rows for the demo patient */}
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-header"><h2 className="h-section">Medications</h2></div>
+          <div className="card-body" style={{ padding: 0 }}>
+            <div className="table-wrap">
+              <table className="table table-responsive-stack records-table">
+                <thead><tr><th>Medicine</th><th>Dose / form</th><th>Frequency</th><th>Prescriber</th><th>Status</th></tr></thead>
+                <tbody>
+                  {loading ? <SkeletonRows rows={3} cols={5} /> : meds.length === 0 ? (
+                    <tr><td colSpan={5} className="empty-cell" style={{ padding: 0 }}>
+                      <EmptyState icon="pill" title="No medications on file" message="Prescriptions from your visits will appear here." />
+                    </td></tr>
+                  ) : meds.map(m => {
+                    const doc = window.findDoctor(m.prescriberId);
+                    return (
+                      <tr key={m.id}>
+                        <td data-label="Medicine">
+                          <div className="cell-primary">{m.name}</div>
+                          <div className="cell-secondary">{m.instructions}</div>
+                        </td>
+                        <td data-label="Dose / form">{m.dose} · {m.form}</td>
+                        <td data-label="Frequency">{m.frequency}</td>
+                        <td data-label="Prescriber" className="td-nowrap">{doc ? doc.name : '—'}</td>
+                        <td data-label="Status"><Badge kind={m.status === 'Active' ? 'success' : 'neutral'} dot={false}>{m.status}</Badge></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <p className="t-help" style={{ padding: '10px 20px 16px', margin: 0 }}>
+            Medications are added by clinic staff. Seed rows for the demo account are fictional demo data.
+          </p>
+        </div>
+
+        {/* Lab results — fictional demo rows for the demo patient */}
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-header"><h2 className="h-section">Lab results</h2></div>
+          <div className="card-body" style={{ padding: 0 }}>
+            <div className="table-wrap">
+              <table className="table table-responsive-stack records-table">
+                <thead><tr><th>Date</th><th>Test</th><th>Category</th><th>Findings</th><th className="col-actions">Details</th></tr></thead>
+                <tbody>
+                  {loading ? <SkeletonRows rows={3} cols={5} /> : labs.length === 0 ? (
+                    <tr><td colSpan={5} className="empty-cell" style={{ padding: 0 }}>
+                      <EmptyState icon="flask-conical" title="No lab results yet" message="Results from your lab visits will appear here once released." />
+                    </td></tr>
+                  ) : labs.map(l => {
+                    const flagged = l.results.filter(r => r.flag === 'high' || r.flag === 'low').length;
+                    return (
+                      <tr key={l.id}>
+                        <td data-label="Date">{window.formatDate(l.date)}</td>
+                        <td data-label="Test" className="cell-primary">{l.name}</td>
+                        <td data-label="Category">{l.category}</td>
+                        <td data-label="Findings">
+                          {flagged
+                            ? <span style={{ color: 'var(--warning-text)', fontWeight: 500 }}>{flagged} finding{flagged === 1 ? '' : 's'} outside range</span>
+                            : <span style={{ color: 'var(--success-text)' }}>All within range</span>}
+                        </td>
+                        <td className="col-actions"><button className="btn btn-ghost sm" onClick={() => setViewLab(l)}><Icon name="eye" size={14} /> View</button></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <p className="t-help" style={{ padding: '10px 20px 16px', margin: 0 }}>
+            Lab results are added by clinic staff. Seed rows are fictional demo data — the values are not real medical readings.
+          </p>
+        </div>
+
         <div className="card">
-          <div className="card-header"><h2 className="h-section">Records</h2></div>
+          <div className="card-header">
+            <h2 className="h-section">Records</h2>
+            {!loading && recordDoctors.length > 1 && (
+              <SelectInput value={doctorFilter} onChange={e => setDoctorFilter(e.target.value)} aria-label="Filter records by doctor" style={{ maxWidth: 240 }}>
+                <option value="all">All doctors</option>
+                {recordDoctors.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </SelectInput>
+            )}
+          </div>
           <div className="card-body" style={{ padding: 0 }}>
             <div className="table-wrap">
               <table className="table table-responsive-stack records-table">
@@ -1971,7 +2386,17 @@ function MedicalRecords() {
                   <tr><th>Date</th><th>Type</th><th>Doctor</th><th>Record</th></tr>
                 </thead>
                 <tbody>
-                  {loading ? <SkeletonRows rows={4} cols={4} /> : records.map(r => {
+                  {loading ? <SkeletonRows rows={4} cols={4} /> : filteredRecords.length === 0 ? (
+                    <tr><td colSpan={4} className="empty-cell" style={{ padding: 0 }}>
+                      <EmptyState
+                        icon="file-text"
+                        title="No medical records yet"
+                        message={records.length === 0
+                          ? "Records appear here once a visit is completed and staff add the doctor's notes."
+                          : 'No records for the selected doctor.'}
+                      />
+                    </td></tr>
+                  ) : filteredRecords.map(r => {
                     const doc = window.findDoctor(r.doctorId);
                     return (
                       <tr key={r.id}>
@@ -1992,18 +2417,238 @@ function MedicalRecords() {
         </div>
 
         <p className="t-muted" style={{ fontSize: 12, marginTop: 12 }}>
-          Note: these are fictional demo records shown for prototype purposes only.
+          Note: records come from your completed appointments — our staff adds the doctor's notes when marking a visit complete. Seed data in this prototype is fictional.
         </p>
       </div>
+
+      {/* Lab result detail */}
+      <Modal
+        open={!!viewLab}
+        onClose={() => setViewLab(null)}
+        title={viewLab ? viewLab.name : ''}
+        subtitle={viewLab ? `${window.formatDate(viewLab.date)} · ${viewLab.category} · ${viewLab.status}` : ''}
+        icon="flask-conical" iconKind="info"
+        footer={<button className="btn btn-secondary" onClick={() => setViewLab(null)}>Close</button>}
+      >
+        {viewLab && (
+          <div className="table-wrap">
+            <table className="table">
+              <thead><tr><th>Item</th><th>Result</th><th>Reference range</th></tr></thead>
+              <tbody>
+                {viewLab.results.map((r, i) => (
+                  <tr key={i}>
+                    <td>{r.item}</td>
+                    <td>
+                      <span style={{ fontWeight: 600, color: (r.flag === 'high' || r.flag === 'low') ? 'var(--error)' : undefined }}>
+                        {r.value} {r.unit}
+                      </span>
+                      {(r.flag === 'high' || r.flag === 'low') && (
+                        <span className="lab-flag" style={{ marginLeft: 8 }}>{r.flag.toUpperCase()}</span>
+                      )}
+                    </td>
+                    <td className="t-muted">{r.range}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Modal>
     </AppShell>
   );
 }
 
 
+// ---------- My messages (patient portal — dedicated page) ----------
+// "Message the clinic" used to be a card at the bottom of Help & support; it
+// now has its own page (sidebar: My messages) so conversations don't compete
+// with the FAQs. Submissions land on the admin console's Patient messages page
+// as open tickets, and staff replies come back here as green "Staff reply:"
+// boxes inside each ticket's thread.
+function PatientMessages() {
+  const store = useStore();
+  const me = store.currentPatient || window.CURRENT_PATIENT;
+  // Simulated fetch — centered circle spinner while "loading", same 600ms
+  // pattern as the other patient pages
+  const [pageLoading, setPageLoading] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setPageLoading(false), 600); return () => clearTimeout(t); }, []);
+
+  const [msgForm, setMsgForm] = useState({ subject: '', message: '' });
+  const [msgErrors, setMsgErrors] = useState({});
+  const myTickets = (store.tickets || []).filter(t => t.patientId === me.id);
+  const updateMsg = (k, v) => { setMsgForm(f => ({ ...f, [k]: v })); if (msgErrors[k]) setMsgErrors(e => ({ ...e, [k]: null })); };
+
+  const submitMsg = (e) => {
+    e.preventDefault();
+    const errs = {};
+    if (!msgForm.subject.trim()) errs.subject = 'Please enter a subject';
+    const m = msgForm.message.trim();
+    if (!m) errs.message = 'Please write your message';
+    else if (m.length < 10) errs.message = 'Please provide a bit more detail (10+ characters)';
+    setMsgErrors(errs);
+    if (Object.keys(errs).length) return;
+    store.setTickets([{
+      id: 'tkt' + Date.now(),
+      patientId: me.id,
+      name: me.name,
+      subject: msgForm.subject.trim(),
+      message: m,
+      status: 'open',
+      createdAt: localToday(),
+      reply: '',
+      repliedAt: null,
+    }, ...(store.tickets || [])]);
+    store.pushActivity(me.name, 'Sent a message', `"${msgForm.subject.trim()}"`);
+    setMsgForm({ subject: '', message: '' });
+    store.pushToast({ title: 'Message sent', msg: 'Our staff will reply here in your portal.' });
+  };
+
+  // Follow-up on a replied ticket — reopens it as "open" so staff can answer
+  // again; the whole conversation stays visible on both sides via t.thread
+  const [fuId, setFuId] = useState(null);
+  const [fuText, setFuText] = useState('');
+  const [fuError, setFuError] = useState('');
+  const sendFollowUp = (t) => {
+    const text = fuText.trim();
+    if (text.length < 10) { setFuError('Please write a bit more (10+ characters).'); return; }
+    store.setTickets((store.tickets || []).map(x => x.id === t.id
+      ? {
+          ...x,
+          status: 'open',
+          thread: [...(x.thread || []), { id: x.id + '-fu' + Date.now(), from: 'patient', text, date: localToday() }],
+        }
+      : x));
+    store.pushActivity(me.name, 'Sent a follow-up message', `"${t.subject}"`);
+    store.pushToast({ title: 'Follow-up sent', msg: 'Our staff will reply here in your portal.' });
+    setFuId(null); setFuText(''); setFuError('');
+  };
+
+  if (pageLoading) {
+    return (
+      <AppShell current="messages">
+        <div className="page"><PageSpinner /></div>
+      </AppShell>
+    );
+  }
+
+  return (
+    <AppShell current="messages">
+      <div className="page" style={{ maxWidth: 960, margin: '0 auto' }}>
+        <PageHeader
+          title="My messages"
+          subtitle="Message the clinic — staff replies arrive right here in your portal."
+          breadcrumbs={[{ label: 'Home', to: '/patient/dashboard' }, { label: 'My messages' }]}
+        />
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-header">
+            <h2 className="h-section">Message the clinic</h2>
+            <span className="t-muted" style={{ fontSize: 12 }}>
+              {myTickets.filter(t => t.status === 'open').length} awaiting reply
+            </span>
+          </div>
+          <form onSubmit={submitMsg} noValidate>
+            <div className="card-body stack md">
+              <p className="t-muted" style={{ fontSize: 13, margin: 0, lineHeight: 1.55 }}>
+                Questions about schedules, billing, or HMO? Send a message and our staff will reply
+                here in your portal — usually within one business day.
+              </p>
+              <Field label="Subject" required error={msgErrors.subject}>
+                <TextInput value={msgForm.subject} onChange={e => updateMsg('subject', e.target.value)} error={msgErrors.subject} maxLength={80} placeholder="e.g., HMO coverage question" />
+              </Field>
+              <Field label="Message" required error={msgErrors.message} help={`${msgForm.message.trim().length}/500 characters. Minimum 10.`}>
+                <TextArea
+                  rows={4}
+                  placeholder="How can we help you?"
+                  value={msgForm.message}
+                  onChange={e => updateMsg('message', e.target.value)}
+                  error={msgErrors.message}
+                  maxLength={500}
+                />
+              </Field>
+              <div>
+                <button type="submit" className="btn btn-primary"><Icon name="send" size={14} /> Send message</button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <div className="card">
+          <div className="card-header">
+            <h2 className="h-section">Your messages</h2>
+            <span className="t-muted" style={{ fontSize: 12 }}>
+              {myTickets.length} message{myTickets.length === 1 ? '' : 's'}
+            </span>
+          </div>
+          {myTickets.length === 0 ? (
+            <div style={{ padding: '8px 20px 16px' }}>
+              <EmptyState icon="inbox" title="No messages yet"
+                message="Send your first message above — staff replies will appear right here." />
+            </div>
+          ) : (
+            <div className="stack md" style={{ padding: '16px 20px 20px' }}>
+              {myTickets.map(t => (
+                <div key={t.id} style={{ borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <Badge kind={t.status === 'resolved' ? 'success' : 'warning'} dot={false}>
+                      {t.status === 'resolved' ? 'Replied by staff' : 'Awaiting reply'}
+                    </Badge>
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>{t.subject}</span>
+                    <span className="t-muted" style={{ fontSize: 12, marginLeft: 'auto' }}>{window.formatDate(t.createdAt)}</span>
+                  </div>
+                  <div className="t-muted" style={{ fontSize: 12.5, marginTop: 4, lineHeight: 1.5 }}>{t.message}</div>
+                  {(t.thread || []).map(m => m.from === 'staff' ? (
+                    <div key={m.id} style={{ marginTop: 8, fontSize: 12.5, lineHeight: 1.5, background: 'var(--success-soft)', border: '1px solid #6EE7B7', borderRadius: 6, padding: '8px 10px', color: 'var(--success-text)' }}>
+                      <strong>Staff reply:</strong> {m.text}
+                      {m.date && <div className="t-help" style={{ marginTop: 2 }}>{window.formatDate(m.date)}</div>}
+                    </div>
+                  ) : (
+                    <div key={m.id} style={{ marginTop: 8, fontSize: 12.5, lineHeight: 1.5, background: 'var(--surface-muted)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 10px' }}>
+                      <strong>You replied:</strong> {m.text}
+                      {m.date && <div className="t-help" style={{ marginTop: 2 }}>{window.formatDate(m.date)}</div>}
+                    </div>
+                  ))}
+                  {!t.thread && t.reply && (
+                    <div style={{ marginTop: 8, fontSize: 12.5, lineHeight: 1.5, background: 'var(--success-soft)', border: '1px solid #6EE7B7', borderRadius: 6, padding: '8px 10px', color: 'var(--success-text)' }}>
+                      <strong>Staff reply:</strong> {t.reply}
+                    </div>
+                  )}
+                  {t.status === 'resolved' && fuId !== t.id && (
+                    <button type="button" className="btn btn-ghost sm" style={{ marginTop: 8 }} onClick={() => { setFuId(t.id); setFuText(''); setFuError(''); }}>
+                      <Icon name="reply" size={13} /> Send follow-up
+                    </button>
+                  )}
+                  {t.status === 'resolved' && fuId === t.id && (
+                    <div style={{ marginTop: 8 }}>
+                      <Field label="Your follow-up" required error={fuError} help={`${fuText.trim().length}/500 characters. Minimum 10.`}>
+                        <TextArea rows={3} value={fuText} maxLength={500}
+                          onChange={e => { setFuText(e.target.value); if (fuError) setFuError(''); }}
+                          placeholder="e.g., Thank you! One more question about the schedule..." />
+                      </Field>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button type="button" className="btn btn-primary sm" onClick={() => sendFollowUp(t)}>Send</button>
+                        <button type="button" className="btn btn-secondary sm" onClick={() => { setFuId(null); setFuText(''); setFuError(''); }}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </AppShell>
+  );
+}
+
 // ---------- Help & Support (patient portal only) ----------
 function HelpSupport() {
   const store = useStore();
   const me = store.currentPatient || window.CURRENT_PATIENT;
+  // Simulated fetch — centered circle spinner while "loading", same 600ms
+  // pattern as the patient Book/Profile pages (PageSpinner centers it on
+  // both axes)
+  const [pageLoading, setPageLoading] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setPageLoading(false), 600); return () => clearTimeout(t); }, []);
   const [open, setOpen] = useState(0);
 
   // "Share your experience" — submissions go to the admin console as pending
@@ -2042,18 +2687,25 @@ function HelpSupport() {
     store.pushToast({ title: 'Story submitted', msg: 'Thank you! Our staff will review it before it appears on the website.' });
   };
 
-
   const faqs = [
     { q: 'How do I book an appointment?', a: 'Go to "Find a doctor", pick a doctor, choose an available date and time slot, then fill out the booking form. You will receive a confirmation with a reference number once submitted.' },
-    { q: 'Can I cancel or reschedule an appointment?', a: 'Yes. Open "My appointments", find the appointment, and use the cancel action. To reschedule, cancel the booking and create a new one with your preferred slot.' },
+    { q: 'Can I cancel or reschedule an appointment?', a: 'Yes. Open the appointment from "My appointments" or its details page — use Reschedule to pick a new date and time slot, or Cancel to release the slot. Both are free any time before your visit.' },
     { q: 'What do the appointment statuses mean?', a: 'Pending means your request was received and is awaiting confirmation. Confirmed means your slot is reserved. Completed means the visit has happened. Cancelled means the appointment was called off.' },
     { q: 'How do I update my personal information?', a: 'Go to your Profile page to edit your contact details, address, emergency contact, and change your password.' },
     { q: 'Are my records and data secure?', a: 'Yes, within the scope of this prototype. All data stays in your browser (localStorage) and only fictional demo data is used. A production system would add server-side access control and hashed passwords.' },
   ];
 
+  if (pageLoading) {
+    return (
+      <AppShell current="help">
+        <div className="page"><PageSpinner /></div>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell current="help">
-      <div className="page" style={{ maxWidth: 960 }}>
+      <div className="page" style={{ maxWidth: 960, margin: '0 auto' }}>
         <PageHeader
           title="Help & support"
           subtitle="Find quick answers or get in touch with our team."
@@ -2081,6 +2733,19 @@ function HelpSupport() {
             <div className="t-muted" style={{ fontSize: 13 }}>{window.HOSPITAL.address}</div>
             <div className="t-muted" style={{ fontSize: 12 }}>Information desk, ground floor</div>
           </div></div>
+          {/* Message the clinic moved to its own page (My messages) — this card
+              keeps the entry point discoverable from Help & support */}
+          <div className="card" role="button" tabIndex={0} aria-label="Message the clinic"
+            onClick={() => navigate('/patient/messages')}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/patient/messages'); } }}
+            style={{ cursor: 'pointer' }}>
+            <div className="card-body">
+              <div className="feature-card-icon" style={{ marginBottom: 10 }}><Icon name="inbox" size={18} /></div>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>Message the clinic</div>
+              <div className="t-muted" style={{ fontSize: 13 }}>Schedules, billing, HMO — staff reply in your portal</div>
+              <div className="t-muted" style={{ fontSize: 12 }}>Opens your My messages page</div>
+            </div>
+          </div>
         </div>
 
         <div className="card" style={{ marginBottom: 16 }}>
@@ -2168,12 +2833,12 @@ function HelpSupport() {
 Object.assign(window, {
   PatientDashboard, DoctorListing, DoctorAvailability, BookAppointment,
   BookingConfirmation, AppointmentStatus, AppointmentHistory, AppointmentDetails, Profile,
-  MedicalRecords, HelpSupport,
+  MedicalRecords, PatientMessages, HelpSupport,
 });
 
 export {
   PatientDashboard, DoctorListing, DoctorAvailability, BookAppointment,
   BookingConfirmation, AppointmentStatus, AppointmentHistory, AppointmentDetails, Profile,
-  MedicalRecords, HelpSupport,
+  MedicalRecords, PatientMessages, HelpSupport,
 };
 

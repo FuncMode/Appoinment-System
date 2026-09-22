@@ -2,14 +2,15 @@
 // Router / app root — MedicaCare
 // ============================================================
 import { useEffect, useState } from 'react';
-import { BrandMark, useHashRoute, useStore } from './components.jsx';
-import { Landing, Register, Login, AdminLogin, ForgotPassword, ServicesPage, DoctorsPage, AboutPage, ContactPage, PrivacyPage, TermsPage } from './screens-public.jsx';
+import { BrandMark, useHashRoute, useStore, useIsDesktop, DesktopOnlyNotice } from './components.jsx';
+import { Landing, Register, Login, AdminLogin, DoctorLogin, ForgotPassword, ServicesPage, DoctorsPage, AboutPage, ContactPage, PrivacyPage, TermsPage } from './screens-public.jsx';
 import {
   PatientDashboard, DoctorListing, DoctorAvailability, BookAppointment,
   BookingConfirmation, AppointmentStatus, AppointmentHistory, AppointmentDetails, Profile,
-  MedicalRecords, HelpSupport,
+  MedicalRecords, PatientMessages, HelpSupport,
 } from './screens-patient.jsx';
-import { AdminDashboard, PatientsMgmt, DoctorsMgmt, AppointmentsMgmt, StoriesMgmt, AdminReports, AdminSettings } from './screens-admin.jsx';
+import { AdminDashboard, PatientsMgmt, DoctorsMgmt, AppointmentsMgmt, StoriesMgmt, TicketsMgmt, AdminReports, AdminSettings, AdminActivity } from './screens-admin.jsx';
+import { DoctorDashboard, DoctorPatients, DoctorWeekView, DoctorFeedback } from './screens-doctor.jsx';
 import { MobileShowcase } from './screens-mobile.jsx';
 
 // ============================================================
@@ -35,13 +36,32 @@ function Splash({ fading }) {
 function App() {
   const route = useHashRoute();
   const store = useStore();
-  // Splash lifecycle: 'shown' -> 'fading' -> 'gone' (then unmounted)
-  const [splash, setSplash] = useState('shown');
+  // Staff consoles are desktop-only: on small screens both portals are
+  // replaced by a fallback notice (see DesktopOnlyNotice in components.jsx)
+  const isDesktop = useIsDesktop();
+  // Splash lifecycle: 'shown' -> 'fading' -> 'gone' (then unmounted).
+  // First visit only: it runs on the landing page — a full page load that
+  // deep-links straight into the patient portal or admin console (or any
+  // other page) skips it entirely.
+  const [splash, setSplash] = useState(() => {
+    const r = (window.location.hash.replace(/^#/, '') || '/').split('?')[0];
+    return (r === '/' || r === '' || r === '/landing') ? 'shown' : 'gone';
+  });
   useEffect(() => {
+    if (splash === 'gone') return;
     const t1 = setTimeout(() => setSplash('fading'), 900);
     const t2 = setTimeout(() => setSplash('gone'), 1300);
     return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, []);
+  }, [splash === 'gone']);
+
+  // Navigating away from the landing page while the splash is still up
+  // (fast click within the 1.3s window) dismisses it immediately — it must
+  // never linger over the portal or admin console
+  useEffect(() => {
+    if (splash === 'gone') return;
+    const r = route.split('?')[0];
+    if (!(r === '/' || r === '' || r === '/landing')) setSplash('gone');
+  }, [route, splash]);
 
   // Split an optional query string off the hash route (e.g. #/doctors?spec=Cardiology)
   // so deep links from the Landing care finder / department chips can pre-filter pages.
@@ -56,6 +76,7 @@ function App() {
   useEffect(() => {
     if (path === 'admin' && store.role !== 'admin') store.setRole('admin');
     else if (path === 'patient' && store.role !== 'patient') store.setRole('patient');
+    else if (path === 'doctor' && store.role !== 'doctor') store.setRole('doctor');
   }, [path]);
 
   let screen;
@@ -98,6 +119,7 @@ function App() {
       else if (sub === 'appointment') screen = <AppointmentDetails apptId={arg} />;
       else if (sub === 'profile') screen = <Profile />;
       else if (sub === 'records') screen = <MedicalRecords />;
+      else if (sub === 'messages') screen = <PatientMessages />;
       else if (sub === 'help') screen = <HelpSupport />;
       else screen = <PatientDashboard />;
     }
@@ -105,16 +127,37 @@ function App() {
     const sub = rest[0];
     // Route guard — the staff console requires an admin session; the staff
     // login itself is unlinked from the public site (URL is shared internally).
-    if (sub === 'login' || !store.adminSession) {
+    if (!isDesktop) {
+      screen = <DesktopOnlyNotice role="admin" />;
+    } else if (sub === 'login' || !store.adminSession) {
       screen = <AdminLogin />;
     } else if (sub === 'dashboard') screen = <AdminDashboard />;
     else if (sub === 'patients') screen = <PatientsMgmt />;
     else if (sub === 'doctors') screen = <DoctorsMgmt />;
     else if (sub === 'appointments') screen = <AppointmentsMgmt />;
     else if (sub === 'stories') screen = <StoriesMgmt />;
+    else if (sub === 'tickets') screen = <TicketsMgmt />;
     else if (sub === 'reports') screen = <AdminReports />;
+    else if (sub === 'activity') screen = <AdminActivity />;
     else if (sub === 'settings') screen = <AdminSettings />;
     else screen = <AdminDashboard />;
+  } else if (path === 'doctor') {
+    const sub = rest[0];
+    // Route guard — the doctor portal requires a doctor session; the doctor
+    // login itself is unlinked from the public site (shared internally).
+    if (!isDesktop) {
+      screen = <DesktopOnlyNotice role="doctor" />;
+    } else if (sub === 'login' || !store.doctorSession) {
+      screen = <DoctorLogin />;
+    } else if (!window.findDoctor(store.doctorSession.doctorId)) {
+      // The session points at a doctor the Admin console has removed from
+      // the directory — show the login with an explanation (the login screen
+      // clears the stale session in an effect) instead of bouncing silently
+      screen = <DoctorLogin removed />;
+    } else if (sub === 'patients') screen = <DoctorPatients />;
+    else if (sub === 'week') screen = <DoctorWeekView />;
+    else if (sub === 'feedback') screen = <DoctorFeedback />;
+    else screen = <DoctorDashboard />;
   } else {
     screen = <Landing />;
   }

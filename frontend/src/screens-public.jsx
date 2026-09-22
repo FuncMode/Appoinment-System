@@ -4,11 +4,12 @@ import {
   Sidebar, Topbar, AppShell, PublicNav, PublicFooter, PageHeader,
   Badge, StatusBadge, DoctorStatusBadge, DoctorAvatar,
   Modal, ToastLayer, Field, TextInput, TextArea, SelectInput,
-  Pagination, SkeletonRows, EmptyState, ErrorState, ConfirmModal, MiniBarChart, DoctorRatingPill,
+  Pagination, SkeletonRows, EmptyState, ErrorState, ConfirmModal, MiniBarChart, DoctorRatingPill, PwField,
   NoticeBar, ClinicStatus, FaqAccordion, TestimonialCarousel,
+  OtpVerifyModal,
 } from './components.jsx';
 import {
-  HOSPITAL, SPECIALTIES, DOCTORS, PATIENTS, CURRENT_PATIENT, CURRENT_ADMIN,
+  HOSPITAL, SPECIALTIES, DOCTORS, PATIENTS, CURRENT_PATIENT, CURRENT_ADMIN, DOCTOR_CREDENTIALS,
   APPOINTMENTS, AVAILABILITY_TEMPLATE,
   findDoctor, findPatient, formatDate, formatDateLong, initials, statusMeta, doctorStatusMeta,
 } from './data.js';
@@ -45,10 +46,23 @@ function HeroAurora() {
 }
 
 // Shiny sweep for hero titles — one treatment across every public page so
-// the headings read as a family (dark ink with a brand-blue glint).
-function HeroTitle({ children }) {
+// the headings read as a family (dark ink with a brand-blue glint). The
+// `light` variant swaps to white ink for the Landing's photo hero, where
+// dark text would be unreadable over the blue overlay. The shine uses a
+// near-white blue (not #7CC0FF): mid-sweep, pale blue letters on the blue
+// veil dropped to ~2.5:1 contrast — the paler shine keeps the shimmer
+// readable at every point of the animation.
+function HeroTitle({ children, light = false }) {
   return (
-    <h1><ShinyText text={children} speed={4} color="#111827" shineColor="#2563EB" spread={120} /></h1>
+    <h1>
+      <ShinyText
+        text={children}
+        speed={4}
+        color={light ? '#FFFFFF' : '#111827'}
+        shineColor={light ? '#CFE3FF' : '#2563EB'}
+        spread={120}
+      />
+    </h1>
   );
 }
 
@@ -123,13 +137,35 @@ function Landing() {
     ? DOCTORS.filter(d => d.specialty === pickedGuide.specialty && d.status === 'available').length
     : 0;
 
+  // Mobile: the stacked full-width chips push the result panel below the
+  // fold, so picking a lower chip left the recommendation unseen — bring the
+  // panel into view whenever it renders outside the viewport. The in-view
+  // check keeps desktop quiet (the panel already sits beside the chips).
+  const carePanelRef = useRef(null);
+  useEffect(() => {
+    if (!pickedGuide || !carePanelRef.current) return;
+    const rect = carePanelRef.current.getBoundingClientRect();
+    if (rect.top < 0 || rect.bottom > window.innerHeight) {
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      carePanelRef.current.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'nearest' });
+    }
+  }, [pickedSymptom]);
+
   return (
     <div>
       <NoticeBar phone={HOSPITAL.phone} />
       <PublicNav activeLink="home" />
 
-      <section className="public-hero">
-        <HeroAurora />
+      {/* Landing-only photo hero (public-hero--photo): auto-crossfading
+          photo slides behind a blue veil — replaces the Aurora wash used on
+          the subpages. Decorative only: aria-hidden, no indicators. */}
+      <section className="public-hero public-hero--photo">
+        <div className="public-hero-slides" aria-hidden="true">
+          <div className="hero-slide s1" />
+          <div className="hero-slide s2" />
+          <div className="hero-slide s3" />
+        </div>
+        <div className="public-hero-veil" aria-hidden="true" />
         <div className="public-hero-inner">
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
@@ -138,17 +174,19 @@ function Landing() {
               </div>
               <ClinicStatus />
             </div>
-            <HeroTitle>Book a MedicaCare specialist online, no phone calls needed.</HeroTitle>
+            <HeroTitle light>Book a MedicaCare specialist online, no phone calls needed.</HeroTitle>
             <p>Pick from {DOCTORS.length} board-certified doctors across {SPECIALTIES.length} departments,
                view real-time availability, and get a confirmation in minutes. Reschedule anytime from your portal.</p>
             <div className="public-hero-actions">
+              {/* White CTA — the blue-on-blue primary would vanish against the
+                  photo's blue overlay */}
               <StarBorder
                 as="a"
                 href="#/register"
-                color="#7CC0FF"
-                backgroundColor="var(--primary)"
-                textColor="#ffffff"
-                borderColor="var(--primary)"
+                color="#2563EB"
+                backgroundColor="#FFFFFF"
+                textColor="var(--primary)"
+                borderColor="#93C5FD"
                 speed="5s"
                 thickness={1}
                 className="star-border-cta"
@@ -163,7 +201,7 @@ function Landing() {
             {/* Portal preview — built from the demo patient's real next appointment */}
             {previewAppt && previewDoc && (
               <>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8, textAlign: 'right' }}>
+                <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.78)', marginBottom: 8, textAlign: 'right' }}>
                   A peek at your patient portal
                 </div>
                 <GlareHover
@@ -198,6 +236,13 @@ function Landing() {
                 </GlareHover>
               </>
             )}
+            {/* Quiet reassurance microcopy — cost / payment / wait answered up
+                front; centered under the preview card to balance the column */}
+            <div className="public-hero-microcopy">
+              <span><Icon name="check" size={13} /> Free to create</span>
+              <span><Icon name="check" size={13} /> No credit card needed</span>
+              <span><Icon name="check" size={13} /> Confirmed in minutes</span>
+            </div>
           </div>
         </div>
       </section>
@@ -216,6 +261,7 @@ function Landing() {
         <div className="public-section-inner">
           <div>
             <AnimatedContent distance={32} duration={0.7}>
+              <span className="section-kicker">Find your care</span>
               <h2>Not sure where to go for care?</h2>
               <p className="public-section-sub">Pick the symptom closest to what you're feeling and we'll point you to the right specialist.</p>
             </AnimatedContent>
@@ -231,7 +277,7 @@ function Landing() {
               ))}
             </div>
             {pickedGuide && (
-              <div className="care-finder-panel">
+              <div className="care-finder-panel" ref={carePanelRef}>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 14, fontWeight: 600 }}>
                     We recommend our <span style={{ color: 'var(--primary)' }}>{pickedGuide.specialty}</span> department
@@ -257,6 +303,7 @@ function Landing() {
       <section className="public-section">
         <div className="public-section-inner">
           <AnimatedContent distance={32} duration={0.7}>
+            <span className="section-kicker">Getting started</span>
             <h2>How it works</h2>
             <p className="public-section-sub">Three straightforward steps to see a doctor at MedicaCare.</p>
           </AnimatedContent>
@@ -290,6 +337,7 @@ function Landing() {
 
       <section className="public-section" style={{ paddingTop: 32 }}>
         <div className="public-section-inner">
+          <span className="section-kicker">Our departments</span>
           <h2>Departments</h2>
           <p className="public-section-sub">Tap a department to see its specialists.</p>
           <div className="grid-4">
@@ -308,6 +356,7 @@ function Landing() {
       <section className="public-section" style={{ background: 'var(--bg)', paddingTop: 32 }}>
         <div className="public-section-inner">
           <AnimatedContent distance={32} duration={0.7}>
+            <span className="section-kicker">Patient stories</span>
             <h2>What patients say</h2>
             <p className="public-section-sub">
               {approvedStories.length > 0
@@ -328,6 +377,7 @@ function Landing() {
       <section className="public-section">
         <div className="public-section-inner public-section--centered">
           <AnimatedContent distance={32} duration={0.7}>
+            <span className="section-kicker">Before you book</span>
             <h2>Common questions</h2>
             <p className="public-section-sub">Quick answers before you create your account.</p>
           </AnimatedContent>
@@ -412,6 +462,7 @@ function ServicesPage() {
       <section className="public-section" style={{ background: 'var(--bg)', paddingTop: 32 }}>
         <div className="public-section-inner">
           <AnimatedContent distance={32} duration={0.7}>
+            <span className="section-kicker">Find your department</span>
             <h2>Departments & specialties</h2>
             <p className="public-section-sub">Tap a department to see its specialists.</p>
           </AnimatedContent>
@@ -431,6 +482,7 @@ function ServicesPage() {
       <section className="public-section">
         <div className="public-section-inner public-section--centered">
           <AnimatedContent distance={32} duration={0.7}>
+            <span className="section-kicker">Good to know</span>
             <h2>Service FAQs</h2>
             <p className="public-section-sub">Answers to what patients ask us most about our services.</p>
           </AnimatedContent>
@@ -604,13 +656,15 @@ function DoctorsPage({ initialSpecialty = '' }) {
             </div>
           ) : (
             <div className="doctor-grid">
+              {/* Plain wrapper — same call as the patient portal's doctor
+                  grid: SpotlightCard's dark demo skin (.card-spotlight)
+                  loads after styles.css, so its equal-specificity #111
+                  background wins the cascade and paints the wrapper black,
+                  while its cursor glow is invisible anyway behind the
+                  opaque .doctor-card. The entrance animation stays. */}
               {visibleDoctors.map((d, i) => (
-                <AnimatedContent className="card-anim" distance={40} duration={0.6} delay={(i % 3) * 0.1}>
-                <SpotlightCard
-                  className="doctor-card-wrap"
-                  spotlightColor="rgba(37, 99, 235, 0.10)"
-                  key={d.id}
-                >
+                <AnimatedContent className="card-anim" distance={40} duration={0.6} delay={(i % 3) * 0.1} key={d.id}>
+                <div className="doctor-card-wrap">
                   <div
                     className="doctor-card"
                     role="button"
@@ -642,7 +696,7 @@ function DoctorsPage({ initialSpecialty = '' }) {
                     </span>
                   </div>
                   </div>
-                </SpotlightCard>
+                </div>
                 </AnimatedContent>
               ))}
             </div>
@@ -1098,11 +1152,12 @@ function Register() {
         photo: `https://randomuser.me/api/portraits/${Math.random() > 0.5 ? 'women' : 'men'}/${Math.floor(Math.random() * 99) + 1}.jpg`,
       };
       store.setUsers([...store.users, newUser]);
-      // Make the new patient visible in the admin Patients list for this session
-      store.setPatients([
-        ...store.patients,
-        { id: newUser.id, name: newUser.name, email: newUser.email, phone: newUser.phone, gender: '', age: null, joined: newUser.createdAt, lastVisit: null, photo: newUser.photo },
-      ]);
+      // Keep the static PATIENTS registry (used by window.findPatient in the
+      // admin console tables and the printable schedule) in sync — same
+      // pattern as the admin add-patient flow — so new accounts never render
+      // as "Unknown patient" in staff views
+      window.PATIENTS.unshift({ id: newUser.id, name: newUser.name, email: newUser.email, phone: newUser.phone, gender: '', age: null, joined: newUser.createdAt, lastVisit: null, photo: newUser.photo });
+      store.setPatients([...window.PATIENTS]);
       store.pushToast({ title: 'Account created', msg: 'You can now log in with your new credentials.' });
       navigate('/login');
     }, 900);
@@ -1166,6 +1221,12 @@ function Register() {
             <div className="footer-link">
               Already have an account? <a href="#/login">Log in</a>
             </div>
+            {/* KoruUX patient-portal practice: state who can see the patient's
+                data at the moment they hand it over (matches the Privacy page). */}
+            <div className="auth-trust-line">
+              <Icon name="shield-check" size={13} />
+              <span>Your records are visible only to you and authorized MedicaCare staff.</span>
+            </div>
           </form>
         </div>
       </div>
@@ -1195,6 +1256,29 @@ function Login() {
   const [errors, setErrors] = useState({});
   const [authError, setAuthError] = useState(null);
   const [loading, setLoading] = useState(false);
+  // Step 2 of login (prototype demo): after the credentials check passes,
+  // a 6-character code must be entered before the portal opens. `otpAccount`
+  // holds the account awaiting verification; the account is only logged in
+  // from the OTP modal's onVerified callback.
+  const [otpAccount, setOtpAccount] = useState(null);
+
+  const finishLogin = (account) => {
+    // Registered account (including the seeded demo patient) — enter the
+    // portal as that patient identity so bookings/history belong to them
+    if (account.id === CURRENT_PATIENT.id) {
+      store.setCurrentPatient(CURRENT_PATIENT);
+    } else {
+      store.setCurrentPatient({
+        id: account.id, name: account.name, email: account.email, phone: account.phone,
+        dob: '', gender: '', address: '', emergencyContact: '', bloodType: '—', allergies: 'None',
+        photo: account.photo || '',
+      });
+    }
+    store.loginPatient(account);
+    store.setRole('patient');
+    setOtpAccount(null);
+    navigate('/patient/dashboard');
+  };
 
   const update = (k, v) => { setForm(f => ({ ...f, [k]: v })); if (errors[k]) setErrors(e => ({ ...e, [k]: null })); setAuthError(null); };
 
@@ -1214,20 +1298,8 @@ function Login() {
       const em = form.email.toLowerCase().trim();
       const account = store.users.find(u => u.email.toLowerCase() === em);
       if (account && account.password === form.password) {
-        // Registered account (including the seeded demo patient) — enter the
-        // portal as that patient identity so bookings/history belong to them
-        if (account.id === CURRENT_PATIENT.id) {
-          store.setCurrentPatient(CURRENT_PATIENT);
-        } else {
-          store.setCurrentPatient({
-            id: account.id, name: account.name, email: account.email, phone: account.phone,
-            dob: '', gender: '', address: '', emergencyContact: '', bloodType: '—', allergies: 'None',
-            photo: account.photo || '',
-          });
-        }
-        store.loginPatient(account);
-        store.setRole('patient');
-        navigate('/patient/dashboard');
+        // Credentials verified — the emailed code is the next gate
+        setOtpAccount(account);
       } else {
         setAuthError(account
           ? 'The password you entered is incorrect. Please try again.'
@@ -1293,10 +1365,8 @@ function Login() {
               <TextInput type="email" placeholder="you@example.com" value={form.email}
                 onChange={e => update('email', e.target.value)} error={errors.email} icon="mail" />
             </Field>
-            <Field label="Password" required error={errors.password}>
-              <TextInput type="password" placeholder="Enter your password" value={form.password}
-                onChange={e => update('password', e.target.value)} error={errors.password} />
-            </Field>
+            <PwField label="Password" required error={errors.password} autoComplete="current-password"
+              value={form.password} onChange={e => update('password', e.target.value)} />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <label className="checkbox">
                 <input type="checkbox" checked={form.remember} onChange={e => update('remember', e.target.checked)} />
@@ -1338,6 +1408,17 @@ function Login() {
         </div>
       </div>
       </AnimatedContent>
+
+      {/* Step 2 — the emailed 6-character code gates the portal itself;
+          the session is only created from onVerified */}
+      <OtpVerifyModal
+        open={!!otpAccount}
+        onClose={() => setOtpAccount(null)}
+        onVerified={() => finishLogin(otpAccount)}
+        email={otpAccount ? otpAccount.email : ''}
+        title="Verify your login"
+        subtitle={`Enter the code sent to ${otpAccount ? otpAccount.email : 'your email'} to open your patient portal.`}
+      />
     </div>
   );
 }
@@ -1356,6 +1437,9 @@ function AdminLogin() {
   const [errors, setErrors] = useState({});
   const [authError, setAuthError] = useState(null);
   const [loading, setLoading] = useState(false);
+  // Step 2 of staff login (prototype demo): the emailed 6-character code
+  // gates the console — the session is only created from onVerified
+  const [otpOpen, setOtpOpen] = useState(false);
 
   const update = (k, v) => { setForm(f => ({ ...f, [k]: v })); if (errors[k]) setErrors(e => ({ ...e, [k]: null })); setAuthError(null); };
 
@@ -1374,14 +1458,20 @@ function AdminLogin() {
       setLoading(false);
       const em = form.email.toLowerCase().trim();
       if (em === ADMIN_CREDENTIALS.email && form.password === ADMIN_CREDENTIALS.password) {
-        store.loginAdmin({ email: em, name: CURRENT_ADMIN.name, role: CURRENT_ADMIN.role });
-        store.setRole('admin');
-        navigate('/admin/dashboard');
+        // Credentials verified — the emailed code is the next gate
+        setOtpOpen(true);
       } else {
         // Generic message — does not reveal whether the staff account exists
         setAuthError('Invalid staff credentials. Please try again.');
       }
     }, 700);
+  };
+
+  const finishLogin = () => {
+    store.loginAdmin({ email: ADMIN_CREDENTIALS.email, name: CURRENT_ADMIN.name, role: CURRENT_ADMIN.role });
+    store.setRole('admin');
+    setOtpOpen(false);
+    navigate('/admin/dashboard');
   };
 
   // Demo account shortcut — kept here (not on the public login) so demos stay
@@ -1476,6 +1566,193 @@ function AdminLogin() {
         </div>
       </div>
       </AnimatedContent>
+
+      {/* Step 2 — the emailed 6-character code before the console opens */}
+      <OtpVerifyModal
+        open={otpOpen}
+        onClose={() => setOtpOpen(false)}
+        onVerified={finishLogin}
+        email={ADMIN_CREDENTIALS.email}
+        title="Verify staff sign-in"
+        subtitle={`Enter the code sent to ${ADMIN_CREDENTIALS.email} to open the admin console.`}
+      />
+    </div>
+  );
+}
+
+// ---------- Doctor login (doctor portal) ----------
+// Third prototype role: doctors log in to see their own schedule and write
+// their own visit notes — the notes are attributed to the doctor who wrote
+// them, not encoded by staff. Unlinked from the public site like the staff
+// console; the URL is shared with doctors internally.
+// Accounts are admin-issued: staff create them (email + password) from the
+// Admin console's Doctors page, so this portal is login-only — doctors never
+// self-register.
+function DoctorLogin({ removed = false }) {
+  const store = useStore();
+  const [form, setForm] = useState({ email: '', password: '' });
+  const [errors, setErrors] = useState({});
+  const [authError, setAuthError] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [demoOpen, setDemoOpen] = useState(false);
+  // Step 2 of doctor login (prototype demo): the emailed 6-character code
+  // gates the portal — `pendingDoc` holds the session payload and the
+  // session is only created from onVerified
+  const [pendingDoc, setPendingDoc] = useState(null);
+  // A stale session for a doctor the staff console has removed is cleared
+  // here (in an effect, not during render) so the next login starts clean
+  useEffect(() => {
+    if (removed && store.doctorSession) store.logoutDoctor();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [removed]);
+
+  const update = (k, v) => { setForm(f => ({ ...f, [k]: v })); if (errors[k]) setErrors(e => ({ ...e, [k]: null })); setAuthError(null); };
+
+  const submit = (evt) => {
+    evt.preventDefault();
+    const e = {};
+    if (!form.email.trim()) e.email = 'Doctor email is required';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Enter a valid doctor email address';
+    if (!form.password) e.password = 'Password is required';
+    setErrors(e);
+    if (Object.keys(e).length) return;
+
+    setLoading(true);
+    setAuthError(null);
+    setTimeout(() => {
+      setLoading(false);
+      const em = form.email.toLowerCase().trim();
+      // Portal access is admin-issued: doctor accounts live in store.users
+      // with role 'doctor' (granted from the Admin console's Doctors page)
+      const account = store.users.find(u => u.role === 'doctor' && u.email.toLowerCase() === em);
+      if (!account || account.password !== form.password) {
+        // Generic message — does not reveal whether the doctor account exists
+        setAuthError('Invalid doctor credentials. Please try again.');
+        return;
+      }
+      const doctor = window.findDoctor(account.doctorId);
+      if (!doctor) {
+        // The account exists but staff removed the doctor from the directory
+        setAuthError('This doctor account is no longer active. Please contact the administrator.');
+        return;
+      }
+      // Credentials verified — the emailed code is the next gate
+      setPendingDoc({ doctorId: account.doctorId, email: em, name: doctor.name });
+    }, 700);
+  };
+
+  const finishLogin = () => {
+    store.loginDoctor(pendingDoc);
+    store.setRole('doctor');
+    setPendingDoc(null);
+    navigate('/doctor/dashboard');
+  };
+
+  return (
+    <div className="auth-shell">
+      <AnimatedContent className="auth-slide" distance={260} direction="horizontal" reverse duration={0.7}>
+      <div className="auth-visual-col auth-visual-col--forgot" style={{ order: 0 }}>
+        <div className="auth-aurora" aria-hidden="true"><Aurora colorStops={['#60A5FA', '#E0F2FE', '#3B82F6']} amplitude={1.1} speed={0.6} blend={0.7} /></div>
+        <BrandMark className="brand-mark" />
+        <div>
+          <div className="quote">"My day, my patients, my notes — all in one place, so clinic time goes to care."</div>
+          <div className="attrib">MedicaCare · Doctor portal</div>
+        </div>
+        <div style={{ fontSize: 12, opacity: 0.75 }}>
+          © 2026 MedicaCare
+        </div>
+      </div>
+      </AnimatedContent>
+      <AnimatedContent className="auth-slide" distance={260} direction="horizontal" duration={0.7}>
+      <div className="auth-form-col">
+        <div className="auth-form-inner">
+          <div>
+            <button className="btn btn-ghost" onClick={() => navigate('/')} style={{ marginLeft: -10, marginBottom: 16 }}>
+              <Icon name="arrow-left" size={16} /> Back to home
+            </button>
+          </div>
+          <div className="brand">
+            <BrandMark size={36} />
+            <div>
+              <div style={{ fontWeight: 600 }}>MedicaCare</div>
+              <div className="t-muted" style={{ fontSize: 12 }}>Doctor portal</div>
+            </div>
+          </div>
+          <SplitText tag="h1" text="Doctor sign in" splitType="chars" delay={30} duration={0.9} textAlign="left" rootMargin="0px" />
+          <AnimatedContent distance={20} duration={0.5} delay={0.55}>
+            <p className="sub">See your schedule and complete visits with your own notes.</p>
+          </AnimatedContent>
+
+          {removed && (
+            <div role="alert" style={{ background: 'var(--warning-soft)', border: '1px solid #F1D9A7', color: 'var(--warning-text)', padding: '10px 12px', borderRadius: 8, fontSize: 13, marginBottom: 14, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+              <Icon name="alert-circle" size={16} style={{ marginTop: 1 }} />
+              <div>Your doctor account is no longer active. It may have been removed by clinic staff — please contact the administrator if you believe this is a mistake.</div>
+            </div>
+          )}
+          {authError && (
+            <div role="alert" style={{ background: 'var(--error-soft)', border: '1px solid #FCA5A5', color: 'var(--error-text)', padding: '10px 12px', borderRadius: 8, fontSize: 13, marginBottom: 14, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+              <Icon name="alert-circle" size={16} style={{ marginTop: 1 }} />
+              <div>{authError}</div>
+            </div>
+          )}
+
+          <form onSubmit={submit} className="form-stack" noValidate>
+            <Field label="Doctor email" required error={errors.email}>
+              <TextInput type="email" placeholder="doctor@medicacare.ph" value={form.email}
+                onChange={e => update('email', e.target.value)} error={errors.email} icon="mail" />
+            </Field>
+            <Field label="Password" required error={errors.password}>
+              <TextInput type="password" placeholder="Enter your password" value={form.password}
+                onChange={e => update('password', e.target.value)} error={errors.password} />
+            </Field>
+
+            <button type="submit" className={`btn btn-primary lg ${loading ? 'btn-loading' : ''}`}>
+              Sign in to doctor portal
+            </button>
+
+            <div className="footer-link">
+              Patient? <a href="#/login">Use the patient portal instead</a>
+            </div>
+          </form>
+
+          <div className={`demo-accounts ${demoOpen ? 'open' : ''}`}>
+            <button
+              type="button"
+              className="demo-accounts-toggle"
+              aria-expanded={demoOpen}
+              onClick={() => setDemoOpen(o => !o)}
+            >
+              <span className="demo-accounts-title">Demo account: click to use</span>
+              <Icon name="chevron-down" size={14} />
+            </button>
+            {demoOpen && (
+              <button type="button" className="demo-account" onClick={() => {
+                setForm({ email: DOCTOR_CREDENTIALS.email, password: DOCTOR_CREDENTIALS.password });
+                setErrors({}); setAuthError(null);
+              }}>
+                <span className="avatar sm neutral">{window.initials((window.findDoctor(DOCTOR_CREDENTIALS.doctorId) || {}).name)}</span>
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: 13, fontWeight: 500 }}>{DOCTOR_CREDENTIALS.email}</span>
+                  <span className="t-muted" style={{ display: 'block', fontSize: 11 }}>Password: {DOCTOR_CREDENTIALS.password}</span>
+                </span>
+                <span className="demo-account-role">Doctor</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+      </AnimatedContent>
+
+      {/* Step 2 — the emailed 6-character code before the portal opens;
+          the session is only created from onVerified */}
+      <OtpVerifyModal
+        open={!!pendingDoc}
+        onClose={() => setPendingDoc(null)}
+        onVerified={finishLogin}
+        email={pendingDoc ? pendingDoc.email : ''}
+        title="Verify doctor sign-in"
+        subtitle={`Enter the code sent to ${pendingDoc ? pendingDoc.email : 'your email'} to open the doctor portal.`}
+      />
     </div>
   );
 }
@@ -1572,12 +1849,12 @@ function ForgotPassword() {
 }
 
 Object.assign(window, {
-  Landing, Register, Login, AdminLogin, ForgotPassword,
+  Landing, Register, Login, AdminLogin, DoctorLogin, ForgotPassword,
   ServicesPage, DoctorsPage, AboutPage, ContactPage, PrivacyPage, TermsPage,
 });
 
 export {
-  Landing, Register, Login, AdminLogin, ForgotPassword,
+  Landing, Register, Login, AdminLogin, DoctorLogin, ForgotPassword,
   ServicesPage, DoctorsPage, AboutPage, ContactPage, PrivacyPage, TermsPage,
 };
 

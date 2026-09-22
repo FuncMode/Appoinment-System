@@ -11,7 +11,7 @@ const routes = [
   '/patient/dashboard', '/patient/doctors', '/patient/availability/d1',
   '/patient/book', '/patient/confirmation', '/patient/status',
   '/patient/history', '/patient/appointment/ap1', '/patient/profile',
-  '/patient/records', '/patient/help',
+  '/patient/records', '/patient/messages', '/patient/help',
   '/admin/dashboard', '/admin/patients', '/admin/doctors', '/admin/appointments',
   '/admin/stories', '/admin/reports', '/admin/settings',
   '/patient/availability/unknown-id', '/patient/appointment/unknown-id',
@@ -33,6 +33,11 @@ for (const route of routes) {
     addEventListener() {}, removeEventListener() {}, dispatchEvent() {},
   });
   dom.window.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
+  // jsdom lacks requestAnimationFrame too — gsap's ScrollTrigger (pulled in by
+  // the public pages via reactbits) calls it at module-evaluation time, so the
+  // polyfill must exist on globalThis before the app is SSR-loaded.
+  globalThis.requestAnimationFrame = (cb) => setTimeout(() => cb(Date.now()), 0);
+  globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
   dom.window.location.hash = route;
 
   const vite = await createServer({
