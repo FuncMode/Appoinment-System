@@ -733,7 +733,7 @@ function DoctorAvailability({ doctorId }) {
               <div style={{ padding: 20 }}>
                 {slots.length === 0 ? (
                   <p className="t-muted" style={{ margin: 0 }}>
-                    No bookable slots on this date — it falls outside the doctor's clinic days. Please pick another date.
+                    No bookable slots on this date. It falls outside the doctor's clinic days, so please pick another date.
                   </p>
                 ) : (
                   <>
@@ -948,7 +948,7 @@ function BookAppointment() {
                           const clinicDay = !form.doctorId || isClinicDay(form.doctorId, d);
                           return (
                             <option key={d} value={d}>
-                              {window.formatDateLong(d)}{clinicDay ? '' : ' — not a clinic day'}
+                              {window.formatDateLong(d)}{clinicDay ? '' : ' (not a clinic day)'}
                             </option>
                           );
                         })}
@@ -2582,7 +2582,7 @@ function PatientMessages() {
           {myTickets.length === 0 ? (
             <div style={{ padding: '8px 20px 16px' }}>
               <EmptyState icon="inbox" title="No messages yet"
-                message="Send your first message above — staff replies will appear right here." />
+                message="Send your first message above. Staff replies will appear right here." />
             </div>
           ) : (
             <div className="stack md" style={{ padding: '16px 20px 20px' }}>

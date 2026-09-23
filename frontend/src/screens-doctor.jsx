@@ -61,7 +61,7 @@ function CompleteVisitModal({ appointment, onClose }) {
     <Modal
       open
       onClose={onClose}
-      title="Complete visit — your notes"
+      title="Complete visit"
       subtitle={patient ? `${patient.name} · ${window.formatDate(appointment.date)} at ${appointment.time}` : ''}
       icon="stethoscope"
       iconKind="info"
@@ -91,7 +91,7 @@ function CompleteVisitModal({ appointment, onClose }) {
         label="Doctor's notes / visit summary"
         required
         error={error}
-        help="You write these yourself — they are attributed to you and saved to the patient's medical records in their portal."
+        help="You write these yourself. They are attributed to you and saved to the patient's medical records in their portal."
       >
         <TextArea
           rows={4}
@@ -114,7 +114,7 @@ function markNoShow(store, appt) {
   const p = window.findPatient(appt.patientId);
   store.setAppointments(store.appointments.map(x => x.id === appt.id ? { ...x, status: 'no-show' } : x));
   store.pushActivity((store.doctorSession || {}).name || 'Doctor', 'Marked no-show', p ? p.name : 'Patient');
-  store.pushToast({ title: 'Marked as no-show', msg: `${p ? p.name : 'Patient'} did not arrive — the slot is freed for rebooking.` });
+  store.pushToast({ title: 'Marked as no-show', msg: `${p ? p.name : 'Patient'} did not arrive. The slot is freed for rebooking.` });
 }
 
 // Short name for the compact week-view chips ("Juan Miguel B." style)
@@ -160,7 +160,7 @@ function WeekGrid({ mine, weekDays, today }) {
               const p = window.findPatient(a.patientId);
               return (
                 <div key={a.id} className={'dw-appt st-' + a.status}
-                  title={`${a.time} · ${p ? p.name : 'Patient'} — ${window.statusMeta(a.status).label}`}>
+                  title={`${a.time} · ${p ? p.name : 'Patient'} · ${window.statusMeta(a.status).label}`}>
                   <span className="dw-dot" aria-hidden="true" />
                   <span className="dw-body">
                     <span className="dw-time">{a.time}</span>
@@ -389,7 +389,7 @@ function DoctorDashboard() {
               ))
             ) : todayAppts.length === 0 ? (
               <div style={{ padding: '8px 20px 16px' }}>
-                <EmptyState icon="calendar-check" title="No appointments today" message="Your schedule is clear — enjoy the breather." />
+                <EmptyState icon="calendar-check" title="No appointments today" message="Your schedule is clear. Enjoy the breather." />
               </div>
             ) : todayAppts.map(a => {
               const p = window.findPatient(a.patientId);
@@ -724,7 +724,7 @@ function DoctorFeedback() {
             ) : myRatings.length === 0 ? (
               <div style={{ padding: '8px 20px 16px' }}>
                 <EmptyState icon="star" title="No ratings yet"
-                  message="Patients can rate your visit once it is completed — their feedback will appear here." />
+                  message="Patients can rate your visit once it is completed. Their feedback will appear here." />
               </div>
             ) : myRatings.map(r => {
               const p = window.findPatient(r.patientId);

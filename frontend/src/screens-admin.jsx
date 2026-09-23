@@ -866,7 +866,7 @@ function PatientRecordsModal({ patient, onClose }) {
   return (
     <Modal
       open onClose={onClose} size="lg"
-      title={`${patient.name} — labs & medications`}
+      title={`Labs & medications for ${patient.name}`}
       subtitle="Staff-encoded entries shown in the patient's Medical Records page."
       icon="flask-conical" iconKind="info"
       footer={<button className="btn btn-secondary" onClick={onClose}>Close</button>}
@@ -1451,8 +1451,8 @@ function DoctorFormModal({ open, onClose, doctor, account, onSave, onRevoke }) {
           </div>
           <p className="t-muted" style={{ fontSize: 12, margin: '0 0 10px', lineHeight: 1.5 }}>
             {isEdit && account
-              ? 'Active. The doctor signs in at the Doctor portal with the email below — reset the password here if needed.'
-              : 'Create the login the doctor will use at the Doctor portal. Leave both fields blank to add the profile without portal access — it can be granted later from Edit.'}
+              ? 'Active. The doctor signs in at the Doctor portal with the email below. Reset the password here if needed.'
+              : 'Create the login the doctor will use at the Doctor portal. Leave both fields blank to add the profile without portal access. It can be granted later from Edit.'}
           </p>
           {isEdit && account ? (
             <div className="stack md">
@@ -1473,7 +1473,7 @@ function DoctorFormModal({ open, onClose, doctor, account, onSave, onRevoke }) {
                 <button type="button" className="btn btn-danger-outline sm" onClick={() => onRevoke(account)}>
                   <Icon name="shield-off" size={13} /> Revoke portal access
                 </button>
-                <span className="t-muted" style={{ fontSize: 11.5 }}>Removes the doctor's login — it can be granted again later.</span>
+                <span className="t-muted" style={{ fontSize: 11.5 }}>Removes the doctor's login. It can be granted again later.</span>
               </div>
             </div>
           ) : (
@@ -1784,7 +1784,7 @@ function AppointmentsMgmt() {
       <Modal
         open={!!completeAppt}
         onClose={() => setCompleteAppt(null)}
-        title="Complete visit — doctor's notes"
+        title="Complete visit"
         subtitle={completeAppt
           ? `${window.findPatient(completeAppt.patientId)?.name || 'Patient'} · ${window.formatDate(completeAppt.date)} at ${completeAppt.time}`
           : ''}
@@ -2405,7 +2405,7 @@ function AdminSettings() {
                 <input type="checkbox" checked={prefs.autoConfirm} onChange={e => updatePref('autoConfirm', e.target.checked)} />
                 <span>Auto-confirm pending appointments (skip manual review)</span>
               </label>
-              <Field label="Appointment slot interval" help="Time slots offered on the patient booking form. Hourly shows :00 slots only — the booking grid runs on 30-minute granularity.">
+              <Field label="Appointment slot interval" help="Time slots offered on the patient booking form. Hourly shows :00 slots only. The booking grid runs on 30-minute granularity.">
                 <SelectInput value={prefs.slotInterval} onChange={e => updatePref('slotInterval', e.target.value)}>
                   <option value="15">Every 15 minutes</option>
                   <option value="30">Every 30 minutes</option>
@@ -2494,7 +2494,7 @@ function TicketsMgmt() {
           </div>
           {(t.thread || []).some(m => m.from === 'patient') && (
             <div className="list-item-sub" style={{ marginTop: 4 }}>
-              {t.thread.filter(m => m.from === 'patient').length} patient follow-up{t.thread.filter(m => m.from === 'patient').length === 1 ? '' : 's'} — see reply history
+              {t.thread.filter(m => m.from === 'patient').length} patient follow-up{t.thread.filter(m => m.from === 'patient').length === 1 ? '' : 's'}. See reply history
             </div>
           )}
           <div className="list-item-sub" style={{ marginTop: 4 }}>
@@ -2587,7 +2587,7 @@ function TicketsMgmt() {
               <TextArea rows={4} value={replyText}
                 onChange={e => { setReplyText(e.target.value); if (replyError) setReplyError(''); }}
                 error={replyError} maxLength={500}
-                placeholder="e.g., Your HMO covers the annual physical exam — just present your card at the counter." />
+                placeholder="e.g., Your HMO covers the annual physical exam. Just present your card at the counter." />
             </Field>
           </div>
         )}

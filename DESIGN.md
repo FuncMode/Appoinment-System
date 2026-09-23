@@ -72,6 +72,18 @@
 - 120ms control feedback (hover/border/focus), 200-450ms state transitions
   (accordion, carousel), both respecting `prefers-reduced-motion`. Nothing
   else moves.
+- **Public section entrances removed** (frontend-design skill audit, applied
+  to all public pages): the GSAP `AnimatedContent` scroll-reveal wrappers on
+  every public section, the `FadeContent` blocks, the staggered per-card
+  entrances on the public Doctors grid, the `SpotlightCard` cursor glows,
+  `ClickSpark`/`GradientText` CTA decorations, and the map `GlareHover` were
+  all removed — decorative entrances don't communicate state (same rule as
+  the R-19 scroll-reveal removal, and the patient-portal doctor-grid
+  precedent). GSAP-driven entrances also ignored `prefers-reduced-motion`.
+  What remains as motion on public pages: the hero crossfade + title shine +
+  Aurora wash (the one orchestrated hero moment), the trust ticker,
+  auth-slide page transitions (user-triggered), CountUp stats, Magnet hover,
+  and 120ms control feedback.
 - The Landing testimonial carousel auto-advance is pausable: it stops on
   hover/keyboard focus and via an explicit play/pause toggle (WCAG 2.2.2),
   styled as a third arrow button so it stays within the same control family.
@@ -85,6 +97,14 @@
 ## Patient portal (audit-002 decisions)
 
 The portal shares the dials above, with these written decisions:
+
+- **frontend-design skill audit (applied to all portal pages):** the portal
+  already met the skill's bar — no entrance/scroll-reveal animations, no
+  cursor-glow or gradient decorations, card hovers are the quiet 120ms
+  border/feedback change, and every empty state carries an action. Copy
+  pass applied: sentence em dashes in UI text were replaced with plain
+  punctuation (booking empty-slots note, availability "(not a clinic day)"
+  option, My messages empty state). The `—` empty-value glyph is unchanged.
 
 - **Portal rhythm:** consistent page-header + card-section rhythm
   (ENERGY 1). The Dashboard breaks it once, on purpose: greeting + next
@@ -122,3 +142,28 @@ The portal shares the dials above, with these written decisions:
   focusable controls; modals trap Tab and restore focus. The status colors
   and dots on every screen keep the live-status motif: a dot always marks
   real state, including the sidebar's live pending-appointment count.
+
+## Admin console (frontend-design skill audit)
+
+The console shares the dials above and already met the skill's bar: no
+entrance/scroll-reveal animations, no cursor-glow/gradient decorations,
+table-first layouts where the data is the color, and every empty state
+carries an action. Copy pass applied: sentence em dashes in UI text were
+replaced with plain punctuation (labs/medications modal title, doctor
+portal-access help, Complete visit title, slot-interval help, ticket
+follow-up line, reply placeholder, revoke-access note). The `—` empty-value
+glyph is unchanged, and the activity trail's `Ref X → Status` notation stays
+(functional transition notation in the audit log, not link chrome).
+
+## Doctor portal (frontend-design skill audit)
+
+The portal shares the dials above and already met the skill's bar: no
+entrance/scroll-reveal animations, no cursor-glow/gradient decorations, and
+the week grid's hover tooltips, skeleton rows, and empty states are all
+functional. Copy pass applied: sentence em dashes in UI text were replaced
+with plain punctuation (Complete visit modal title, notes help text, no-show
+toast, week-grid chip tooltip, dashboard empty-schedule message, feedback
+empty-ratings message). The `—` empty-value glyph is unchanged, the `·`
+separators in meta lines and tooltips stay (data separators, not link
+chrome), and week-grid day headers keep their `Mon–Sun` en dash (a range,
+not a sentence dash).

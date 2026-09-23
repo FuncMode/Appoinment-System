@@ -18,14 +18,10 @@ import ShinyText from './reactbits/ShinyText.jsx';
 import CountUp from './reactbits/CountUp.jsx';
 import SplitText from './reactbits/SplitText.jsx';
 import AnimatedContent from './reactbits/AnimatedContent.jsx';
-import SpotlightCard from './reactbits/SpotlightCard.jsx';
-import GradientText from './reactbits/GradientText.jsx';
-import FadeContent from './reactbits/FadeContent.jsx';
 import Magnet from './reactbits/Magnet.jsx';
 import ScrollVelocity from './reactbits/ScrollVelocity.jsx';
 import StarBorder from './reactbits/StarBorder.jsx';
-import GlareHover from './reactbits/GlareHover.jsx';
-import ClickSpark from './reactbits/ClickSpark.jsx';
+import GlareHover from './reactbits/GlareHover.jsx';  // hero preview card only — the one deliberate hover flourish
 import Ribbons from './reactbits/Ribbons.jsx';
 
 
@@ -260,11 +256,9 @@ function Landing() {
       <section className="public-section" style={{ background: 'var(--bg)' }}>
         <div className="public-section-inner">
           <div>
-            <AnimatedContent distance={32} duration={0.7}>
-              <span className="section-kicker">Find your care</span>
-              <h2>Not sure where to go for care?</h2>
-              <p className="public-section-sub">Pick the symptom closest to what you're feeling and we'll point you to the right specialist.</p>
-            </AnimatedContent>
+            <span className="section-kicker">Find your care</span>
+            <h2>Not sure where to go for care?</h2>
+            <p className="public-section-sub">Pick the symptom closest to what you're feeling and we'll point you to the right specialist.</p>
             <div className="chip-group care-chips">
               {CARE_GUIDE.map(g => (
                 <button
@@ -302,11 +296,9 @@ function Landing() {
 
       <section className="public-section">
         <div className="public-section-inner">
-          <AnimatedContent distance={32} duration={0.7}>
-            <span className="section-kicker">Getting started</span>
-            <h2>How it works</h2>
-            <p className="public-section-sub">Three straightforward steps to see a doctor at MedicaCare.</p>
-          </AnimatedContent>
+          <span className="section-kicker">Getting started</span>
+          <h2>How it works</h2>
+          <p className="public-section-sub">Three straightforward steps to see a doctor at MedicaCare.</p>
           {/* Numbered rail instead of the default 3-card grid (R-05): the steps
               are a sequence, so the composition shows order and progression. */}
           <ol className="how-steps">
@@ -355,35 +347,27 @@ function Landing() {
 
       <section className="public-section" style={{ background: 'var(--bg)', paddingTop: 32 }}>
         <div className="public-section-inner">
-          <AnimatedContent distance={32} duration={0.7}>
-            <span className="section-kicker">Patient stories</span>
-            <h2>What patients say</h2>
-            <p className="public-section-sub">
-              {approvedStories.length > 0
-                ? 'Stories shared by patients from the MedicaCare portal, reviewed by our staff before publishing.'
-                : 'Fictional stories written for this prototype to show what booking with MedicaCare feels like.'}
-            </p>
-          </AnimatedContent>
-          <FadeContent duration={900}>
-            <TestimonialCarousel
-              items={approvedStories.length > 0
-                ? approvedStories.map(t => ({ quote: t.quote, who: `${t.displayName} · patient` }))
-                : PROTOTYPE_STORIES}
-            />
-          </FadeContent>
+          <span className="section-kicker">Patient stories</span>
+          <h2>What patients say</h2>
+          <p className="public-section-sub">
+            {approvedStories.length > 0
+              ? 'Stories shared by patients from the MedicaCare portal, reviewed by our staff before publishing.'
+              : 'Fictional stories written for this prototype to show what booking with MedicaCare feels like.'}
+          </p>
+          <TestimonialCarousel
+            items={approvedStories.length > 0
+              ? approvedStories.map(t => ({ quote: t.quote, who: `${t.displayName} · patient` }))
+              : PROTOTYPE_STORIES}
+          />
         </div>
       </section>
 
       <section className="public-section">
         <div className="public-section-inner public-section--centered">
-          <AnimatedContent distance={32} duration={0.7}>
-            <span className="section-kicker">Before you book</span>
-            <h2>Common questions</h2>
-            <p className="public-section-sub">Quick answers before you create your account.</p>
-          </AnimatedContent>
-          <FadeContent duration={900}>
-            <FaqAccordion items={LANDING_FAQS} />
-          </FadeContent>
+          <span className="section-kicker">Before you book</span>
+          <h2>Common questions</h2>
+          <p className="public-section-sub">Quick answers before you create your account.</p>
+          <FaqAccordion items={LANDING_FAQS} />
         </div>
       </section>
 
@@ -394,11 +378,8 @@ function Landing() {
         <div className="cta-ribbons" aria-hidden="true">
           <Ribbons colors={['#93C5FD', '#2563EB', '#7CC0FF']} baseThickness={20} speedMultiplier={0.5} />
         </div>
-        <ClickSpark sparkColor="#2563EB" sparkSize={12} sparkRadius={20}>
         <div className="public-section-inner" style={{ textAlign: 'center' }}>
-          <GradientText colors={['#2563EB', '#7CC0FF', '#1E40AF']} animationSpeed={6} className="gradient-text-center">
-            <h2 style={{ marginBottom: 8 }}>Ready to book your first visit?</h2>
-          </GradientText>
+          <h2 style={{ marginBottom: 8 }}>Ready to book your first visit?</h2>
           <p className="public-section-sub" style={{ maxWidth: 520, margin: '0 auto 24px' }}>
             Create a free account, pick a specialist, and choose a slot that fits your schedule.
           </p>
@@ -409,7 +390,6 @@ function Landing() {
             <a className="btn btn-secondary lg" href="#/doctors">Browse doctors</a>
           </div>
         </div>
-        </ClickSpark>
       </section>
 
       <PublicFooter />
@@ -442,18 +422,19 @@ function ServicesPage() {
         <div className="public-section-inner">
           {/* First card spans two columns: consultations are the primary
               offering; the rest are supporting services (R-14 hierarchy
-              reason, written down). */}
+              reason, written down). Plain card — no cursor-glow spotlight:
+              the hover border/lift is the whole interaction (DESIGN.md
+              MOTION 1, ui-guidelines §3). */}
           <div className="feature-grid">
             {services.map((s, i) => (
-              <SpotlightCard
+              <div
                 className={`feature-card${i === 0 ? ' feature-card--featured' : ''}`}
-                spotlightColor="rgba(37, 99, 235, 0.08)"
                 key={s.title}
               >
                 <div className="feature-card-icon"><Icon name={s.icon} size={18} /></div>
                 <h3>{s.title}</h3>
                 <p>{s.desc}</p>
-              </SpotlightCard>
+              </div>
             ))}
           </div>
         </div>
@@ -461,12 +442,9 @@ function ServicesPage() {
 
       <section className="public-section" style={{ background: 'var(--bg)', paddingTop: 32 }}>
         <div className="public-section-inner">
-          <AnimatedContent distance={32} duration={0.7}>
-            <span className="section-kicker">Find your department</span>
-            <h2>Departments & specialties</h2>
-            <p className="public-section-sub">Tap a department to see its specialists.</p>
-          </AnimatedContent>
-          <FadeContent duration={900}>
+          <span className="section-kicker">Find your department</span>
+          <h2>Departments & specialties</h2>
+          <p className="public-section-sub">Tap a department to see its specialists.</p>
           <div className="grid-4">
             {SPECIALTIES.map(s => (
               <button key={s} className="dept-chip" onClick={() => navigate(`/doctors?spec=${encodeURIComponent(s)}`)}>
@@ -475,29 +453,21 @@ function ServicesPage() {
               </button>
             ))}
           </div>
-          </FadeContent>
         </div>
       </section>
 
       <section className="public-section">
         <div className="public-section-inner public-section--centered">
-          <AnimatedContent distance={32} duration={0.7}>
-            <span className="section-kicker">Good to know</span>
-            <h2>Service FAQs</h2>
-            <p className="public-section-sub">Answers to what patients ask us most about our services.</p>
-          </AnimatedContent>
-          <FadeContent duration={900}>
-            <FaqAccordion items={SERVICES_FAQS} />
-          </FadeContent>
+          <span className="section-kicker">Good to know</span>
+          <h2>Service FAQs</h2>
+          <p className="public-section-sub">Answers to what patients ask us most about our services.</p>
+          <FaqAccordion items={SERVICES_FAQS} />
         </div>
       </section>
 
       <section className="public-section" style={{ paddingTop: 32 }}>
-        <ClickSpark sparkColor="#2563EB" sparkSize={12} sparkRadius={20}>
         <div className="public-section-inner">
-          <GradientText colors={['#2563EB', '#7CC0FF', '#1E40AF']} animationSpeed={6} className="gradient-text-start">
-            <h2>Skip the phone queue: book online</h2>
-          </GradientText>
+          <h2>Skip the phone queue: book online</h2>
           <p className="public-section-sub">Create a free patient account and see a specialist as early as tomorrow.</p>
           <div style={{ display: 'flex', gap: 10 }}>
             <Magnet padding={40} magnetStrength={3}>
@@ -506,7 +476,6 @@ function ServicesPage() {
             <a className="btn btn-secondary" href="#/doctors">Browse doctors</a>
           </div>
         </div>
-        </ClickSpark>
       </section>
 
       <PublicFooter />
@@ -588,7 +557,6 @@ function DoctorsPage({ initialSpecialty = '' }) {
       <section className="public-section" style={{ paddingTop: 8 }}>
         <div className="public-section-inner">
           {/* Filter bar — mirrors the patient-side doctor listing filters */}
-          <FadeContent duration={900}>
           <div className="card" style={{ marginBottom: 16 }}>
             <div className="doctor-filters">
               <div className="input-group doctor-filter-search">
@@ -614,7 +582,6 @@ function DoctorsPage({ initialSpecialty = '' }) {
               </div>
             </div>
           </div>
-          </FadeContent>
 
           {loading ? (
             // Skeleton doctor cards mirroring the public card layout (32px
@@ -656,14 +623,16 @@ function DoctorsPage({ initialSpecialty = '' }) {
             </div>
           ) : (
             <div className="doctor-grid">
-              {/* Plain wrapper — same call as the patient portal's doctor
-                  grid: SpotlightCard's dark demo skin (.card-spotlight)
-                  loads after styles.css, so its equal-specificity #111
-                  background wins the cascade and paints the wrapper black,
-                  while its cursor glow is invisible anyway behind the
-                  opaque .doctor-card. The entrance animation stays. */}
-              {visibleDoctors.map((d, i) => (
-                <AnimatedContent className="card-anim" distance={40} duration={0.6} delay={(i % 3) * 0.1} key={d.id}>
+              {/* Plain wrapper — no entrance animation, same call as the patient
+                  portal's doctor grid (DESIGN.md MOTION 1: no scroll-reveal;
+                  the frontend-design skill audit removed the staggered card
+                  entrances). SpotlightCard is not used here either: its dark
+                  demo skin (.card-spotlight) loads after styles.css, so its
+                  equal-specificity #111 background wins the cascade and paints
+                  the wrapper black. .card-anim stays for the grid's
+                  height:100% stretch. */}
+              {visibleDoctors.map(d => (
+                <div className="card-anim" key={d.id}>
                 <div className="doctor-card-wrap">
                   <div
                     className="doctor-card"
@@ -697,7 +666,7 @@ function DoctorsPage({ initialSpecialty = '' }) {
                   </div>
                   </div>
                 </div>
-                </AnimatedContent>
+                </div>
               ))}
             </div>
           )}
@@ -713,7 +682,6 @@ function DoctorsPage({ initialSpecialty = '' }) {
             <Icon name="info" size={13} /> Doctor photos are placeholder portraits (randomuser.me), not real staff. Ratings shown are prototype demo data; ratings you submit from completed visits are added to them.
           </div>
 
-          <AnimatedContent distance={32} duration={0.7}>
           <div style={{ marginTop: 32, padding: 24, background: 'var(--primary-soft)', border: '1px solid var(--border)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
             <div style={{ flex: '1 1 240px' }}>
               <div style={{ fontWeight: 600 }}>Ready to book an appointment?</div>
@@ -728,7 +696,6 @@ function DoctorsPage({ initialSpecialty = '' }) {
               <a className="btn btn-secondary" href="#/login">Log in</a>
             </div>
           </div>
-          </AnimatedContent>
         </div>
       </section>
 
@@ -820,15 +787,12 @@ function AboutPage() {
 
       <section className="public-section" style={{ paddingTop: 8 }}>
         <div className="public-section-inner">
-          <AnimatedContent distance={32} duration={0.7}>
-            <h2>Who we are</h2>
-            <p className="public-section-sub">
-              MedicaCare is a fictional private hospital along Rizal Avenue, Quezon City.
-              Since 1991 we have combined modern facilities with a personal approach to care, from routine
-              check-ups to specialty consultations, for families across Metro Manila.
-            </p>
-          </AnimatedContent>
-          <FadeContent duration={900}>
+          <h2>Who we are</h2>
+          <p className="public-section-sub">
+            MedicaCare is a fictional private hospital along Rizal Avenue, Quezon City.
+            Since 1991 we have combined modern facilities with a personal approach to care, from routine
+            check-ups to specialty consultations, for families across Metro Manila.
+          </p>
           <div className="grid-4">
             {stats.map(s => (
               // Value and label only — no icon chips; the number is the content
@@ -840,22 +804,19 @@ function AboutPage() {
               </div>
             ))}
           </div>
-          </FadeContent>
         </div>
       </section>
 
       <section className="public-section" style={{ background: 'var(--bg)', paddingTop: 32 }}>
         <div className="public-section-inner">
-          <AnimatedContent distance={32} duration={0.7}>
-            <h2>What we stand for</h2>
-            <p className="public-section-sub">The principles behind every consultation, lab result, and follow-up call.</p>
-          </AnimatedContent>
+          <h2>What we stand for</h2>
+          <p className="public-section-sub">The principles behind every consultation, lab result, and follow-up call.</p>
           <div className="feature-grid">
             {values.map(v => (
-              <SpotlightCard className="feature-card" spotlightColor="rgba(37, 99, 235, 0.08)" key={v.title}>
+              <div className="feature-card" key={v.title}>
                 <h3>{v.title}</h3>
                 <p>{v.desc}</p>
-              </SpotlightCard>
+              </div>
             ))}
           </div>
         </div>
@@ -863,10 +824,8 @@ function AboutPage() {
 
       <section className="public-section" style={{ paddingTop: 32 }}>
         <div className="public-section-inner">
-          <AnimatedContent distance={32} duration={0.7}>
-            <h2>Visit us</h2>
-            <p className="public-section-sub">We're open daily, with 24/7 emergency care.</p>
-          </AnimatedContent>
+          <h2>Visit us</h2>
+          <p className="public-section-sub">We're open daily, with 24/7 emergency care.</p>
           <div style={{ marginBottom: 16 }}>
             <ClinicStatus />
           </div>
@@ -959,7 +918,6 @@ function ContactPage() {
             ))}
           </div>
 
-          <FadeContent duration={900}>
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 24 }}>
             <h2 style={{ fontSize: 18, margin: '0 0 4px' }}>Send us a message</h2>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 16px' }}>
@@ -981,30 +939,21 @@ function ContactPage() {
               <button type="submit" className="btn btn-primary">Send message</button>
             </form>
           </div>
-          </FadeContent>
         </div>
       </section>
 
       <section className="public-section" style={{ paddingTop: 0 }}>
         <div className="public-section-inner">
-          <AnimatedContent distance={32} duration={0.7}>
-            <h2>Find us</h2>
-            <p className="public-section-sub">
-              We're along Rizal Avenue, a few minutes' walk from the LRT-2 Anonas station.
-              Parking is available for patients and visitors.
-            </p>
-          </AnimatedContent>
-          <FadeContent duration={900}>
-          <GlareHover
-            width="100%"
-            height="360px"
-            background="var(--surface)"
-            borderColor="var(--border)"
-            borderRadius="10px"
-            glareColor="#93C5FD"
-            glareOpacity={0.25}
-            glareSize={250}
+          <h2>Find us</h2>
+          <p className="public-section-sub">
+            We're along Rizal Avenue, a few minutes' walk from the LRT-2 Anonas station.
+            Parking is available for patients and visitors.
+          </p>
+          {/* Plain framed map — the hover glare was decorative (ui-guidelines §3);
+              the frame below carries the same surface/border/radius it had */}
+          <div
             className="glare-map"
+            style={{ width: '100%', height: 360, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}
           >
             <iframe
               title="Map: MedicaCare location"
@@ -1012,8 +961,7 @@ function ContactPage() {
               style={{ width: '100%', height: 360, border: 0 }}
               loading="lazy"
             />
-          </GlareHover>
-          </FadeContent>
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-muted)' }}>
               <Icon name="map-pin" size={14} /> {HOSPITAL.address}
