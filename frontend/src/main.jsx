@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import './styles.css';
-import './data.js';
-import { StoreProvider } from './components.jsx';
+import './shared/data.js';
+import { StoreProvider } from './shared/components.jsx';
 import App from './App.jsx';
 
 createRoot(document.getElementById('root')).render(

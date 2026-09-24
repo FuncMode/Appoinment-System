@@ -2,16 +2,16 @@
 // Router / app root — MedicaCare
 // ============================================================
 import { useEffect, useState } from 'react';
-import { BrandMark, useHashRoute, useStore, useIsDesktop, DesktopOnlyNotice } from './components.jsx';
-import { Landing, Register, Login, AdminLogin, DoctorLogin, ForgotPassword, ServicesPage, DoctorsPage, AboutPage, ContactPage, PrivacyPage, TermsPage } from './screens-public.jsx';
+import { BrandMark, useHashRoute, useStore, useIsDesktop, DesktopOnlyNotice } from './shared/components.jsx';
+import { Landing, Register, Login, AdminLogin, DoctorLogin, ForgotPassword, ServicesPage, DoctorsPage, AboutPage, ContactPage, PrivacyPage, TermsPage } from './public/screens-public.jsx';
 import {
   PatientDashboard, DoctorListing, DoctorAvailability, BookAppointment,
   BookingConfirmation, AppointmentStatus, AppointmentHistory, AppointmentDetails, Profile,
   MedicalRecords, PatientMessages, HelpSupport,
-} from './screens-patient.jsx';
-import { AdminDashboard, PatientsMgmt, DoctorsMgmt, AppointmentsMgmt, StoriesMgmt, TicketsMgmt, AdminReports, AdminSettings, AdminActivity } from './screens-admin.jsx';
-import { DoctorDashboard, DoctorPatients, DoctorWeekView, DoctorFeedback } from './screens-doctor.jsx';
-import { MobileShowcase } from './screens-mobile.jsx';
+} from './patient/screens-patient.jsx';
+import { AdminDashboard, PatientsMgmt, DoctorsMgmt, AppointmentsMgmt, StoriesMgmt, TicketsMgmt, AdminReports, AdminSettings, AdminActivity } from './admin/screens-admin.jsx';
+import { DoctorDashboard, DoctorPatients, DoctorWeekView, DoctorFeedback } from './doctor/screens-doctor.jsx';
+import { MobileShowcase } from './public/screens-mobile.jsx';
 
 // ============================================================
 // Initial-visit splash — brand mark + spinner circle, centered

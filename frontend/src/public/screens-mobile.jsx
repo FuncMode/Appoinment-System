@@ -5,13 +5,13 @@ import {
   Badge, StatusBadge, DoctorStatusBadge, DoctorAvatar,
   Modal, ToastLayer, Field, TextInput, TextArea, SelectInput,
   Pagination, SkeletonRows, EmptyState, ErrorState, ConfirmModal, MiniBarChart, DoctorRatingPill,
-} from './components.jsx';
+} from '../shared/components.jsx';
 import {
   HOSPITAL, SPECIALTIES, DOCTORS, PATIENTS, CURRENT_PATIENT, CURRENT_ADMIN,
   APPOINTMENTS, AVAILABILITY_TEMPLATE,
   findDoctor, findPatient, formatDate, formatDateLong, initials, statusMeta, doctorStatusMeta,
-} from './data.js';
-import { IOSDevice, IOSStatusBar, IOSGlassPill, IOSNavBar, IOSList, IOSListRow, IOSKeyboard } from './ios_frame.jsx';
+} from '../shared/data.js';
+import { IOSDevice, IOSStatusBar, IOSGlassPill, IOSNavBar, IOSList, IOSListRow, IOSKeyboard } from '../shared/ios_frame.jsx';
 
 
 // ============================================================

@@ -47,7 +47,7 @@ for (const route of routes) {
   });
   try {
     const { default: App } = await vite.ssrLoadModule('/src/App.jsx');
-    const { StoreProvider } = await vite.ssrLoadModule('/src/components.jsx');
+    const { StoreProvider } = await vite.ssrLoadModule('/src/shared/components.jsx');
     const html = renderToString(React.createElement(StoreProvider, null, React.createElement(App)));
     const label = html.match(/data-screen-label="([^"]*)"/);
     if (!html || html.length < 200) throw new Error('rendered HTML suspiciously small');

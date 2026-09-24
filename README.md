@@ -96,13 +96,29 @@ Healthcare Management Website/
 │       ├── main.jsx                              # entry point
 │       ├── App.jsx                               # router
 │       ├── styles.css                            # design tokens + component styles
-│       ├── data.js                               # fictional data + formatters
-│       ├── components.jsx                        # shared UI (AppShell, Modal, fields, badges, toasts…)
-│       ├── screens-public.jsx                    # Landing, Register, Login
-│       ├── screens-patient.jsx                   # patient portal screens
-│       ├── screens-admin.jsx                     # admin console screens
-│       ├── screens-mobile.jsx                    # mobile reference screens
-│       └── ios_frame.jsx                         # phone frame para sa /mobile showcase
+│       ├── assets/                               # images (hero slides, auth backgrounds, logo)
+│       ├── shared/                               # shared code ng lahat ng modules
+│       │   ├── data.js                           # fictional data + formatters
+│       │   ├── components.jsx                    # shared UI (AppShell, Modal, fields, badges, toasts…)
+│       │   ├── ios_frame.jsx                     # phone frame para sa /mobile showcase
+│       │   └── reactbits/                        # animation components (Aurora, SplitText, …)
+│       ├── public/                               # public marketing pages
+│       │   ├── Landing.jsx, Login.jsx, Register.jsx, ServicesPage.jsx, …  # isang page kada file
+│       │   ├── content.js                        # static content (CARE_GUIDE, FAQs, stories)
+│       │   ├── screens-public.jsx                # barrel — binubuo ang lahat ng public pages
+│       │   └── screens-mobile.jsx                # mobile reference screens
+│       ├── patient/                              # patient portal
+│       │   ├── PatientDashboard.jsx, DoctorListing.jsx, BookAppointment.jsx, …  # isang screen kada file
+│       │   ├── helpers.js                        # ICS/receipt/records builders, atbp.
+│       │   └── screens-patient.jsx               # barrel
+│       ├── admin/                                # admin console
+│       │   ├── AdminDashboard.jsx, PatientsMgmt.jsx, DoctorsMgmt.jsx, …  # isang screen kada file
+│       │   ├── AppointmentModals.jsx, helpers.js
+│       │   └── screens-admin.jsx                 # barrel
+│       └── doctor/                               # doctor portal
+│           ├── DoctorDashboard.jsx, DoctorPatients.jsx, DoctorWeekView.jsx, …  # isang screen kada file
+│           ├── WeekGrid.jsx, helpers.js
+│           └── screens-doctor.jsx                # barrel
 ├── PROJECT_INSTRUCTIONS.md
 ├── DEVELOPMENT_PLAN.md
 └── agents.md

@@ -1,0 +1,365 @@
+// MedicalRecords — patient (split from screens-patient.jsx)
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import {
+  Icon, navigate, useHashRoute, useStore, StoreProvider,
+  Sidebar, Topbar, AppShell, PublicNav, PageHeader,
+  Badge, StatusBadge, DoctorStatusBadge, DoctorAvatar, PatientAvatar,
+  Modal, ToastLayer, Field, TextInput, TextArea, SelectInput,
+  Pagination, SkeletonRows, SortableTh, PageSpinner, EmptyState, ErrorState, ConfirmModal, MiniBarChart, DoctorRatingPill, PwField,
+} from '../shared/components.jsx';
+import {
+  HOSPITAL, SPECIALTIES, DOCTORS, PATIENTS, CURRENT_PATIENT, CURRENT_ADMIN,
+  APPOINTMENTS, AVAILABILITY_TEMPLATE,
+  findDoctor, findPatient, formatDate, formatDateLong, initials, statusMeta, doctorStatusMeta,
+  isSlotTaken, getSlotsFor, slotFitsInterval, downloadFile, isClinicDay, timeValue,
+} from '../shared/data.js';
+import { CARE_GUIDE } from '../public/screens-public.jsx';
+import { activateOnKey, toICSStamp, buildICS, buildReceipt, localToday, buildRecordsHTML } from './helpers.js';
+import { PatientDashboard } from './PatientDashboard.jsx';
+import { MOBILE_DOCTOR_QUERY, MOBILE_DOCTOR_PAGE_SIZE, DoctorListing } from './DoctorListing.jsx';
+import { DoctorAvailability } from './DoctorAvailability.jsx';
+import { BookAppointment } from './BookAppointment.jsx';
+import { BookingConfirmation } from './BookingConfirmation.jsx';
+import { AppointmentStatus } from './AppointmentStatus.jsx';
+import { AppointmentHistory } from './AppointmentHistory.jsx';
+import { AppointmentDetails, RateVisitModal } from './AppointmentDetails.jsx';
+import { Profile } from './Profile.jsx';
+import { PatientMessages } from './PatientMessages.jsx';
+import { HelpSupport } from './HelpSupport.jsx';
+
+// ---------- Medical Records ----------
+// Prototype page — records derive from the logged-in patient's completed
+// appointments; all seed data is fictional (real patient data is not allowed).
+function MedicalRecords() {
+  const store = useStore();
+  const me = store.currentPatient || window.CURRENT_PATIENT;
+  // Simulated fetch — skeleton while "loading", same 600ms pattern as the
+  // other patient pages
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setLoading(false), 600); return () => clearTimeout(t); }, []);
+  const [doctorFilter, setDoctorFilter] = useState('all');
+  const [viewLab, setViewLab] = useState(null);
+  const today = localToday();
+
+  // Records come from real completed visits: when staff mark an appointment
+  // completed in the admin console they capture the doctor's notes, and that
+  // visit lands here automatically (no hardcoded demo list)
+  const records = store.appointments
+    .filter(a => a.patientId === me.id && a.status === 'completed')
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .map(a => ({
+      id: a.id,
+      date: a.date,
+      type: 'Consultation',
+      doctorId: a.doctorId,
+      title: a.reason,
+      summary: a.notes || 'No consultation notes were recorded for this visit.',
+    }));
+  const recordDoctors = [...new Set(records.map(r => r.doctorId))]
+    .map(id => window.findDoctor(id))
+    .filter(Boolean);
+  const filteredRecords = doctorFilter === 'all'
+    ? records
+    : records.filter(r => r.doctorId === doctorFilter);
+
+  // Lab results + medications — staff-encoded entries from the shared store
+  // (Admin console → Patients → Labs & medications). Seed rows are fictional
+  // demo data for the demo account; registered accounts start empty.
+  const labs = (store.labs || [])
+    .filter(l => l.patientId === me.id)
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const meds = (store.meds || []).filter(m => m.patientId === me.id);
+
+  // Billing summary — a record of bills, NOT a payment portal: consultation
+  // fees are settled at the cashier during the visit (the prototype has no
+  // online payment on purpose). Visits completed today haven't been to the
+  // cashier yet, so they read as "Settle at cashier"; older ones are Paid
+  // receipts. Official receipts live on each appointment's details page.
+  const bills = store.appointments
+    .filter(a => a.patientId === me.id && a.status === 'completed')
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .map(a => {
+      const doc = window.findDoctor(a.doctorId);
+      return {
+        id: a.id,
+        date: a.date,
+        service: a.reason,
+        doctor: doc ? doc.name : '—',
+        amount: doc ? doc.fee : 0,
+        status: a.date < today ? 'Paid' : 'Settle at cashier',
+      };
+    });
+  const totalPaid = bills.filter(b => b.status === 'Paid').reduce((s, b) => s + b.amount, 0);
+  const totalDue = bills.filter(b => b.status !== 'Paid').reduce((s, b) => s + b.amount, 0);
+
+  const downloadRecords = () => {
+    downloadFile(`medicacare-records-${me.id}.html`, buildRecordsHTML(me, records, meds, labs, bills), 'text/html;charset=utf-8');
+    store.pushToast({ title: 'Records downloaded', msg: 'Open the file to view or print your full medical summary.' });
+  };
+
+  return (
+    <AppShell current="records">
+      <div className="page" style={{ maxWidth: 960, margin: '0 auto' }}>
+        <PageHeader
+          title="Medical records"
+          subtitle={loading
+            ? <span className="skel" aria-hidden="true" style={{ width: 280, maxWidth: '100%', height: 14 }} />
+            : "Visits, lab results, medications, and billing — everything from your completed appointments."}
+          breadcrumbs={[{ label: 'Home', to: '/patient/dashboard' }, { label: 'Medical records' }]}
+          actions={<button className="btn btn-secondary" onClick={downloadRecords}><Icon name="download" size={14} /> Download records</button>}
+        />
+
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-header"><h2 className="h-section">Health summary</h2></div>
+          <div className="card-body">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+              {loading ? (
+                [0, 1, 2].map(i => (
+                  <div key={i} aria-hidden="true">
+                    <span className="skel" style={{ width: 90, height: 11, display: 'block', marginBottom: 9 }} />
+                    <span className="skel" style={{ width: '60%', height: 14, display: 'block' }} />
+                  </div>
+                ))
+              ) : (
+                <>
+                  <div>
+                    <div className="t-muted" style={{ fontSize: 12, marginBottom: 4 }}>Blood type</div>
+                    <div style={{ fontWeight: 600 }}>{me.bloodType}</div>
+                  </div>
+                  <div>
+                    <div className="t-muted" style={{ fontSize: 12, marginBottom: 4 }}>Known allergies</div>
+                    <div style={{ fontWeight: 600 }}>{me.allergies || 'None'}</div>
+                  </div>
+                  <div>
+                    <div className="t-muted" style={{ fontSize: 12, marginBottom: 4 }}>Emergency contact</div>
+                    <div style={{ fontWeight: 600 }}>{me.emergencyContact}</div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Billing summary — computed from completed visits (consultation fees) */}
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-header"><h2 className="h-section">Billing summary</h2></div>
+          <div className="card-body" style={{ paddingBottom: 0 }}>
+            <div className="billing-stats">
+              {loading ? (
+                [0, 1, 2].map(i => (
+                  <div key={i} aria-hidden="true">
+                    <span className="skel" style={{ width: 90, height: 11, display: 'block', marginBottom: 9 }} />
+                    <span className="skel" style={{ width: '55%', height: 16, display: 'block' }} />
+                  </div>
+                ))
+              ) : (
+                <>
+                  <div>
+                    <div className="t-muted" style={{ fontSize: 12, marginBottom: 4 }}>Total paid</div>
+                    <div style={{ fontWeight: 600, fontSize: 18 }}>₱{totalPaid.toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <div className="t-muted" style={{ fontSize: 12, marginBottom: 4 }}>To settle at cashier</div>
+                    <div style={{ fontWeight: 600, fontSize: 18 }}>
+                      {totalDue ? `₱${totalDue.toLocaleString()}` : '₱0 — all settled'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="t-muted" style={{ fontSize: 12, marginBottom: 4 }}>Invoices</div>
+                    <div style={{ fontWeight: 600, fontSize: 18 }}>{bills.length}</div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="card-body" style={{ padding: 0 }}>
+            <div className="table-wrap">
+              <table className="table table-responsive-stack records-table">
+                <thead><tr><th>Date</th><th>Service</th><th>Doctor</th><th>Amount</th><th>Status</th><th className="col-actions">Receipt</th></tr></thead>
+                <tbody>
+                  {loading ? <SkeletonRows rows={3} cols={6} /> : bills.length === 0 ? (
+                    <tr><td colSpan={6} className="empty-cell" style={{ padding: 0 }}>
+                      <EmptyState icon="receipt" title="No bills yet" message="A bill appears here once a visit is completed." />
+                    </td></tr>
+                  ) : bills.map(b => (
+                    <tr key={b.id}>
+                      <td data-label="Date">{window.formatDate(b.date)}</td>
+                      <td data-label="Service" className="cell-primary-truncate" style={{ maxWidth: 220 }}>{b.service}</td>
+                      <td data-label="Doctor" className="td-nowrap">{b.doctor}</td>
+                      <td data-label="Amount" className="td-nowrap">₱{b.amount.toLocaleString()}</td>
+                      <td data-label="Status"><Badge kind={b.status === 'Paid' ? 'success' : 'warning'} dot={false}>{b.status}</Badge></td>
+                      <td className="col-actions"><button className="btn btn-ghost sm" onClick={() => navigate('/patient/appointment/' + b.id)}><Icon name="eye" size={14} /> View</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <p className="t-help" style={{ padding: '10px 20px 16px', margin: 0 }}>
+            This is a record of your bills, not a payment portal — consultation fees are settled at the cashier during your visit. Download the official receipt from each appointment's details page.
+          </p>
+        </div>
+
+        {/* Medications — fictional demo rows for the demo patient */}
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-header"><h2 className="h-section">Medications</h2></div>
+          <div className="card-body" style={{ padding: 0 }}>
+            <div className="table-wrap">
+              <table className="table table-responsive-stack records-table">
+                <thead><tr><th>Medicine</th><th>Dose / form</th><th>Frequency</th><th>Prescriber</th><th>Status</th></tr></thead>
+                <tbody>
+                  {loading ? <SkeletonRows rows={3} cols={5} /> : meds.length === 0 ? (
+                    <tr><td colSpan={5} className="empty-cell" style={{ padding: 0 }}>
+                      <EmptyState icon="pill" title="No medications on file" message="Prescriptions from your visits will appear here." />
+                    </td></tr>
+                  ) : meds.map(m => {
+                    const doc = window.findDoctor(m.prescriberId);
+                    return (
+                      <tr key={m.id}>
+                        <td data-label="Medicine">
+                          <div className="cell-primary">{m.name}</div>
+                          <div className="cell-secondary">{m.instructions}</div>
+                        </td>
+                        <td data-label="Dose / form">{m.dose} · {m.form}</td>
+                        <td data-label="Frequency">{m.frequency}</td>
+                        <td data-label="Prescriber" className="td-nowrap">{doc ? doc.name : '—'}</td>
+                        <td data-label="Status"><Badge kind={m.status === 'Active' ? 'success' : 'neutral'} dot={false}>{m.status}</Badge></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <p className="t-help" style={{ padding: '10px 20px 16px', margin: 0 }}>
+            Medications are added by clinic staff. Seed rows for the demo account are fictional demo data.
+          </p>
+        </div>
+
+        {/* Lab results — fictional demo rows for the demo patient */}
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-header"><h2 className="h-section">Lab results</h2></div>
+          <div className="card-body" style={{ padding: 0 }}>
+            <div className="table-wrap">
+              <table className="table table-responsive-stack records-table">
+                <thead><tr><th>Date</th><th>Test</th><th>Category</th><th>Findings</th><th className="col-actions">Details</th></tr></thead>
+                <tbody>
+                  {loading ? <SkeletonRows rows={3} cols={5} /> : labs.length === 0 ? (
+                    <tr><td colSpan={5} className="empty-cell" style={{ padding: 0 }}>
+                      <EmptyState icon="flask-conical" title="No lab results yet" message="Results from your lab visits will appear here once released." />
+                    </td></tr>
+                  ) : labs.map(l => {
+                    const flagged = l.results.filter(r => r.flag === 'high' || r.flag === 'low').length;
+                    return (
+                      <tr key={l.id}>
+                        <td data-label="Date">{window.formatDate(l.date)}</td>
+                        <td data-label="Test" className="cell-primary">{l.name}</td>
+                        <td data-label="Category">{l.category}</td>
+                        <td data-label="Findings">
+                          {flagged
+                            ? <span style={{ color: 'var(--warning-text)', fontWeight: 500 }}>{flagged} finding{flagged === 1 ? '' : 's'} outside range</span>
+                            : <span style={{ color: 'var(--success-text)' }}>All within range</span>}
+                        </td>
+                        <td className="col-actions"><button className="btn btn-ghost sm" onClick={() => setViewLab(l)}><Icon name="eye" size={14} /> View</button></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <p className="t-help" style={{ padding: '10px 20px 16px', margin: 0 }}>
+            Lab results are added by clinic staff. Seed rows are fictional demo data — the values are not real medical readings.
+          </p>
+        </div>
+
+        <div className="card">
+          <div className="card-header">
+            <h2 className="h-section">Records</h2>
+            {!loading && recordDoctors.length > 1 && (
+              <SelectInput value={doctorFilter} onChange={e => setDoctorFilter(e.target.value)} aria-label="Filter records by doctor" style={{ maxWidth: 240 }}>
+                <option value="all">All doctors</option>
+                {recordDoctors.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </SelectInput>
+            )}
+          </div>
+          <div className="card-body" style={{ padding: 0 }}>
+            <div className="table-wrap">
+              <table className="table table-responsive-stack records-table">
+                <thead>
+                  <tr><th>Date</th><th>Type</th><th>Doctor</th><th>Record</th></tr>
+                </thead>
+                <tbody>
+                  {loading ? <SkeletonRows rows={4} cols={4} /> : filteredRecords.length === 0 ? (
+                    <tr><td colSpan={4} className="empty-cell" style={{ padding: 0 }}>
+                      <EmptyState
+                        icon="file-text"
+                        title="No medical records yet"
+                        message={records.length === 0
+                          ? "Records appear here once a visit is completed and staff add the doctor's notes."
+                          : 'No records for the selected doctor.'}
+                      />
+                    </td></tr>
+                  ) : filteredRecords.map(r => {
+                    const doc = window.findDoctor(r.doctorId);
+                    return (
+                      <tr key={r.id}>
+                        <td data-label="Date">{window.formatDate(r.date)}</td>
+                        <td data-label="Type">{r.type}</td>
+                        <td data-label="Doctor">{doc ? doc.name : '—'}</td>
+                        <td className="record-cell" data-label="Record">
+                          <div style={{ fontWeight: 600 }}>{r.title}</div>
+                          <div className="t-muted" style={{ fontSize: 12.5 }}>{r.summary}</div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <p className="t-muted" style={{ fontSize: 12, marginTop: 12 }}>
+          Note: records come from your completed appointments — our staff adds the doctor's notes when marking a visit complete. Seed data in this prototype is fictional.
+        </p>
+      </div>
+
+      {/* Lab result detail */}
+      <Modal
+        open={!!viewLab}
+        onClose={() => setViewLab(null)}
+        title={viewLab ? viewLab.name : ''}
+        subtitle={viewLab ? `${window.formatDate(viewLab.date)} · ${viewLab.category} · ${viewLab.status}` : ''}
+        icon="flask-conical" iconKind="info"
+        footer={<button className="btn btn-secondary" onClick={() => setViewLab(null)}>Close</button>}
+      >
+        {viewLab && (
+          <div className="table-wrap">
+            <table className="table">
+              <thead><tr><th>Item</th><th>Result</th><th>Reference range</th></tr></thead>
+              <tbody>
+                {viewLab.results.map((r, i) => (
+                  <tr key={i}>
+                    <td>{r.item}</td>
+                    <td>
+                      <span style={{ fontWeight: 600, color: (r.flag === 'high' || r.flag === 'low') ? 'var(--error)' : undefined }}>
+                        {r.value} {r.unit}
+                      </span>
+                      {(r.flag === 'high' || r.flag === 'low') && (
+                        <span className="lab-flag" style={{ marginLeft: 8 }}>{r.flag.toUpperCase()}</span>
+                      )}
+                    </td>
+                    <td className="t-muted">{r.range}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Modal>
+    </AppShell>
+  );
+}
+
+export { MedicalRecords };

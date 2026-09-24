@@ -2,7 +2,7 @@
 // Shared components — MedicaCare
 // ============================================================
 import { useState, useEffect, useRef, useMemo, useCallback, createContext, useContext, Fragment } from 'react';
-import brandLogo from './assets/brand_logo.png';
+import brandLogo from '../assets/brand_logo.png';
 import './data.js';
 import AnimatedContent from './reactbits/AnimatedContent.jsx';
 

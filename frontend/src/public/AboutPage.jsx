@@ -1,0 +1,141 @@
+// AboutPage — public (split from screens-public.jsx)
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import {
+  Icon, BrandMark, navigate, useHashRoute, useStore, StoreProvider,
+  Sidebar, Topbar, AppShell, PublicNav, PublicFooter, PageHeader,
+  Badge, StatusBadge, DoctorStatusBadge, DoctorAvatar,
+  Modal, ToastLayer, Field, TextInput, TextArea, SelectInput,
+  Pagination, SkeletonRows, EmptyState, ErrorState, ConfirmModal, MiniBarChart, DoctorRatingPill, PwField,
+  NoticeBar, ClinicStatus, FaqAccordion, TestimonialCarousel,
+  OtpVerifyModal,
+} from '../shared/components.jsx';
+import {
+  HOSPITAL, SPECIALTIES, DOCTORS, PATIENTS, CURRENT_PATIENT, CURRENT_ADMIN, DOCTOR_CREDENTIALS,
+  APPOINTMENTS, AVAILABILITY_TEMPLATE,
+  findDoctor, findPatient, formatDate, formatDateLong, initials, statusMeta, doctorStatusMeta,
+} from '../shared/data.js';
+import Aurora from '../shared/reactbits/Aurora.jsx';
+import ShinyText from '../shared/reactbits/ShinyText.jsx';
+import CountUp from '../shared/reactbits/CountUp.jsx';
+import SplitText from '../shared/reactbits/SplitText.jsx';
+import AnimatedContent from '../shared/reactbits/AnimatedContent.jsx';
+import Magnet from '../shared/reactbits/Magnet.jsx';
+import ScrollVelocity from '../shared/reactbits/ScrollVelocity.jsx';
+import StarBorder from '../shared/reactbits/StarBorder.jsx';
+import GlareHover from '../shared/reactbits/GlareHover.jsx';  // hero preview card only — the one deliberate hover flourish
+import Ribbons from '../shared/reactbits/Ribbons.jsx';
+import { CARE_GUIDE, PROTOTYPE_STORIES, LANDING_FAQS, SERVICES_FAQS } from './content.js';
+import { HeroAurora, HeroTitle, Landing } from './Landing.jsx';
+import { ServicesPage } from './ServicesPage.jsx';
+import { MOBILE_DOCTORS_QUERY, MOBILE_DOCTORS_PAGE_SIZE, DoctorsPage } from './DoctorsPage.jsx';
+import { ContactPage } from './ContactPage.jsx';
+import { LegalPage } from './LegalPage.jsx';
+import { PrivacyPage } from './PrivacyPage.jsx';
+import { TermsPage } from './TermsPage.jsx';
+import { Register } from './Register.jsx';
+import { Login } from './Login.jsx';
+import { ADMIN_CREDENTIALS, AdminLogin } from './AdminLogin.jsx';
+import { DoctorLogin } from './DoctorLogin.jsx';
+import { ForgotPassword } from './ForgotPassword.jsx';
+
+// ---------- About page ----------
+function AboutPage() {
+  // Every figure matches the app's own data or the fictional hospital's stated
+  // lore (est. 1991); nothing invented beyond the disclosed fiction (R-17)
+  const minFee = Math.min(...DOCTORS.map(d => d.fee));
+  // Numeric stats animate in with React Bits CountUp; the non-numeric
+  // '35 yrs' figure stays static. Same seed-data numbers as before (R-17).
+  const stats = [
+    { to: DOCTORS.length, label: 'Board-certified specialists' },
+    { to: SPECIALTIES.length, label: 'Departments & centers' },
+    { value: '35 yrs', label: 'Serving Quezon City (est. 1991)' },
+    { to: minFee, prefix: '₱', label: 'Consultation fees start at' },
+  ];
+  // Equal-weight by design: these values are peers, and the uniform treatment
+  // IS the hierarchy decision (documented in DESIGN.md, RHYTHM note)
+  const values = [
+    { title: 'Patient safety first', desc: 'Evidence-based protocols, accredited facilities, and strict data privacy for every record.' },
+    { title: 'Clinical excellence', desc: 'Board-certified doctors and continuous training across every department.' },
+    { title: 'Compassionate care', desc: 'We treat people, not just charts: clear explanations and respect at every visit.' },
+  ];
+  return (
+    <div>
+      <PublicNav activeLink="about" />
+      <section className="public-hero page-hero">
+        <HeroAurora />
+        <div className="public-hero-inner">
+          <HeroTitle>About MedicaCare</HeroTitle>
+          <p className="public-hero-sub">{HOSPITAL.tagline}</p>
+        </div>
+      </section>
+
+      <section className="public-section" style={{ paddingTop: 8 }}>
+        <div className="public-section-inner">
+          <h2>Who we are</h2>
+          <p className="public-section-sub">
+            MedicaCare is a fictional private hospital along Rizal Avenue, Quezon City.
+            Since 1991 we have combined modern facilities with a personal approach to care, from routine
+            check-ups to specialty consultations, for families across Metro Manila.
+          </p>
+          <div className="grid-4">
+            {stats.map(s => (
+              // Value and label only — no icon chips; the number is the content
+              <div key={s.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em' }}>
+                  {s.value || <>{s.prefix || ''}<CountUp to={s.to} duration={1.6} /></>}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="public-section" style={{ background: 'var(--bg)', paddingTop: 32 }}>
+        <div className="public-section-inner">
+          <h2>What we stand for</h2>
+          <p className="public-section-sub">The principles behind every consultation, lab result, and follow-up call.</p>
+          <div className="feature-grid">
+            {values.map(v => (
+              <div className="feature-card" key={v.title}>
+                <h3>{v.title}</h3>
+                <p>{v.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="public-section" style={{ paddingTop: 32 }}>
+        <div className="public-section-inner">
+          <h2>Visit us</h2>
+          <p className="public-section-sub">We're open daily, with 24/7 emergency care.</p>
+          <div style={{ marginBottom: 16 }}>
+            <ClinicStatus />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 520 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14 }}>
+              <Icon name="map-pin" size={16} /> {HOSPITAL.address}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14 }}>
+              <Icon name="phone" size={16} /> {HOSPITAL.phone}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14 }}>
+              <Icon name="mail" size={16} /> {HOSPITAL.email}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
+            <Magnet padding={40} magnetStrength={3}>
+              <a className="btn btn-primary" href="#/contact">Contact us</a>
+            </Magnet>
+            <a className="btn btn-secondary" href="#/doctors">Meet our doctors</a>
+          </div>
+        </div>
+      </section>
+
+      <PublicFooter />
+    </div>
+  );
+}
+
+export { AboutPage };

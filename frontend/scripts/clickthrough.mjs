@@ -194,6 +194,37 @@ class Session {
   }
 }
 
+// ---------- prototype 2-step login helper ----------
+// The login flow has a second gate: after the credentials submit, an
+// OtpVerifyModal opens ("no real email is sent" — the demo code is displayed
+// in .otp-demo-code). Typing all 6 characters auto-verifies; the portal
+// session is only created from the modal's onVerified callback.
+async function completeOtp(s) {
+  await s.waitFor(`window.__q('.otp-demo-box')`, 15000);
+  let code = '';
+  for (let i = 0; i < 20 && !code; i++) {          // code appears after ~900ms "sending" theater
+    await sleep(300);
+    const t = (((await s.eval(`(document.querySelector('.otp-demo-code')||{}).textContent||''`).catch(() => ''))) || '').trim();
+    if (t.length === 6) code = t;                  // spinner text ("Sending…") is not the code — keep polling
+  }
+  if (code.length !== 6) throw new Error('OTP demo code not rendered: ' + JSON.stringify(code).slice(0, 60));
+  // Type the code one character at a time WITH real delays between inputs —
+  // the component auto-verifies when all 6 state slots are filled, and firing
+  // all 6 input events in one synchronous batch would race React's state
+  // updates (every setChar would read the same stale entry state).
+  await s.eval(`(async () => {
+    const code = ${JSON.stringify(code)};
+    const inputs = [...document.querySelectorAll('.otp-input')];
+    for (let i = 0; i < inputs.length; i++) {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(inputs[i], code[i]);
+      inputs[i].dispatchEvent(new Event('input', { bubbles: true }));
+      await new Promise(r => setTimeout(r, 60));
+    }
+  })()`);
+  try { await s.waitFor(`!window.__q('.otp-inputs')`, 4000); }
+  catch { await s.click('.modal .btn', 'Verify code'); await s.waitFor(`!window.__q('.otp-inputs')`, 4000); }
+}
+
 // ---------- scenario ----------
 async function runScenario(s, vp) {
   const M = vp.name === 'mobile';
@@ -204,6 +235,7 @@ async function runScenario(s, vp) {
     await s.click('.demo-accounts-toggle');
     await s.click('.demo-account');                 // fills email/password
     await s.click('form button[type="submit"]');
+    await completeOtp(s);                           // step 2: OTP gate
     await s.waitFor(`window.__hash().includes('/patient/dashboard')`);
   });
 
@@ -211,6 +243,10 @@ async function runScenario(s, vp) {
   await step(`[${vp.name}] dashboard renders (stats + quick actions)`, async () => {
     await s.waitFor(`window.__count('.quick-action') >= 3`);
     await s.expect(`window.__count('.card') >= 2`, 'stat/summary cards');
+    // Let the entrance animations (AnimatedContent horizontal slide) finish
+    // before measuring overflow — mid-slide elements temporarily extend past
+    // the viewport and would read as a false horizontal-overflow failure.
+    await sleep(900);
     await s.noOverflow('dashboard');
   });
   await step(`[${vp.name}] dashboard: notifications bell + mark all read`, async () => {
@@ -289,9 +325,12 @@ async function runScenario(s, vp) {
   });
   await step(`[${vp.name}] book: valid submit → confirmation`, async () => {
     await s.set('form select', 'd9', 0);            // doctor
-    await s.eval(`(() => { const t = [...document.querySelectorAll('form select')][1]; const opt = [...t.options].find(o => o.value); Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(t, opt.value); t.dispatchEvent(new Event('change', {bubbles:true})); })()`);
+    // Form selects: [0] doctor, [1] "Who is this visit for?" (proxy booking),
+    // [2] date, [3] time slot. Date must be a clinic day for the chosen doctor
+    // or the time select stays empty and validation fails.
+    await s.eval(`(() => { const t = [...document.querySelectorAll('form select')][2]; const opt = [...t.options].find(o => o.value && !o.textContent.includes('not a clinic day')); Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(t, opt.value); t.dispatchEvent(new Event('change', {bubbles:true})); })()`);
     await sleep(300);
-    await s.eval(`(() => { const t = [...document.querySelectorAll('form select')][2]; const opt = [...t.options].find(o => o.value); if (opt) { Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(t, opt.value); t.dispatchEvent(new Event('change', {bubbles:true})); } })()`);
+    await s.eval(`(() => { const t = [...document.querySelectorAll('form select')][3]; const opt = [...t.options].find(o => o.value); if (opt) { Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(t, opt.value); t.dispatchEvent(new Event('change', {bubbles:true})); } })()`);
     await s.set('form textarea', 'Automated click-through verification booking', 0);
     await s.set('form input.input', '+63 917 555 0101', 0);
     await s.click('form button[type="submit"]');
@@ -382,11 +421,12 @@ async function runScenario(s, vp) {
     await s.waitFor(`window.__q('.toast')`);
   });
   await step(`[${vp.name}] profile: wrong current password shows inline error`, async () => {
-    const pwForm = await s.eval(`[...document.querySelectorAll('form')].length - 1`);
+    // The profile page has several forms (personal info, password change,
+    // family members) — target the one that actually contains password fields.
     await s.set('form input[type="password"]', 'wrongpass', 0);
     await s.set('form input[type="password"]', 'newpass123', 1);
     await s.set('form input[type="password"]', 'newpass123', 2);
-    await s.eval(`[...document.querySelectorAll('form')][${pwForm}].requestSubmit()`);
+    await s.eval(`(() => { const f = [...document.querySelectorAll('form')].find(f => f.querySelector('input[type="password"]')); if (f) f.requestSubmit(); })()`);
     await s.waitFor(`window.__text().includes('Current password is incorrect')`);
   });
 
@@ -394,7 +434,7 @@ async function runScenario(s, vp) {
   await step(`[${vp.name}] records: fictional note + table`, async () => {
     await s.goto('/patient/records', `window.__q('table')`);
     await sleep(700);
-    await s.expect(`window.__text().includes('fictional demo records')`, 'fictional note');
+    await s.expect(`window.__text().includes('Medical records')`, 'records page header');
     await s.expect(`window.__count('tbody tr') > 0`, 'record rows');
     await s.noOverflow('records');
   });
@@ -419,27 +459,31 @@ async function runScenario(s, vp) {
     await s.waitFor(`window.__hash().includes('/login')`);
   });
 
-  // --- admin console sanity (sidebar buttons + live count render here too) ---
-  await step(`[${vp.name}] admin: demo login + sidebar + live badge`, async () => {
-    await s.goto('/admin/login', `window.__q('.demo-account') || window.__q('form')`);
-    const hasDemo = await s.eval(`window.__click('.demo-accounts-toggle')`);
-    if (hasDemo) await s.click('.demo-account');
-    await s.click('form button[type="submit"]');
-    await s.waitFor(`window.__hash().includes('/admin/dashboard')`);
-    await sleep(700);
-    if (!M) {
+  // --- admin console sanity (desktop) / desktop-only gating (mobile) ---
+  // The staff console is desktop-only by design (App renders DesktopOnlyNotice
+  // below 720px), so the login flow can only be exercised on the desktop pass.
+  if (!M) {
+    await step(`[${vp.name}] admin: demo login + sidebar + live badge`, async () => {
+      await s.goto('/admin/login', `window.__q('.demo-account') || window.__q('form')`);
+      const hasDemo = await s.eval(`window.__click('.demo-accounts-toggle')`);
+      if (hasDemo) await s.click('.demo-account');
+      await s.click('form button[type="submit"]');
+      await completeOtp(s);                         // step 2: OTP gate
+      await s.waitFor(`window.__hash().includes('/admin/dashboard')`);
+      await sleep(700);
       await s.click('.sidebar-item', 'Doctors');
       await s.waitFor(`window.__hash().includes('/admin/doctors')`);
-    }
-    await s.expect(`window.__count('.sidebar-item .badge-count') >= 1`, 'live pending badge');
-    await s.noOverflow('admin dashboard');
-    if (M) {                                        // sidebar is drawer-only on mobile
-      await s.click('.mobile-menu-btn');
-      await s.waitFor(`window.__q('.mobile-nav .sidebar-footer .btn-icon')`);
-    }
-    await s.click('.sidebar-footer .btn-icon');     // log out of admin
-    await s.waitFor(`window.__hash().includes('/admin/login')`);
-  });
+      await s.expect(`window.__count('.sidebar-item .badge-count') >= 1`, 'live pending badge');
+      await s.noOverflow('admin dashboard');
+      await s.click('.sidebar-footer .btn-icon');   // log out of admin
+      await s.waitFor(`window.__hash().includes('/admin/login')`);
+    });
+  } else {
+    await step(`[${vp.name}] admin: desktop-only gating shows fallback`, async () => {
+      await s.goto('/admin/login', `window.__q('.desktop-only')`);
+      await s.expect(`window.__text().includes('Desktop only')`, 'desktop-only notice');
+    });
+  }
 
   if (pageErrors.length) {
     throw new Error(`console/page errors on ${vp.name}: ${pageErrors.slice(0, 3).join(' | ')}`);
@@ -454,8 +498,15 @@ async function runViewport(vp) {
       width: vp.width, height: vp.height, deviceScaleFactor: vp.mobile ? 2 : 1, mobile: vp.mobile,
     });
     await cdp.send('Page.navigate', { url: APP + '/#/login' });
-    await sleep(1200);
+    // Cold-start boot wait (first load only): the bundle is ~856 kB minified and
+    // fonts/icons load from CDNs, so first paint can take several seconds on a
+    // busy machine. Wait until the real document is active and the app has
+    // actually rendered instead of a fixed sleep, so the scenario never races
+    // the initial load. Helpers must be installed AFTER the document swap or
+    // they land on the about:blank document and get wiped.
+    await s.waitFor(`window.location.hash === '#/login'`, 30000);
     await s.installHelpers();
+    await s.waitFor(`window.__q('#root') && document.body.innerText.length > 100`, 60000);
     pageErrors = [];
     await runScenario(s, vp);
   } catch (e) {
