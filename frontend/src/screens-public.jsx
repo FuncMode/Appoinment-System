@@ -69,6 +69,8 @@ function HeroTitle({ children, light = false }) {
 // "Find the right care" symptom guide (Cleveland-Clinic-style care finder).
 // Maps common complaints to the specialty that treats them — pulls live
 // doctor counts from the seed data so results stay accurate.
+// Shared with the patient portal's Find a doctor page, where the same pills
+// act as specialty filters (screens-patient.jsx DoctorListing).
 const CARE_GUIDE = [
   { symptom: 'Chest pain or palpitations', specialty: 'Cardiology' },
   { symptom: "Child's fever or check-up", specialty: 'Pediatrics' },
@@ -465,11 +467,11 @@ function ServicesPage() {
         </div>
       </section>
 
-      <section className="public-section" style={{ paddingTop: 32 }}>
+      <section className="public-section" style={{ paddingTop: 32, textAlign: 'center' }}>
         <div className="public-section-inner">
           <h2>Skip the phone queue: book online</h2>
           <p className="public-section-sub">Create a free patient account and see a specialist as early as tomorrow.</p>
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Magnet padding={40} magnetStrength={3}>
               <a className="btn btn-primary" href="#/register">Create patient account</a>
             </Magnet>
@@ -1799,10 +1801,12 @@ function ForgotPassword() {
 Object.assign(window, {
   Landing, Register, Login, AdminLogin, DoctorLogin, ForgotPassword,
   ServicesPage, DoctorsPage, AboutPage, ContactPage, PrivacyPage, TermsPage,
+  CARE_GUIDE,
 });
 
 export {
   Landing, Register, Login, AdminLogin, DoctorLogin, ForgotPassword,
   ServicesPage, DoctorsPage, AboutPage, ContactPage, PrivacyPage, TermsPage,
+  CARE_GUIDE,
 };
 

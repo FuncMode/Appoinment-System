@@ -12,6 +12,7 @@ import {
   findDoctor, findPatient, formatDate, formatDateLong, initials, statusMeta, doctorStatusMeta,
   isSlotTaken, getSlotsFor, slotFitsInterval, downloadFile, isClinicDay, timeValue,
 } from './data.js';
+import { CARE_GUIDE } from './screens-public.jsx';
 
 
 
@@ -485,6 +486,23 @@ function DoctorListing() {
                 <option value="available">Available today</option>
                 <option value="busy">Busy today</option>
                 <option value="on-leave">On leave</option>
+              </SelectInput>
+            </div>
+            {/* Symptom quick filter — the same symptom → specialty guide as the
+                Landing "Not sure where to go for care?" section (shared
+                CARE_GUIDE). Picking a symptom just sets the specialty filter,
+                so it stays in sync with the dropdown above (single state). */}
+            <div className="doctor-filter-field">
+              <SelectInput
+                aria-label="Filter by symptom"
+                value={CARE_GUIDE.find(g => g.specialty === specialty)?.symptom || ''}
+                onChange={e => {
+                  const guide = CARE_GUIDE.find(g => g.symptom === e.target.value);
+                  setSpecialty(guide ? guide.specialty : 'all');
+                }}
+              >
+                <option value="">Any symptom</option>
+                {CARE_GUIDE.map(g => <option key={g.symptom} value={g.symptom}>{g.symptom}</option>)}
               </SelectInput>
             </div>
             <div className="doctor-filter-count">
@@ -2284,7 +2302,7 @@ function MedicalRecords() {
                       <td data-label="Doctor" className="td-nowrap">{b.doctor}</td>
                       <td data-label="Amount" className="td-nowrap">₱{b.amount.toLocaleString()}</td>
                       <td data-label="Status"><Badge kind={b.status === 'Paid' ? 'success' : 'warning'} dot={false}>{b.status}</Badge></td>
-                      <td className="col-actions"><button className="btn btn-ghost sm" onClick={() => navigate('/patient/appointment/' + b.id)}>View</button></td>
+                      <td className="col-actions"><button className="btn btn-ghost sm" onClick={() => navigate('/patient/appointment/' + b.id)}><Icon name="eye" size={14} /> View</button></td>
                     </tr>
                   ))}
                 </tbody>
