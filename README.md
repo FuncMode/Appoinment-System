@@ -97,9 +97,16 @@ Healthcare Management Website/
 │       ├── App.jsx                               # router
 │       ├── styles.css                            # design tokens + component styles
 │       ├── assets/                               # images (hero slides, auth backgrounds, logo)
-│       ├── shared/                               # shared code ng lahat ng modules
+│       ├── shared/                               # shared code ng lahat ng modules (layered)
 │       │   ├── data.js                           # fictional data + formatters
-│       │   ├── components.jsx                    # shared UI (AppShell, Modal, fields, badges, toasts…)
+│       │   ├── store.jsx                         # StoreCtx/StoreProvider/useStore — WALANG DAPAT IKHAING KOPYA DITO (single context!)
+│       │   ├── hooks.js                          # useHashRoute, navigate, useIsDesktop
+│       │   ├── icons.jsx                         # Icon (lucide renderer)
+│       │   ├── ui.jsx                            # primitives (Modal, Field, badges, states, atbp.)
+│       │   ├── charts.jsx                        # MiniBarChart, Sparkline, DoctorRatingPill
+│       │   ├── layout.jsx                        # AppShell, Sidebar, Topbar, PublicNav, atbp.
+│       │   ├── auth.jsx                          # OtpVerifyModal, PwField
+│       │   ├── components.jsx                    # barrel — binubuo ang lahat ng shared UI
 │       │   ├── ios_frame.jsx                     # phone frame para sa /mobile showcase
 │       │   └── reactbits/                        # animation components (Aurora, SplitText, …)
 │       ├── public/                               # public marketing pages
