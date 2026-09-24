@@ -49,6 +49,8 @@ seed credentials bago i-publish.
 - **3 lab results** (findings JSONB, may high flag) + **3 medications** + **2 family members** (p1)
 - **4 support tickets** (2 open, 2 resolved na may staff reply sa thread)
 - **8 activity log entries** (timestamps relative sa run time)
+- **10 medical records** (auto-derived mula sa completed visits na may doctor notes — tugma sa app's records behavior)
+- **4 notifications** para sa demo patient (2 unread para live ang topbar bell + "Mark all as read", 2 read para may history)
 - **1 admin** + **1 doctor portal account** + `clinic_info` / `app_settings` singleton rows
 
 Note: hindi idempotent ang seed — i-run ang buong `schema.sql` sa bagong
@@ -77,7 +79,7 @@ appointments seed para hindi bumagsak ang buong run.
 | Appointment Status: progress timeline | `appointments.status` + `appointment_status_history` (auto ng trigger) |
 | Appointment History: search/filter/sort/pagination | `appointments` + indexes (`idx_appointments_patient`, `idx_appointments_status_date`) |
 | Appointment Details: receipt + .ics download | `appointments` + `patients` + `doctors` (join) |
-| Reschedule (new date + available slots) | `appointments` update + `fn_available_slots` (own slot excluded via history/status) |
+| Reschedule (new date + available slots) | `appointments` update + `fn_available_slots(…, p_exclude_appt_id)` — ang sariling slot ng pasyente ay hindi tinuturing na "taken" (pareho ng reschedule modal ng app) |
 | Cancel appointment | `appointments.status = 'cancelled'` + `cancelled_at` (trigger) |
 | Medical Records: table + health summary | `medical_records` + `patients` (blood_type, allergies, emergency_contact) |
 | Help & Support: FAQs, contact info | Static UI content — walang table na kailangan (phase 2 kung dynamic) |
@@ -107,7 +109,7 @@ appointments seed para hindi bumagsak ang buong run.
 | Appointments Management: create (live availability) | `appointments` insert + `fn_available_slots()` |
 | Appointments Management: view details, delete | `appointments` (read/delete) + ConfirmModal |
 | Reports: stats, per-specialty breakdown, busiest doctors, CSV | Computed queries sa `appointments`/`doctors`/`medical_records` |
-| Settings: Clinic information | `clinic_info` (singleton row, id = 1) |
+| Settings: Clinic information (name/phone/email/address + **clinic hours** → Open now/Closed pill at footer hours) | `clinic_info` (singleton row, id = 1; `hours` JSONB per-day) |
 | Settings: Appointment preferences (email flags, auto-confirm, slot interval) | `app_settings` (singleton row, id = 1) |
 | Settings: persistence note | Singleton rows sa DB — totoong persistence, hindi na in-memory |
 | Patient stories: moderation (Approve / Reject / Unpublish / Restore) | `patient_stories` (status update + `reviewed_at` / `reviewed_by` audit trail) |

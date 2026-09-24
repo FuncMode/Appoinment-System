@@ -437,6 +437,10 @@ create index idx_patient_stories_patient on patient_stories (patient_id);       
 -- ------------------------------------------------------------
 -- clinic_info — Settings > Clinic information (singleton row, id = 1)
 --   Binabasa din ng public pages (footer, Contact) at ng patient portal.
+--   hours: per-day JSONB — bawat key ay mon..sun, value = [open, close]
+--   (24h strings) o null kapag sarado. Ito ang source ng "Open now /
+--   Closed" pill (ClinicStatus component) at ng footer clinic hours —
+--   kaya mapapagalaw na ng admin ang schedule mula sa Settings.
 --   Note: ang app ngayon ay readonly ito mula sa constants; sa DB,
 --   ito ang totoong source na pagbabago ng admin.
 -- ------------------------------------------------------------
@@ -446,6 +450,15 @@ create table clinic_info (
   phone      text not null,
   email      text not null,
   address    text,
+  hours      jsonb not null default '{
+    "mon": ["08:00", "17:00"],
+    "tue": ["08:00", "17:00"],
+    "wed": ["08:00", "17:00"],
+    "thu": ["08:00", "17:00"],
+    "fri": ["08:00", "17:00"],
+    "sat": ["09:00", "13:00"],
+    "sun": null
+  }'::jsonb,
   updated_at timestamptz not null default now()
 );
 
@@ -515,12 +528,18 @@ create trigger trg_appointment_status_change
 -- Available slots function — Doctor Availability + booking form
 --   Ginalaw na slots mula sa weekly availability ng doctor, may "taken"
 --   flag kung may aktibong (pending/confirmed) appointment sa slot.
---   Halimbawa: select * from fn_available_slots('<doctor uuid>', current_date, 30);
+--   p_exclude_appt_id (optional): appointment na hindi ituturing na taken —
+--   ginagamit ng Reschedule modal para manatiling selectable ang
+--   kasalukuyang slot ng pasyente (parity ng JS getSlotsFor(…, excludeApptId)).
+--   Halimbawa:
+--     select * from fn_available_slots('<doctor uuid>', current_date, 30);
+--     select * from fn_available_slots('<doctor uuid>', current_date, 30, '<appt uuid>');
 -- ============================================================
 create or replace function fn_available_slots(
-  p_doctor_id    uuid,
-  p_date         date,
-  p_slot_minutes int default 30
+  p_doctor_id       uuid,
+  p_date            date,
+  p_slot_minutes    int default 30,
+  p_exclude_appt_id uuid default null
 )
 returns table (slot_start time, slot_end time, is_available boolean)
 language sql
@@ -555,6 +574,9 @@ as $$
       where ap.doctor_id = p_doctor_id
         and ap.appointment_date = p_date
         and ap.status in ('pending', 'confirmed')
+        -- Reschedule: ang sariling appointment ng pasyente ay hindi tinuturing
+        -- na taken para manatiling selectable ang kasalukuyang slot niya
+        and (p_exclude_appt_id is null or ap.id <> p_exclude_appt_id)
         and sl.slot_start_sec < extract(epoch from ap.end_time)::int
         and sl.slot_end_sec   > extract(epoch from ap.start_time)::int
     ) as is_available
@@ -793,10 +815,13 @@ insert into specialties (name) values
   ('OB-GYN'), ('Orthopedics'), ('ENT'), ('Psychiatry'),
   ('Internal Medicine'), ('Family Medicine');
 
--- clinic_info singleton (HOSPITAL constants ng app — footer/Contact/Settings)
-insert into clinic_info (id, name, phone, email, address) values
+-- clinic_info singleton (HOSPITAL constants ng app — footer/Contact/Settings).
+-- hours: eksaktong tugma ng hardcoded schedule ng app (ClinicStatus pill +
+-- footer: Mon–Fri 8AM–5PM, Sat 9AM–1PM, Sun closed).
+insert into clinic_info (id, name, phone, email, address, hours) values
   (1, 'MedicaCare', '+63 (2) 8567 4400', 'care@medicacare.ph',
-   '221 Rizal Avenue, Quezon City, Metro Manila');
+   '221 Rizal Avenue, Quezon City, Metro Manila',
+   '{"mon":["08:00","17:00"],"tue":["08:00","17:00"],"wed":["08:00","17:00"],"thu":["08:00","17:00"],"fri":["08:00","17:00"],"sat":["09:00","13:00"],"sun":null}'::jsonb);
 
 -- app_settings singleton (default appointment preferences ng Settings page)
 insert into app_settings (id, email_admins_on_new_appointment, remind_patients,
@@ -1134,6 +1159,43 @@ select
   null,
   (gen.visit_date + time '12:00')::timestamptz
 from gen;
+
+-- Medical records (SEED ng app — derived mula sa completed visits na may
+-- doctor notes; parity ng app behavior: ang records page ng pasyente ay
+-- nagmumula sa completed appointments — record_type 'Consultation',
+-- title = reason, summary = notes). Data-driven insert: automatic na tugma
+-- sa anumang completed appointment na may notes (fixed seeds + today's
+-- schedule rows), kahit magbago ang seed data sa hinaharap.
+insert into medical_records (patient_id, doctor_id, appointment_id, visit_date, record_type, title, summary)
+select a.patient_id, a.doctor_id, a.id, a.appointment_date,
+       'Consultation', a.reason, a.notes
+from appointments a
+where a.status = 'completed' and a.notes is not null;
+
+-- Notifications (p1 = demo patient; 2 unread para live ang topbar bell —
+-- unread dot + "Mark all as read" — at 2 na read para may history)
+insert into notifications (patient_id, appointment_id, type, title, message, read_at, created_at)
+values
+  (('10000000-0000-4000-8000-000000000001')::uuid,
+   ('20000000-0000-4000-8000-000000000005')::uuid,   -- ap5 (pending)
+   'pending', 'Appointment received',
+   'Your booking with Dr. Emmanuel de la Cruz is in the review queue. We''ll notify you once it''s confirmed.',
+   null, now() - interval '2 hours'),
+  (('10000000-0000-4000-8000-000000000001')::uuid,
+   ('20000000-0000-4000-8000-000000000001')::uuid,   -- ap1 (confirmed)
+   'confirmed', 'Appointment confirmed',
+   'Dr. Maria Elena Villanueva-Santos confirmed your visit. See you on the schedule!',
+   null, now() - interval '1 day'),
+  (('10000000-0000-4000-8000-000000000001')::uuid,
+   ('20000000-0000-4000-8000-000000000002')::uuid,   -- ap2 (completed)
+   'completed', 'Visit completed',
+   'Your consultation notes are now available under Medical records.',
+   now(), now() - interval '9 days'),
+  (('10000000-0000-4000-8000-000000000001')::uuid,
+   ('20000000-0000-4000-8000-000000000004')::uuid,   -- ap4 (cancelled)
+   'cancelled', 'Appointment cancelled',
+   'Your wellness exam slot was released. You can rebook anytime from Find a doctor.',
+   now(), now() - interval '10 days');
 
 -- Lab results (SEED_LABS ng app — p1; findings JSONB, flag null = normal)
 insert into lab_results (patient_id, doctor_id, test_name, category, status, result_date, findings)
