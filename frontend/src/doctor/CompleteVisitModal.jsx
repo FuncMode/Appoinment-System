@@ -1,20 +1,7 @@
 // CompleteVisitModal — doctor portal (split from screens-doctor.jsx)
-import { useState, useEffect } from 'react';
-import {
-  Icon, navigate, useStore, AppShell, PageHeader,
-  StatusBadge, DoctorStatusBadge, PatientAvatar, Modal, Field, TextArea, EmptyState, DoctorRatingPill,
-} from '../shared/components.jsx';
-import {
-  findDoctor, formatDate, formatDateLong, formatDayRange, timeValue,
-} from '../shared/data.js';
-import { localToday, useDoctor, markNoShow, shortName, getWeekDays } from './helpers.js';
-import { WeekGrid } from './WeekGrid.jsx';
-import { PatientHistoryModal } from './PatientHistoryModal.jsx';
-import { VisitNotesModal } from './VisitNotesModal.jsx';
-import { DoctorDashboard } from './DoctorDashboard.jsx';
-import { DoctorPatients } from './DoctorPatients.jsx';
-import { DoctorWeekView } from './DoctorWeekView.jsx';
-import { DoctorFeedback } from './DoctorFeedback.jsx';
+import { useEffect, useState } from 'react';
+import { Field, Modal, TextArea, useStore } from '../shared/components.jsx';
+import { formatDate } from '../shared/data.js';
 
 // ---------- Complete visit — the doctor writes their own notes ----------
 function CompleteVisitModal({ appointment, onClose }) {

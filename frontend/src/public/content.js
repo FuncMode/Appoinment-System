@@ -1,29 +1,6 @@
-// Shared helpers/constants — public (split from screens-public.jsx)
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import {
-  Icon, BrandMark, navigate, useHashRoute, useStore, StoreProvider,
-  Sidebar, Topbar, AppShell, PublicNav, PublicFooter, PageHeader,
-  Badge, StatusBadge, DoctorStatusBadge, DoctorAvatar,
-  Modal, ToastLayer, Field, TextInput, TextArea, SelectInput,
-  Pagination, SkeletonRows, EmptyState, ErrorState, ConfirmModal, MiniBarChart, DoctorRatingPill, PwField,
-  NoticeBar, ClinicStatus, FaqAccordion, TestimonialCarousel,
-  OtpVerifyModal,
-} from '../shared/components.jsx';
-import {
-  HOSPITAL, SPECIALTIES, DOCTORS, PATIENTS, CURRENT_PATIENT, CURRENT_ADMIN, DOCTOR_CREDENTIALS,
-  APPOINTMENTS, AVAILABILITY_TEMPLATE,
-  findDoctor, findPatient, formatDate, formatDateLong, initials, statusMeta, doctorStatusMeta,
-} from '../shared/data.js';
-import Aurora from '../shared/reactbits/Aurora.jsx';
-import ShinyText from '../shared/reactbits/ShinyText.jsx';
-import CountUp from '../shared/reactbits/CountUp.jsx';
-import SplitText from '../shared/reactbits/SplitText.jsx';
-import AnimatedContent from '../shared/reactbits/AnimatedContent.jsx';
-import Magnet from '../shared/reactbits/Magnet.jsx';
-import ScrollVelocity from '../shared/reactbits/ScrollVelocity.jsx';
-import StarBorder from '../shared/reactbits/StarBorder.jsx';
-import GlareHover from '../shared/reactbits/GlareHover.jsx';  // hero preview card only — the one deliberate hover flourish
-import Ribbons from '../shared/reactbits/Ribbons.jsx';
+// Shared helpers/constants — public (split from screens-public.jsx).
+// Pure data module: no React/component imports so any chunk can pull this
+// content without dragging the shared UI library (or gsap/ogl) with it.
 
 // "Find the right care" symptom guide (Cleveland-Clinic-style care finder).
 // Maps common complaints to the specialty that treats them — pulls live

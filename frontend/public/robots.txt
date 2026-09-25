@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+# No admin/doctor portals or patient records in search results
+Disallow: /admin
+Disallow: /doctor
+Disallow: /patient

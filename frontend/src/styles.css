@@ -801,7 +801,9 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
   background: var(--error-soft); color: var(--error-text);
   border-radius: var(--r-sm); font-size: 12.5px; text-align: center;
 }
-.footer-emergency strong { color: var(--error); font-weight: 600; }
+/* #B91C1C on the #FEF2F2 strip ≈ 6.3:1 — the old var(--error) #DC2626 was
+   4.41:1, below the 4.5:1 needed at this 12.5px size (WCAG 1.4.3) */
+.footer-emergency strong { color: #B91C1C; font-weight: 600; }
 .footer-emergency svg { flex-shrink: 0; color: var(--error); }
 
 /* Security reassurance at the register hand-over moment (patient-portal
@@ -883,9 +885,9 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
   opacity: 0;
   animation: heroBgFade 21s linear infinite;
 }
-.hero-slide.s1 { background-image: url('./assets/hero-slide-1.png'); }
-.hero-slide.s2 { background-image: url('./assets/hero-slide-2.png'); animation-delay: -7s; }
-.hero-slide.s3 { background-image: url('./assets/hero-slide-3.png'); animation-delay: -14s; }
+.hero-slide.s1 { background-image: url('./assets/hero-slide-1.webp'); }
+.hero-slide.s2 { background-image: url('./assets/hero-slide-2.webp'); animation-delay: -7s; }
+.hero-slide.s3 { background-image: url('./assets/hero-slide-3.webp'); animation-delay: -14s; }
 /* 3 slides × 7s: each holds ~6s, then crossfades ~1s while the next fades
    in. Negative delays offset the shared keyframes so slide 1 is already
    fully visible at t=0 (no fade-in from a blank hero on load). */
@@ -1188,7 +1190,10 @@ button.star-border-container.star-border-cta {
 .feature-card-icon { display: inline-flex; color: var(--primary); }
 .feature-card-icon svg { width: 18px; height: 18px; }
 .feature-card > .feature-card-icon { margin-bottom: 10px; }
-.feature-card h3 { font-size: 15px; margin: 0 0 4px; font-weight: 600; }
+/* Card titles are h2 elements (heading-order: the page hero's h1 is followed
+   directly by these section cards). The styles below keep the original
+   visual size of the h3 they replaced. */
+.feature-card h2 { font-size: 15px; margin: 0 0 4px; font-weight: 600; }
 .feature-card p { font-size: 13px; color: var(--text-muted); margin: 0; line-height: 1.55; }
 
 /* Featured service card: double width on desktop. Consultations are the
@@ -1282,9 +1287,9 @@ button.star-border-container.star-border-cta {
   display: flex; flex-direction: column; justify-content: space-between;
   position: relative; overflow: hidden;
 }
-.auth-visual-col--login { background-image: linear-gradient(160deg, rgba(30,64,175,0.8) 0%, rgba(37,99,235,0.68) 100%), url('./assets/auth-bg-login.png'); }
-.auth-visual-col--register { background-image: linear-gradient(160deg, rgba(30,64,175,0.8) 0%, rgba(37,99,235,0.68) 100%), url('./assets/auth-bg-register.png'); }
-.auth-visual-col--forgot { background-image: linear-gradient(160deg, rgba(30,64,175,0.8) 0%, rgba(37,99,235,0.68) 100%), url('./assets/auth-bg-forgot.png'); }
+.auth-visual-col--login { background-image: linear-gradient(160deg, rgba(30,64,175,0.8) 0%, rgba(37,99,235,0.68) 100%), url('./assets/auth-bg-login.webp'); }
+.auth-visual-col--register { background-image: linear-gradient(160deg, rgba(30,64,175,0.8) 0%, rgba(37,99,235,0.68) 100%), url('./assets/auth-bg-register.webp'); }
+.auth-visual-col--forgot { background-image: linear-gradient(160deg, rgba(30,64,175,0.8) 0%, rgba(37,99,235,0.68) 100%), url('./assets/auth-bg-forgot.webp'); }
 /* ::before radial glows removed (R-01): pure decoration with no stated
    purpose. The linear gradient overlay's job (keeping the quote text readable
    over the photos) is documented above and stays. */
@@ -1845,6 +1850,10 @@ button.star-border-container.star-border-cta {
 }
 .public-notice-inner svg { flex-shrink: 0; }
 .public-notice-inner a { color: #B91C1C; font-weight: 600; text-decoration: underline; white-space: nowrap; }
+/* #B91C1C on the #FEF2F2 bar ≈ 6.3:1; the unstyled <strong> inherited #DC2626
+   (≈4:1 — fails WCAG 1.4.3 at 13px). The explicit color keeps the emphasis
+   without the contrast failure. */
+.public-notice-inner .notice-strong { color: #B91C1C; font-weight: 600; }
 .public-notice-close {
   margin-left: auto; background: transparent; border: 0; cursor: pointer;
   color: inherit; display: inline-flex; padding: 4px; border-radius: 6px; opacity: 0.7;

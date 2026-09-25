@@ -1,10 +1,10 @@
 // auth.jsx — split from components.jsx (layered shared UI)
-import { useState, useEffect, useRef, useMemo, useCallback, createContext, useContext, Fragment } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import brandLogo from '../assets/brand_logo.png';
 import './data.js';
 import AnimatedContent from './reactbits/AnimatedContent.jsx';
 import { Icon } from './icons.jsx';
-import { Modal, Field, generateOtp } from './ui.jsx';
+import { Field, generateOtp, Modal } from './ui.jsx';
 
 function OtpVerifyModal({ open, onClose, onVerified, email, title = 'Verify it\'s you', subtitle }) {
   const [sentCode, setSentCode] = useState('');
@@ -133,10 +133,12 @@ function OtpVerifyModal({ open, onClose, onVerified, email, title = 'Verify it\'
 // password) gets the eye toggle without each screen re-implementing it.
 function PwField({ label, required, error, help, value, onChange, autoComplete }) {
   const [show, setShow] = useState(false);
+  const id = useId();
   return (
-    <Field label={label} required={required} error={error} help={help}>
+    <Field label={label} required={required} error={error} help={help} htmlFor={id}>
       <div className="input-group">
         <input
+          id={id}
           className={'input' + (error ? ' error' : '')}
           type={show ? 'text' : 'password'}
           value={value}

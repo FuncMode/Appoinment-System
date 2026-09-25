@@ -1,5 +1,5 @@
 // ui.jsx — split from components.jsx (layered shared UI)
-import { useState, useEffect, useRef, useMemo, useCallback, createContext, useContext, Fragment } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import brandLogo from '../assets/brand_logo.png';
 import './data.js';
 import AnimatedContent from './reactbits/AnimatedContent.jsx';
@@ -156,10 +156,10 @@ function ToastLayer() {
 }
 
 // ---------- Field wrappers ----------
-function Field({ label, required, help, error, children }) {
+function Field({ label, required, help, error, htmlFor, children }) {
   return (
     <div className="field">
-      {label && <label className="field-label">{label}{required && <span className="req">*</span>}</label>}
+      {label && <label className="field-label" htmlFor={htmlFor}>{label}{required && <span className="req">*</span>}</label>}
       {children}
       {error
         ? <div className="field-error"><Icon name="alert-circle" size={12} /> {error}</div>
@@ -184,9 +184,12 @@ function TextArea({ error, ...props }) {
   return <textarea className={'textarea' + (error ? ' error' : '')} {...props} />;
 }
 
-function SelectInput({ error, children, className, ...props }) {
+function SelectInput({ error, children, className, 'aria-label': ariaLabel, ...props }) {
   // Merge an optional extra class (e.g. .status-select) with the base .select
-  return <select className={'select' + (error ? ' error' : '') + (className ? ' ' + className : '')} {...props}>{children}</select>;
+  // Falls back to the first option's text so a bare select is never unnamed
+  // for screen readers (Lighthouse select-name)
+  const label = ariaLabel ?? ((Array.isArray(children) && children[0]?.props?.children) || undefined);
+  return <select className={'select' + (error ? ' error' : '') + (className ? ' ' + className : '')} aria-label={label} {...props}>{children}</select>;
 }
 
 // ---------- Pagination ----------
@@ -203,14 +206,14 @@ function Pagination({ page, setPage, total, pageSize, label = 'rows' }) {
     <div className="pagination">
       <div>Showing <strong>{from}</strong>–<strong>{to}</strong> of <strong>{total}</strong> {label}</div>
       <div className="pagination-controls">
-        <button className="page-btn" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+        <button className="page-btn" aria-label="Previous page" disabled={page <= 1} onClick={() => setPage(page - 1)}>
           <Icon name="chevron-left" size={14} />
         </button>
         {list.map((p, i) => p === '…'
           ? <span key={i} className="t-muted" style={{ padding: '0 4px' }}>…</span>
-          : <button key={i} className={'page-btn' + (page === p ? ' on' : '')} onClick={() => setPage(p)}>{p}</button>
+          : <button key={i} className={'page-btn' + (page === p ? ' on' : '')} aria-label={`Page ${p}`} onClick={() => setPage(p)}>{p}</button>
         )}
-        <button className="page-btn" disabled={page >= pages} onClick={() => setPage(page + 1)}>
+        <button className="page-btn" aria-label="Next page" disabled={page >= pages} onClick={() => setPage(page + 1)}>
           <Icon name="chevron-right" size={14} />
         </button>
       </div>

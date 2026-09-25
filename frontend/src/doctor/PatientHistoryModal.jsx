@@ -1,20 +1,7 @@
 // PatientHistoryModal — doctor portal (split from screens-doctor.jsx)
-import { useState, useEffect } from 'react';
-import {
-  Icon, navigate, useStore, AppShell, PageHeader,
-  StatusBadge, DoctorStatusBadge, PatientAvatar, Modal, Field, TextArea, EmptyState, DoctorRatingPill,
-} from '../shared/components.jsx';
-import {
-  findDoctor, formatDate, formatDateLong, formatDayRange, timeValue,
-} from '../shared/data.js';
-import { localToday, useDoctor, markNoShow, shortName, getWeekDays } from './helpers.js';
-import { CompleteVisitModal } from './CompleteVisitModal.jsx';
-import { WeekGrid } from './WeekGrid.jsx';
-import { VisitNotesModal } from './VisitNotesModal.jsx';
-import { DoctorDashboard } from './DoctorDashboard.jsx';
-import { DoctorPatients } from './DoctorPatients.jsx';
-import { DoctorWeekView } from './DoctorWeekView.jsx';
-import { DoctorFeedback } from './DoctorFeedback.jsx';
+
+import { EmptyState, Modal, StatusBadge, useStore } from '../shared/components.jsx';
+import { findDoctor, formatDate, timeValue } from '../shared/data.js';
 
 // ---------- Patient chart history (shared store — all doctors' notes) ----------
 function PatientHistoryModal({ patient, onClose }) {

@@ -1,5 +1,5 @@
 // charts.jsx — split from components.jsx (layered shared UI)
-import { useState, useEffect, useRef, useMemo, useCallback, createContext, useContext, Fragment } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import brandLogo from '../assets/brand_logo.png';
 import './data.js';
 import AnimatedContent from './reactbits/AnimatedContent.jsx';

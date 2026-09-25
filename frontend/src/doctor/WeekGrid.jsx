@@ -1,20 +1,7 @@
 // WeekGrid — doctor portal (split from screens-doctor.jsx)
-import { useState, useEffect } from 'react';
-import {
-  Icon, navigate, useStore, AppShell, PageHeader,
-  StatusBadge, DoctorStatusBadge, PatientAvatar, Modal, Field, TextArea, EmptyState, DoctorRatingPill,
-} from '../shared/components.jsx';
-import {
-  findDoctor, formatDate, formatDateLong, formatDayRange, timeValue,
-} from '../shared/data.js';
-import { localToday, useDoctor, markNoShow, shortName, getWeekDays } from './helpers.js';
-import { CompleteVisitModal } from './CompleteVisitModal.jsx';
-import { PatientHistoryModal } from './PatientHistoryModal.jsx';
-import { VisitNotesModal } from './VisitNotesModal.jsx';
-import { DoctorDashboard } from './DoctorDashboard.jsx';
-import { DoctorPatients } from './DoctorPatients.jsx';
-import { DoctorWeekView } from './DoctorWeekView.jsx';
-import { DoctorFeedback } from './DoctorFeedback.jsx';
+
+import { timeValue } from '../shared/data.js';
+import { shortName } from './helpers.js';
 
 // Shared Mon–Sun week grid — used by the This week page (/doctor/week).
 // Today's column is highlighted, past days read as history; compact chips

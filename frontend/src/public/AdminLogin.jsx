@@ -1,19 +1,7 @@
 // AdminLogin — public (split from screens-public.jsx)
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import {
-  Icon, BrandMark, navigate, useHashRoute, useStore, StoreProvider,
-  Sidebar, Topbar, AppShell, PublicNav, PublicFooter, PageHeader,
-  Badge, StatusBadge, DoctorStatusBadge, DoctorAvatar,
-  Modal, ToastLayer, Field, TextInput, TextArea, SelectInput,
-  Pagination, SkeletonRows, EmptyState, ErrorState, ConfirmModal, MiniBarChart, DoctorRatingPill, PwField,
-  NoticeBar, ClinicStatus, FaqAccordion, TestimonialCarousel,
-  OtpVerifyModal,
-} from '../shared/components.jsx';
-import {
-  HOSPITAL, SPECIALTIES, DOCTORS, PATIENTS, CURRENT_PATIENT, CURRENT_ADMIN, DOCTOR_CREDENTIALS,
-  APPOINTMENTS, AVAILABILITY_TEMPLATE,
-  findDoctor, findPatient, formatDate, formatDateLong, initials, statusMeta, doctorStatusMeta,
-} from '../shared/data.js';
+import { useState } from 'react';
+import { BrandMark, Field, Icon, navigate, OtpVerifyModal, TextInput, useStore } from '../shared/components.jsx';
+import { CURRENT_ADMIN } from '../shared/data.js';
 import Aurora from '../shared/reactbits/Aurora.jsx';
 import ShinyText from '../shared/reactbits/ShinyText.jsx';
 import CountUp from '../shared/reactbits/CountUp.jsx';
@@ -24,19 +12,6 @@ import ScrollVelocity from '../shared/reactbits/ScrollVelocity.jsx';
 import StarBorder from '../shared/reactbits/StarBorder.jsx';
 import GlareHover from '../shared/reactbits/GlareHover.jsx';  // hero preview card only — the one deliberate hover flourish
 import Ribbons from '../shared/reactbits/Ribbons.jsx';
-import { CARE_GUIDE, PROTOTYPE_STORIES, LANDING_FAQS, SERVICES_FAQS } from './content.js';
-import { HeroAurora, HeroTitle, Landing } from './Landing.jsx';
-import { ServicesPage } from './ServicesPage.jsx';
-import { MOBILE_DOCTORS_QUERY, MOBILE_DOCTORS_PAGE_SIZE, DoctorsPage } from './DoctorsPage.jsx';
-import { AboutPage } from './AboutPage.jsx';
-import { ContactPage } from './ContactPage.jsx';
-import { LegalPage } from './LegalPage.jsx';
-import { PrivacyPage } from './PrivacyPage.jsx';
-import { TermsPage } from './TermsPage.jsx';
-import { Register } from './Register.jsx';
-import { Login } from './Login.jsx';
-import { DoctorLogin } from './DoctorLogin.jsx';
-import { ForgotPassword } from './ForgotPassword.jsx';
 
 // ---------- Admin login (staff console) ----------
 // Separate, unlinked login for hospital staff/admin. Kept off the public
@@ -94,7 +69,7 @@ function AdminLogin() {
   const [demoOpen, setDemoOpen] = useState(false);
 
   return (
-    <div className="auth-shell">
+    <main className="auth-shell">
       <AnimatedContent className="auth-slide" distance={260} direction="horizontal" reverse duration={0.7}>
       <div className="auth-visual-col auth-visual-col--forgot" style={{ order: 0 }}>
         <div className="auth-aurora" aria-hidden="true"><Aurora colorStops={['#60A5FA', '#E0F2FE', '#3B82F6']} amplitude={1.1} speed={0.6} blend={0.7} /></div>
@@ -191,7 +166,7 @@ function AdminLogin() {
         title="Verify staff sign-in"
         subtitle={`Enter the code sent to ${ADMIN_CREDENTIALS.email} to open the admin console.`}
       />
-    </div>
+    </main>
   );
 }
 

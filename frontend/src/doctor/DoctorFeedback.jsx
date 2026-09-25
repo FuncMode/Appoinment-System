@@ -1,20 +1,8 @@
 // DoctorFeedback — doctor portal (split from screens-doctor.jsx)
-import { useState, useEffect } from 'react';
-import {
-  Icon, navigate, useStore, AppShell, PageHeader,
-  StatusBadge, DoctorStatusBadge, PatientAvatar, Modal, Field, TextArea, EmptyState, DoctorRatingPill,
-} from '../shared/components.jsx';
-import {
-  findDoctor, formatDate, formatDateLong, formatDayRange, timeValue,
-} from '../shared/data.js';
-import { localToday, useDoctor, markNoShow, shortName, getWeekDays } from './helpers.js';
-import { CompleteVisitModal } from './CompleteVisitModal.jsx';
-import { WeekGrid } from './WeekGrid.jsx';
-import { PatientHistoryModal } from './PatientHistoryModal.jsx';
-import { VisitNotesModal } from './VisitNotesModal.jsx';
-import { DoctorDashboard } from './DoctorDashboard.jsx';
-import { DoctorPatients } from './DoctorPatients.jsx';
-import { DoctorWeekView } from './DoctorWeekView.jsx';
+import { useEffect, useState } from 'react';
+import { AppShell, DoctorRatingPill, EmptyState, Icon, PageHeader, useStore } from '../shared/components.jsx';
+import { formatDate } from '../shared/data.js';
+import { useDoctor } from './helpers.js';
 
 // ---------- Doctor: Patient feedback (own page) ----------
 // The full ratings list moved off the dashboard into its own page; the

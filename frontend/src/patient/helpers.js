@@ -13,7 +13,7 @@ import {
   findDoctor, findPatient, formatDate, formatDateLong, initials, statusMeta, doctorStatusMeta,
   isSlotTaken, getSlotsFor, slotFitsInterval, downloadFile, isClinicDay, timeValue,
 } from '../shared/data.js';
-import { CARE_GUIDE } from '../public/screens-public.jsx';
+import { CARE_GUIDE } from '../public/content.js';
 
 // Keyboard support for clickable card containers (guidelines 20 & 36):
 // elements exposing role="button" must activate on Enter/Space. The

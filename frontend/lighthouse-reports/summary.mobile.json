@@ -1,0 +1,102 @@
+[
+  {
+    "page": "landing",
+    "form": "mobile",
+    "performance": 50,
+    "accessibility": 100,
+    "best-practices": 100,
+    "seo": 100,
+    "fcp_ms": 2398,
+    "lcp_ms": 5060
+  },
+  {
+    "page": "services",
+    "form": "mobile",
+    "performance": 73,
+    "accessibility": 100,
+    "best-practices": 100,
+    "seo": 100,
+    "fcp_ms": 2380,
+    "lcp_ms": 3660
+  },
+  {
+    "page": "doctors",
+    "form": "mobile",
+    "performance": 80,
+    "accessibility": 100,
+    "best-practices": 100,
+    "seo": 100,
+    "fcp_ms": 3317,
+    "lcp_ms": 3708
+  },
+  {
+    "page": "about",
+    "form": "mobile",
+    "performance": 79,
+    "accessibility": 100,
+    "best-practices": 100,
+    "seo": 100,
+    "fcp_ms": 2454,
+    "lcp_ms": 3565
+  },
+  {
+    "page": "contact",
+    "form": "mobile",
+    "performance": 79,
+    "accessibility": 100,
+    "best-practices": 100,
+    "seo": 100,
+    "fcp_ms": 2823,
+    "lcp_ms": 3624
+  },
+  {
+    "page": "privacy",
+    "form": "mobile",
+    "performance": 84,
+    "accessibility": 100,
+    "best-practices": 100,
+    "seo": 100,
+    "fcp_ms": 2440,
+    "lcp_ms": 3501
+  },
+  {
+    "page": "terms",
+    "form": "mobile",
+    "performance": 84,
+    "accessibility": 100,
+    "best-practices": 100,
+    "seo": 100,
+    "fcp_ms": 2450,
+    "lcp_ms": 3414
+  },
+  {
+    "page": "register",
+    "form": "mobile",
+    "performance": 80,
+    "accessibility": 100,
+    "best-practices": 100,
+    "seo": 100,
+    "fcp_ms": 2464,
+    "lcp_ms": 3411
+  },
+  {
+    "page": "login",
+    "form": "mobile",
+    "performance": 82,
+    "accessibility": 100,
+    "best-practices": 100,
+    "seo": 100,
+    "fcp_ms": 2812,
+    "lcp_ms": 3683
+  },
+  {
+    "page": "forgot-password",
+    "form": "mobile",
+    "performance": 83,
+    "accessibility": 100,
+    "best-practices": 100,
+    "seo": 100,
+    "fcp_ms": 2879,
+    "lcp_ms": 3839
+  }
+]

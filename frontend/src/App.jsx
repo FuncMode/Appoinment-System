@@ -1,17 +1,56 @@
 // ============================================================
 // Router / app root — MedicaCare
 // ============================================================
-import { useEffect, useState } from 'react';
-import { BrandMark, useHashRoute, useStore, useIsDesktop, DesktopOnlyNotice } from './shared/components.jsx';
-import { Landing, Register, Login, AdminLogin, DoctorLogin, ForgotPassword, ServicesPage, DoctorsPage, AboutPage, ContactPage, PrivacyPage, TermsPage } from './public/screens-public.jsx';
-import {
-  PatientDashboard, DoctorListing, DoctorAvailability, BookAppointment,
-  BookingConfirmation, AppointmentStatus, AppointmentHistory, AppointmentDetails, Profile,
-  MedicalRecords, PatientMessages, HelpSupport,
-} from './patient/screens-patient.jsx';
-import { AdminDashboard, PatientsMgmt, DoctorsMgmt, AppointmentsMgmt, StoriesMgmt, TicketsMgmt, AdminReports, AdminSettings, AdminActivity } from './admin/screens-admin.jsx';
-import { DoctorDashboard, DoctorPatients, DoctorWeekView, DoctorFeedback } from './doctor/screens-doctor.jsx';
-import { MobileShowcase } from './public/screens-mobile.jsx';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { BrandMark, PageSpinner, useHashRoute, useStore, useIsDesktop, DesktopOnlyNotice } from './shared/components.jsx';
+
+// Route-level code splitting: every screen is its own chunk, loaded on
+// demand. The heavy reactbits visuals (gsap/ogl) only ship with the pages
+// that actually render them — the app shell stays small.
+const Landing = lazy(() => import('./public/Landing.jsx').then(m => ({ default: m.Landing })));
+const Register = lazy(() => import('./public/Register.jsx').then(m => ({ default: m.Register })));
+const Login = lazy(() => import('./public/Login.jsx').then(m => ({ default: m.Login })));
+const AdminLogin = lazy(() => import('./public/AdminLogin.jsx').then(m => ({ default: m.AdminLogin })));
+const DoctorLogin = lazy(() => import('./public/DoctorLogin.jsx').then(m => ({ default: m.DoctorLogin })));
+const ForgotPassword = lazy(() => import('./public/ForgotPassword.jsx').then(m => ({ default: m.ForgotPassword })));
+const ServicesPage = lazy(() => import('./public/ServicesPage.jsx').then(m => ({ default: m.ServicesPage })));
+const DoctorsPage = lazy(() => import('./public/DoctorsPage.jsx').then(m => ({ default: m.DoctorsPage })));
+const AboutPage = lazy(() => import('./public/AboutPage.jsx').then(m => ({ default: m.AboutPage })));
+const ContactPage = lazy(() => import('./public/ContactPage.jsx').then(m => ({ default: m.ContactPage })));
+const PrivacyPage = lazy(() => import('./public/PrivacyPage.jsx').then(m => ({ default: m.PrivacyPage })));
+const TermsPage = lazy(() => import('./public/TermsPage.jsx').then(m => ({ default: m.TermsPage })));
+const MobileShowcase = lazy(() => import('./public/screens-mobile.jsx').then(m => ({ default: m.MobileShowcase })));
+const PatientDashboard = lazy(() => import('./patient/PatientDashboard.jsx').then(m => ({ default: m.PatientDashboard })));
+const DoctorListing = lazy(() => import('./patient/DoctorListing.jsx').then(m => ({ default: m.DoctorListing })));
+const DoctorAvailability = lazy(() => import('./patient/DoctorAvailability.jsx').then(m => ({ default: m.DoctorAvailability })));
+const BookAppointment = lazy(() => import('./patient/BookAppointment.jsx').then(m => ({ default: m.BookAppointment })));
+const BookingConfirmation = lazy(() => import('./patient/BookingConfirmation.jsx').then(m => ({ default: m.BookingConfirmation })));
+const AppointmentStatus = lazy(() => import('./patient/AppointmentStatus.jsx').then(m => ({ default: m.AppointmentStatus })));
+const AppointmentHistory = lazy(() => import('./patient/AppointmentHistory.jsx').then(m => ({ default: m.AppointmentHistory })));
+const AppointmentDetails = lazy(() => import('./patient/AppointmentDetails.jsx').then(m => ({ default: m.AppointmentDetails })));
+const Profile = lazy(() => import('./patient/Profile.jsx').then(m => ({ default: m.Profile })));
+const MedicalRecords = lazy(() => import('./patient/MedicalRecords.jsx').then(m => ({ default: m.MedicalRecords })));
+const PatientMessages = lazy(() => import('./patient/PatientMessages.jsx').then(m => ({ default: m.PatientMessages })));
+const HelpSupport = lazy(() => import('./patient/HelpSupport.jsx').then(m => ({ default: m.HelpSupport })));
+const AdminDashboard = lazy(() => import('./admin/AdminDashboard.jsx').then(m => ({ default: m.AdminDashboard })));
+const PatientsMgmt = lazy(() => import('./admin/PatientsMgmt.jsx').then(m => ({ default: m.PatientsMgmt })));
+const DoctorsMgmt = lazy(() => import('./admin/DoctorsMgmt.jsx').then(m => ({ default: m.DoctorsMgmt })));
+const AppointmentsMgmt = lazy(() => import('./admin/AppointmentsMgmt.jsx').then(m => ({ default: m.AppointmentsMgmt })));
+const StoriesMgmt = lazy(() => import('./admin/StoriesMgmt.jsx').then(m => ({ default: m.StoriesMgmt })));
+const TicketsMgmt = lazy(() => import('./admin/TicketsMgmt.jsx').then(m => ({ default: m.TicketsMgmt })));
+const AdminReports = lazy(() => import('./admin/AdminReports.jsx').then(m => ({ default: m.AdminReports })));
+const AdminSettings = lazy(() => import('./admin/AdminSettings.jsx').then(m => ({ default: m.AdminSettings })));
+const AdminActivity = lazy(() => import('./admin/AdminActivity.jsx').then(m => ({ default: m.AdminActivity })));
+const DoctorDashboard = lazy(() => import('./doctor/DoctorDashboard.jsx').then(m => ({ default: m.DoctorDashboard })));
+const DoctorPatients = lazy(() => import('./doctor/DoctorPatients.jsx').then(m => ({ default: m.DoctorPatients })));
+const DoctorWeekView = lazy(() => import('./doctor/DoctorWeekView.jsx').then(m => ({ default: m.DoctorWeekView })));
+const DoctorFeedback = lazy(() => import('./doctor/DoctorFeedback.jsx').then(m => ({ default: m.DoctorFeedback })));
+
+// Warm the Landing chunk immediately: it is the default route, so its fetch
+// should start while the app shell is still parsing instead of waiting for
+// the first render's Suspense kick-off (dynamic import caches the promise,
+// so the lazy() component above reuses this same request).
+import('./public/Landing.jsx');
 
 // ============================================================
 // Initial-visit splash — brand mark + spinner circle, centered
@@ -167,7 +206,7 @@ function App() {
   return (
     <div data-screen-label={label}>
       {splash !== 'gone' && <Splash fading={splash === 'fading'} />}
-      {screen}
+      <Suspense fallback={<PageSpinner />}>{screen}</Suspense>
     </div>
   );
 }

@@ -1,31 +1,9 @@
 // BookAppointment — patient (split from screens-patient.jsx)
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import {
-  Icon, navigate, useHashRoute, useStore, StoreProvider,
-  Sidebar, Topbar, AppShell, PublicNav, PageHeader,
-  Badge, StatusBadge, DoctorStatusBadge, DoctorAvatar, PatientAvatar,
-  Modal, ToastLayer, Field, TextInput, TextArea, SelectInput,
-  Pagination, SkeletonRows, SortableTh, PageSpinner, EmptyState, ErrorState, ConfirmModal, MiniBarChart, DoctorRatingPill, PwField,
-} from '../shared/components.jsx';
-import {
-  HOSPITAL, SPECIALTIES, DOCTORS, PATIENTS, CURRENT_PATIENT, CURRENT_ADMIN,
-  APPOINTMENTS, AVAILABILITY_TEMPLATE,
-  findDoctor, findPatient, formatDate, formatDateLong, initials, statusMeta, doctorStatusMeta,
-  isSlotTaken, getSlotsFor, slotFitsInterval, downloadFile, isClinicDay, timeValue,
-} from '../shared/data.js';
-import { CARE_GUIDE } from '../public/screens-public.jsx';
-import { activateOnKey, toICSStamp, buildICS, buildReceipt, localToday, buildRecordsHTML } from './helpers.js';
-import { PatientDashboard } from './PatientDashboard.jsx';
-import { MOBILE_DOCTOR_QUERY, MOBILE_DOCTOR_PAGE_SIZE, DoctorListing } from './DoctorListing.jsx';
-import { DoctorAvailability } from './DoctorAvailability.jsx';
-import { BookingConfirmation } from './BookingConfirmation.jsx';
-import { AppointmentStatus } from './AppointmentStatus.jsx';
-import { AppointmentHistory } from './AppointmentHistory.jsx';
-import { AppointmentDetails, RateVisitModal } from './AppointmentDetails.jsx';
+import { useEffect, useState } from 'react';
+import { AppShell, DoctorAvatar, Field, Icon, navigate, PageHeader, PageSpinner, SelectInput, TextArea, TextInput, useStore } from '../shared/components.jsx';
+import { AVAILABILITY_TEMPLATE, CURRENT_PATIENT, findDoctor, formatDate, formatDateLong, getSlotsFor, isClinicDay, isSlotTaken, slotFitsInterval } from '../shared/data.js';
+
 import { Profile } from './Profile.jsx';
-import { MedicalRecords } from './MedicalRecords.jsx';
-import { PatientMessages } from './PatientMessages.jsx';
-import { HelpSupport } from './HelpSupport.jsx';
 
 // ---------- Book Appointment (form) ----------
 function BookAppointment() {

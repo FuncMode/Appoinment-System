@@ -1,31 +1,8 @@
 // AdminDashboard — admin (split from screens-admin.jsx)
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import {
-  Icon, navigate, useHashRoute, useStore, StoreProvider,
-  Sidebar, Topbar, AppShell, PublicNav, PageHeader, SortableTh, PageSpinner,
-  Badge, StatusBadge, DoctorStatusBadge, DoctorAvatar, PatientAvatar,
-  Modal, ToastLayer, Field, TextInput, TextArea, SelectInput,
-  Pagination, SkeletonRows, EmptyState, ErrorState, ConfirmModal, MiniBarChart, Sparkline, DoctorRatingPill, computeDoctorRating,
-} from '../shared/components.jsx';
-import {
-  HOSPITAL, SPECIALTIES, DOCTORS, PATIENTS, CURRENT_PATIENT, CURRENT_ADMIN,
-  APPOINTMENTS, AVAILABILITY_TEMPLATE,
-  findDoctor, findPatient, formatDate, formatDateLong, initials, statusMeta, doctorStatusMeta,
-  isSlotTaken, getSlotsFor, slotFitsInterval, downloadFile, formatDayRange, isClinicDay, timeValue,
-} from '../shared/data.js';
-import { csvCell, downloadCSV, buildDoctorScheduleHTML, printDoctorSchedule, localToday } from './helpers.js';
-import { PatientsMgmt } from './PatientsMgmt.jsx';
-import { PatientFormModal } from './PatientFormModal.jsx';
-import { PatientRecordsModal } from './PatientRecordsModal.jsx';
-import { DoctorsMgmt } from './DoctorsMgmt.jsx';
-import { DoctorFormModal } from './DoctorFormModal.jsx';
-import { AppointmentsMgmt } from './AppointmentsMgmt.jsx';
-import { StoryRow, StoriesMgmt } from './StoriesMgmt.jsx';
-import { AdminActivity } from './AdminActivity.jsx';
-import { AdminReports } from './AdminReports.jsx';
-import { AdminSettings } from './AdminSettings.jsx';
-import { TicketsMgmt } from './TicketsMgmt.jsx';
-import { AppointmentEditModal, AppointmentFormModal, AppointmentDetailsModal } from './AppointmentModals.jsx';
+import { useEffect, useState } from 'react';
+import { AppShell, EmptyState, Icon, MiniBarChart, navigate, PageHeader, Pagination, PatientAvatar, SkeletonRows, Sparkline, StatusBadge, useStore } from '../shared/components.jsx';
+import { findDoctor, findPatient, formatDate, statusMeta, timeValue } from '../shared/data.js';
+import { downloadCSV, localToday } from './helpers.js';
 
 // ---------- Admin Dashboard ----------
 function AdminDashboard() {

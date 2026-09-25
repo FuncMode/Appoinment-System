@@ -1,9 +1,9 @@
 // layout.jsx — split from components.jsx (layered shared UI)
-import { useState, useEffect, useRef, useMemo, useCallback, createContext, useContext, Fragment } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import brandLogo from '../assets/brand_logo.png';
 import './data.js';
 import AnimatedContent from './reactbits/AnimatedContent.jsx';
-import { useHashRoute, navigate } from './hooks.js';
+import { navigate, useHashRoute } from './hooks.js';
 import { Icon } from './icons.jsx';
 import { useStore } from './store.jsx';
 import { DoctorAvatar, PatientAvatar, ToastLayer } from './ui.jsx';
@@ -525,7 +525,7 @@ function NoticeBar({ phone }) {
     <div className="public-notice-bar" role="status">
       <div className="public-notice-inner">
         <Icon name="siren" size={14} />
-        <span><strong>24/7 Emergency care:</strong> our ER never closes: walk in anytime or call us.</span>
+        <span><strong className="notice-strong">24/7 Emergency care:</strong> our ER never closes: walk in anytime or call us.</span>
         {phone && <a href={`tel:${phone.replace(/[^+\d]/g, '')}`}>{phone}</a>}
         <button className="public-notice-close" aria-label="Dismiss announcement" title="Dismiss" onClick={dismiss}>
           <Icon name="x" size={14} />

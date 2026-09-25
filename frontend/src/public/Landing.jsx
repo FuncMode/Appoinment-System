@@ -1,75 +1,15 @@
 // Landing — public (split from screens-public.jsx)
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import {
-  Icon, BrandMark, navigate, useHashRoute, useStore, StoreProvider,
-  Sidebar, Topbar, AppShell, PublicNav, PublicFooter, PageHeader,
-  Badge, StatusBadge, DoctorStatusBadge, DoctorAvatar,
-  Modal, ToastLayer, Field, TextInput, TextArea, SelectInput,
-  Pagination, SkeletonRows, EmptyState, ErrorState, ConfirmModal, MiniBarChart, DoctorRatingPill, PwField,
-  NoticeBar, ClinicStatus, FaqAccordion, TestimonialCarousel,
-  OtpVerifyModal,
-} from '../shared/components.jsx';
-import {
-  HOSPITAL, SPECIALTIES, DOCTORS, PATIENTS, CURRENT_PATIENT, CURRENT_ADMIN, DOCTOR_CREDENTIALS,
-  APPOINTMENTS, AVAILABILITY_TEMPLATE,
-  findDoctor, findPatient, formatDate, formatDateLong, initials, statusMeta, doctorStatusMeta,
-} from '../shared/data.js';
-import Aurora from '../shared/reactbits/Aurora.jsx';
-import ShinyText from '../shared/reactbits/ShinyText.jsx';
+import { useEffect, useRef, useState } from 'react';
+import { ClinicStatus, DoctorAvatar, FaqAccordion, Icon, navigate, NoticeBar, PublicFooter, PublicNav, StatusBadge, TestimonialCarousel, useStore } from '../shared/components.jsx';
+import { APPOINTMENTS, CURRENT_PATIENT, DOCTORS, findDoctor, HOSPITAL, SPECIALTIES } from '../shared/data.js';
 import CountUp from '../shared/reactbits/CountUp.jsx';
-import SplitText from '../shared/reactbits/SplitText.jsx';
-import AnimatedContent from '../shared/reactbits/AnimatedContent.jsx';
 import Magnet from '../shared/reactbits/Magnet.jsx';
 import ScrollVelocity from '../shared/reactbits/ScrollVelocity.jsx';
 import StarBorder from '../shared/reactbits/StarBorder.jsx';
 import GlareHover from '../shared/reactbits/GlareHover.jsx';  // hero preview card only — the one deliberate hover flourish
 import Ribbons from '../shared/reactbits/Ribbons.jsx';
-import { CARE_GUIDE, PROTOTYPE_STORIES, LANDING_FAQS, SERVICES_FAQS } from './content.js';
-import { ServicesPage } from './ServicesPage.jsx';
-import { MOBILE_DOCTORS_QUERY, MOBILE_DOCTORS_PAGE_SIZE, DoctorsPage } from './DoctorsPage.jsx';
-import { AboutPage } from './AboutPage.jsx';
-import { ContactPage } from './ContactPage.jsx';
-import { LegalPage } from './LegalPage.jsx';
-import { PrivacyPage } from './PrivacyPage.jsx';
-import { TermsPage } from './TermsPage.jsx';
-import { Register } from './Register.jsx';
-import { Login } from './Login.jsx';
-import { ADMIN_CREDENTIALS, AdminLogin } from './AdminLogin.jsx';
-import { DoctorLogin } from './DoctorLogin.jsx';
-import { ForgotPassword } from './ForgotPassword.jsx';
-
-// Aurora WebGL wash behind every public hero (Landing + subpages share the
-// .public-hero pattern). Brand-blue color stops keep it on-palette; the
-// wrapper's positioning/opacity lives in styles.css (.public-hero-aurora).
-// aria-hidden + pointer-events:none keep it purely decorative.
-function HeroAurora() {
-  return (
-    <div className="public-hero-aurora" aria-hidden="true">
-      <Aurora colorStops={['#2563EB', '#7CC0FF', '#2563EB']} amplitude={0.9} blend={0.6} speed={0.7} />
-    </div>
-  );
-}
-
-// Shiny sweep for hero titles — one treatment across every public page so
-// the headings read as a family (dark ink with a brand-blue glint). The
-// `light` variant swaps to white ink for the Landing's photo hero, where
-// dark text would be unreadable over the blue overlay. The shine uses a
-// near-white blue (not #7CC0FF): mid-sweep, pale blue letters on the blue
-// veil dropped to ~2.5:1 contrast — the paler shine keeps the shimmer
-// readable at every point of the animation.
-function HeroTitle({ children, light = false }) {
-  return (
-    <h1>
-      <ShinyText
-        text={children}
-        speed={4}
-        color={light ? '#FFFFFF' : '#111827'}
-        shineColor={light ? '#CFE3FF' : '#2563EB'}
-        spread={120}
-      />
-    </h1>
-  );
-}
+import { CARE_GUIDE, LANDING_FAQS, PROTOTYPE_STORIES } from './content.js';
+import { HeroAurora, HeroTitle } from './hero.jsx';
 
 // ============================================================
 // Public screens — Landing / Register / Login
@@ -111,7 +51,7 @@ function Landing() {
   }, [pickedSymptom]);
 
   return (
-    <div>
+    <main>
       <NoticeBar phone={HOSPITAL.phone} />
       <PublicNav activeLink="home" />
 
@@ -356,7 +296,7 @@ function Landing() {
       </section>
 
       <PublicFooter />
-    </div>
+    </main>
   );
 }
 

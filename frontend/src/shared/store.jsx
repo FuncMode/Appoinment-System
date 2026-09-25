@@ -1,9 +1,8 @@
 // store.jsx — split from components.jsx (layered shared UI)
-import { useState, useEffect, useRef, useMemo, useCallback, createContext, useContext, Fragment } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import brandLogo from '../assets/brand_logo.png';
 import './data.js';
 import AnimatedContent from './reactbits/AnimatedContent.jsx';
-
 
 // ---------- App-wide store (kept simple, in-memory + localStorage for appointments/role) ----------
 const StoreCtx = createContext(null);

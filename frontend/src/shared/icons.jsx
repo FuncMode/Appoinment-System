@@ -1,9 +1,8 @@
 // icons.jsx — split from components.jsx (layered shared UI)
-import { useState, useEffect, useRef, useMemo, useCallback, createContext, useContext, Fragment } from 'react';
+import { useEffect, useRef } from 'react';
 import brandLogo from '../assets/brand_logo.png';
 import './data.js';
 import AnimatedContent from './reactbits/AnimatedContent.jsx';
-
 
 // ---------- Icon (Lucide inline via <i data-lucide>) ----------
 function Icon({ name, size = 16, style = {}, className = '' }) {
