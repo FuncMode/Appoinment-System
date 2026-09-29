@@ -371,6 +371,26 @@ create index idx_support_tickets_status  on support_tickets (status);
 create index idx_support_messages_ticket on support_ticket_messages (ticket_id, created_at);
 
 -- ------------------------------------------------------------
+-- contact_messages — Public website > Contact page ("Send us a message")
+--   Sa prototype, ang form ay toast-only (tingnan ang public/ContactPage.jsx)
+--   — dito pupunta ang submission kapag naka-backend na. Walang FK: kahit
+--     sino (kahit hindi pa registered) pwedeng magpadala, kaya ang email ang
+--     reply channel. Validation parity sa app: name required, valid email,
+--     message 10+ chars (2000 cap sa DB para sa sanity).
+--   handled_at: nilalagyan ng staff kapag nasagot na ang mensahe.
+-- ------------------------------------------------------------
+create table contact_messages (
+  id         uuid primary key default gen_random_uuid(),
+  name       text not null,
+  email      text not null,
+  message    text not null check (char_length(message) between 10 and 2000),
+  handled_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index idx_contact_messages_created on contact_messages (created_at desc);
+
+-- ------------------------------------------------------------
 -- activity_log — Admin > Activity page (audit trail ng lahat ng roles)
 --   Ang patient / doctor / staff actions ay nire-record dito (ang store ay
 --   may 20-entry cap; sa DB, buong trail). Ang actor ay display name (text)
@@ -772,6 +792,10 @@ $$;
 --     exists (select 1 from admins where auth_user_id = (select auth.uid()))
 --   );
 -- create policy "admins manage support ticket messages" on support_ticket_messages
+--   for all using (
+--     exists (select 1 from admins where auth_user_id = (select auth.uid()))
+--   );
+-- create policy "admins manage contact messages" on contact_messages
 --   for all using (
 --     exists (select 1 from admins where auth_user_id = (select auth.uid()))
 --   );

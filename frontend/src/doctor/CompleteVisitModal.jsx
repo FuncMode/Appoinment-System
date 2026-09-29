@@ -63,6 +63,13 @@ function CompleteVisitModal({ appointment, onClose }) {
           </span>
         </div>
       )}
+      {/* Booking-time note from the patient (booking form "Additional notes")
+          — the context the patient flagged for the doctor before the visit */}
+      {appointment.additionalNotes && (
+        <div style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--text-muted)', marginTop: 10 }}>
+          <strong style={{ color: 'var(--text)' }}>Patient's booking note:</strong> {appointment.additionalNotes}
+        </div>
+      )}
       <Field
         label="Doctor's notes / visit summary"
         required

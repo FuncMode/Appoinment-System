@@ -63,6 +63,12 @@ function BookAppointment() {
         time: form.time,
         reason: form.reason.trim(),
         status,
+        // Booking-form details the schema stores (contact_number /
+        // additional_notes / is_first_visit) — dati ay kinokolekta lang
+        // ng form pero hindi sina-save sa appointment
+        contact: form.contact.trim(),
+        additionalNotes: form.notes.trim() || undefined,
+        isFirstVisit: form.isFirstVisit === 'yes',
         createdAt: new Date().toISOString().slice(0, 10),
         // Proxy booking: who the visit is actually for (account owner or a
         // family member saved on the Profile page)

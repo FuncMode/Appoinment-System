@@ -118,6 +118,7 @@ appointments seed para hindi bumagsak ang buong run.
 | Patients page: Add lab result / Add medication | `lab_results` + `medications` (insert/delete; lumalabas sa patient's Medical Records) |
 | Complete visit (encode notes sa doctor's behalf) | `appointments.notes` (10–500 chars) + `medical_records` (record_type 'Consultation') |
 | Patient messages page (reply loop) | `support_tickets` (status update) + `support_ticket_messages` (sender = 'staff') |
+| Contact page submissions (public "Send us a message") | `contact_messages` (insert ng anonymous visitor — walang FK, email ang reply channel; `handled_at` kapag nasagot na; sa prototype toast-only muna) |
 | Activity page (audit trail ng lahat ng roles) | `activity_log` (actor/action/detail; walang FK — display name ang actor) |
 
 ## Doctor Portal → Database Mapping

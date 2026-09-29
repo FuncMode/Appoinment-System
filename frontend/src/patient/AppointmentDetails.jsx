@@ -109,6 +109,8 @@ function AppointmentDetails({ apptId }) {
                 <div className="detail-row"><div className="label">Consultation fee</div><div className="value">₱{doctor.fee.toLocaleString()}</div></div>
                 <div className="detail-row"><div className="label">Booked on</div><div className="value">{window.formatDate(appt.createdAt || appt.date)}</div></div>
                 <div className="detail-row"><div className="label">Reason for visit</div><div className="value">{appt.reason}</div></div>
+                {appt.contact && <div className="detail-row"><div className="label">Contact number</div><div className="value">{appt.contact}</div></div>}
+                {appt.additionalNotes && <div className="detail-row"><div className="label">Additional notes</div><div className="value">{appt.additionalNotes}</div></div>}
               </div>
             </div>
           </div>

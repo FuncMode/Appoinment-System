@@ -247,6 +247,12 @@ function AppointmentDetailsModal({ appointment, onClose }) {
             <div className="t-help">Reason for visit</div>
             <div style={{ fontSize: 13.5, lineHeight: 1.5 }}>{appt.reason}</div>
           </div>
+          {appt.additionalNotes && (
+            <div>
+              <div className="t-help">Patient's additional notes</div>
+              <div style={{ fontSize: 13.5, lineHeight: 1.5 }}>{appt.additionalNotes}</div>
+            </div>
+          )}
           {appt.notes && (
             <div>
               <div className="t-help">Doctor's notes</div>
