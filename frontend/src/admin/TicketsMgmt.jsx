@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { AppShell, Badge, EmptyState, Field, Icon, Modal, PageHeader, PatientAvatar, TextArea, useStore } from '../shared/components.jsx';
 import { CURRENT_ADMIN, findPatient, formatDate } from '../shared/data.js';
-import { localToday } from './helpers.js';
+import { localToday, focusFirstError } from './helpers.js';
 
 // ---------- Patient messages (support tickets) ----------
 // Patients send questions from the portal's Help & support page ("Message the
@@ -25,7 +25,7 @@ function TicketsMgmt() {
 
   const sendReply = () => {
     const text = replyText.trim();
-    if (text.length < 10) { setReplyError('Please write a reply (10+ characters).'); return; }
+    if (text.length < 10) { setReplyError('Please write a reply (10+ characters).'); focusFirstError(); return; }
     setSending(true);
     setTimeout(() => {
       store.setTickets(store.tickets.map(t => t.id === replyFor.id
@@ -121,7 +121,7 @@ function TicketsMgmt() {
               <TicketRow key={t.id} t={t}
                 actions={<Badge kind="success" dot={false}>Replied</Badge>}>
                 {t.reply && (
-                  <div style={{ marginTop: 8, fontSize: 12.5, lineHeight: 1.5, background: 'var(--success-soft)', border: '1px solid #6EE7B7', borderRadius: 6, padding: '8px 10px', color: 'var(--success-text)' }}>
+                  <div style={{ marginTop: 8, fontSize: 12.5, lineHeight: 1.5, background: 'var(--success-soft)', border: '1px solid var(--success-border)', borderRadius: 6, padding: '8px 10px', color: 'var(--success-text)' }}>
                     <strong>Our reply:</strong> {t.reply}
                   </div>
                 )}
@@ -150,7 +150,7 @@ function TicketsMgmt() {
             {(replyFor.thread || []).map(m => (
               <div key={m.id} style={{
                 borderRadius: 6, padding: '8px 10px', fontSize: 12.5, lineHeight: 1.55,
-                border: '1px solid ' + (m.from === 'staff' ? '#6EE7B7' : 'var(--border)'),
+                border: '1px solid ' + (m.from === 'staff' ? 'var(--success-border)' : 'var(--border)'),
                 background: m.from === 'staff' ? 'var(--success-soft)' : 'var(--surface-muted)',
                 color: m.from === 'staff' ? 'var(--success-text)' : 'var(--text-secondary)',
               }}>

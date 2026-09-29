@@ -2,16 +2,7 @@
 
 import { FaqAccordion, Icon, navigate, PublicFooter, PublicNav } from '../shared/components.jsx';
 import { SPECIALTIES } from '../shared/data.js';
-import Aurora from '../shared/reactbits/Aurora.jsx';
-import ShinyText from '../shared/reactbits/ShinyText.jsx';
-import CountUp from '../shared/reactbits/CountUp.jsx';
-import SplitText from '../shared/reactbits/SplitText.jsx';
-import AnimatedContent from '../shared/reactbits/AnimatedContent.jsx';
 import Magnet from '../shared/reactbits/Magnet.jsx';
-import ScrollVelocity from '../shared/reactbits/ScrollVelocity.jsx';
-import StarBorder from '../shared/reactbits/StarBorder.jsx';
-import GlareHover from '../shared/reactbits/GlareHover.jsx';  // hero preview card only — the one deliberate hover flourish
-import Ribbons from '../shared/reactbits/Ribbons.jsx';
 import { SERVICES_FAQS } from './content.js';
 import { HeroAurora, HeroTitle } from './hero.jsx';
 

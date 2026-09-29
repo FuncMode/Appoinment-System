@@ -158,6 +158,19 @@ CURRENT_ADMIN.photo = 'https://randomuser.me/api/portraits/women/44.jpg';
 // Doctors page — so doctors added later get their own credentials too.
 const DOCTOR_CREDENTIALS = { email: 'doctor@medicacare.ph', password: 'doctor123', doctorId: 'd1' };
 
+// Demo credentials for the other two portals — one source of truth for the
+// account seed (store.jsx) and each login screen's "click to use" shortcut,
+// so no component carries its own literal (see DOCTOR_CREDENTIALS above).
+const ADMIN_CREDENTIALS = { email: 'admin@medicacare.ph', password: 'admin123' };
+const PATIENT_CREDENTIALS = { email: 'patient@medicacare.ph', password: 'patient123' };
+
+// Demo passwords are only rendered into the page (the "Password: …" line of
+// the demo-account shortcut) in dev builds; production builds fill the form
+// on click without printing the secret into every screenshot. The values are
+// still in the bundle — unavoidable until auth moves to a server, which is
+// why they are never published on `window` (docs/FRONTEND_SECURITY_AUDIT.md).
+const SHOW_DEMO_PASSWORDS = import.meta.env.DEV;
+
 // "Today" appointments — dated relative to the current date (computed at load)
 // so the admin dashboard's Today's schedule always has live-looking rows no
 // matter when the demo is opened.
@@ -475,6 +488,32 @@ function downloadFile(filename, content, mime) {
   a.remove();
   URL.revokeObjectURL(url);
 }
+// Escape a value for HTML — the single helper behind every printed/exported
+// document builder (receipt, medical records, doctor schedule). Those
+// documents interpolate user-controlled data (names, reasons, notes) into an
+// iframe.srcdoc / .html-download sink, so quotes are escaped as well as
+// <>&: the output stays safe in attribute contexts too, not just element text.
+function escapeHTML(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Uniform integer in [0, n) from the platform CSPRNG. Rejection sampling
+// drops the tail of the 32-bit range a plain `x % n` would over-count
+// (2^32 is not a multiple of an arbitrary n), so no value is favoured.
+function randomInt(n) {
+  const buf = new Uint32Array(1);
+  const limit = Math.floor(0x100000000 / n) * n;
+  for (;;) {
+    window.crypto.getRandomValues(buf);
+    if (buf[0] < limit) return buf[0] % n;
+  }
+}
+
 function formatDate(d) {
   if (!d) return '—';
   const dt = new Date(d + 'T00:00:00');
@@ -533,15 +572,19 @@ function doctorStatusMeta(s) {
 Object.assign(window, {
   HOSPITAL, SPECIALTIES, DOCTORS, PATIENTS, CURRENT_PATIENT, CURRENT_ADMIN,
   APPOINTMENTS, AVAILABILITY_TEMPLATE, SEED_RATINGS, SEED_TESTIMONIALS, SEED_ACTIVITY,
-  SEED_LABS, SEED_MEDICATIONS, SEED_FAMILY, SEED_TICKETS, DOCTOR_CREDENTIALS,
+  SEED_LABS, SEED_MEDICATIONS, SEED_FAMILY, SEED_TICKETS,
+  // Demo credentials are deliberately NOT published on window — they stay
+  // module-scoped and are imported where the seed/login flow needs them.
   findDoctor, findPatient, formatDate, formatDateLong, initials, statusMeta, doctorStatusMeta,
   isSlotTaken, getSlotsFor, slotFitsInterval, downloadFile, formatDayRange, isClinicDay, timeValue,
 });
 
 export {
-  HOSPITAL, SPECIALTIES, DOCTORS, PATIENTS, CURRENT_PATIENT, CURRENT_ADMIN, DOCTOR_CREDENTIALS,
+  HOSPITAL, SPECIALTIES, DOCTORS, PATIENTS, CURRENT_PATIENT, CURRENT_ADMIN,
+  DOCTOR_CREDENTIALS, ADMIN_CREDENTIALS, PATIENT_CREDENTIALS, SHOW_DEMO_PASSWORDS,
   APPOINTMENTS, AVAILABILITY_TEMPLATE,
   findDoctor, findPatient, formatDate, formatDateLong, initials, statusMeta, doctorStatusMeta,
   isSlotTaken, getSlotsFor, slotFitsInterval, downloadFile, formatDayRange, isClinicDay, timeValue,
+  escapeHTML, randomInt,
 };
 

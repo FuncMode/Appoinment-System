@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import { AppShell, DoctorAvatar, Field, Icon, navigate, PageHeader, PageSpinner, SelectInput, TextArea, TextInput, useStore } from '../shared/components.jsx';
 import { AVAILABILITY_TEMPLATE, CURRENT_PATIENT, findDoctor, formatDate, formatDateLong, getSlotsFor, isClinicDay, isSlotTaken, slotFitsInterval } from '../shared/data.js';
 
+import { focusFirstError } from './helpers.js';
+
 import { Profile } from './Profile.jsx';
 
 // ---------- Book Appointment (form) ----------
@@ -44,7 +46,7 @@ function BookAppointment() {
       e.time = 'That slot has already been booked. Please pick a different date or time.';
     }
     setErrors(e);
-    if (Object.keys(e).length) return;
+    if (Object.keys(e).length) { focusFirstError(); return; }
 
     setLoading(true);
     setTimeout(() => {
@@ -109,7 +111,7 @@ function BookAppointment() {
                       // Switching doctors invalidates the previously chosen slot
                       if (e.target.value !== prev) setForm(f => ({ ...f, date: '', time: '' }));
                     }} error={errors.doctorId}>
-                      <option value="">Select a doctor...</option>
+                      <option value="">Select a doctor…</option>
                       {/* On-leave doctors are hidden here too so the dropdown
                           can't bypass the availability page's on-leave guard */}
                       {store.doctors.filter(d => d.status !== 'on-leave').map(d => (
@@ -133,7 +135,7 @@ function BookAppointment() {
                         // Changing dates invalidates the previously chosen time slot
                         if (e.target.value !== prev) setForm(f => ({ ...f, time: '' }));
                       }} error={errors.date}>
-                        <option value="">Choose a date...</option>
+                        <option value="">Choose a date…</option>
                         {Object.keys(window.AVAILABILITY_TEMPLATE).map(d => {
                           const clinicDay = !form.doctorId || isClinicDay(form.doctorId, d);
                           return (
@@ -146,7 +148,7 @@ function BookAppointment() {
                     </Field>
                     <Field label="Time slot" required error={errors.time}>
                       <SelectInput value={form.time} onChange={e => update('time', e.target.value)} error={errors.time}>
-                        <option value="">Choose a time...</option>
+                        <option value="">Choose a time…</option>
                         {getSlotsFor(form.doctorId, form.date, store.appointments)
                           .filter(s => s[1] && slotFitsInterval(s[0], (store.prefs || {}).slotInterval || '30'))
                           .map(([t]) => (
@@ -169,7 +171,7 @@ function BookAppointment() {
                   </Field>
 
                   <Field label="Additional notes" help="Optional. Anything else the doctor should know.">
-                    <TextArea placeholder="Any allergies, current medications, recent test results..."
+                    <TextArea placeholder="Any allergies, current medications, recent test results…"
                       value={form.notes} onChange={e => update('notes', e.target.value)} />
                   </Field>
 

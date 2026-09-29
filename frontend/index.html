@@ -4,6 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="description" content="MedicaCare hospital appointment system — book a board-certified specialist online, view real-time availability, and manage visits from your patient portal." />
+  <!-- Referrer baseline (works in dev and prod). The Content-Security-Policy
+       is injected at build time — see vite.config.js — because Vite's dev
+       server uses an inline script that `script-src 'self'` would block. -->
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
   <title>MedicaCare — Appointment System</title>
 
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />

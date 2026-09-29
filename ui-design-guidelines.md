@@ -1462,6 +1462,451 @@ Praktikal na UI rules na nagmumula dito:
 
 ---
 
+# 44. Accessibility sa Code Level (Semantic HTML + ARIA)
+
+Hindi lang "may contrast" ang accessibility — nasa code structure din ito.
+
+```text
+1. <button> para sa actions, <a> para sa navigation — hindi <div onClick>
+2. Icon-only buttons → laging may accessible name (aria-label o sr-only text)
+3. Form controls → may <label> (visible); aria-label ay last resort lang
+4. Images → may alt (o alt="" kung decorative)
+5. Decorative icons → aria-hidden="true"
+6. Async updates (toasts, live validation, search results count)
+   → aria-live="polite" para ma-anunsyo sa screen reader
+7. Semantic HTML muna bago ARIA (<button>, <table>, <nav>, <dialog>) —
+   ang ARIA ay pamatid-gap lang, hindi replacement
+8. Headings → hierarchical h1→h6, huwag lumaktaw ang levels
+9. Skip link ("Skip to main content") sa unahan ng bawat page
+10. Heading anchors → scroll-margin-top para hindi matago sa sticky header
+```
+
+Anti-pattern na laging lumalabas:
+
+```html
+<!-- MALI: icon button na walang label — hindi alam ng screen reader kung ano ito -->
+<button><XIcon /></button>
+
+<!-- TAMA -->
+<button aria-label="Close dialog"><XIcon aria-hidden="true" /></button>
+```
+
+> 📌 **Verified:** Ang mga ito ay direktang WCAG 2.2 requirements — SC 4.1.2 (Name, Role, Value), SC 2.4.1 (Bypass Blocks — skip link), at SC 1.1.1 (Non-text Content). Ang "semantic HTML first" ay opisyal na rule ng W3C *ARIA Authoring Practices*: mas mabuti ang native elements kaysa ARIA-recreated `<div>`s. Pinapatupad din ito ng Vercel *Web Interface Guidelines*.
+
+---
+
+# 45. Focus Management (Hindi Lang "May Focus Ring")
+
+```text
+1. :focus-visible — hindi :focus
+   (para walang ring sa mouse/touch click, mayroon sa keyboard nav)
+2. HUWAG mag- outline: none nang walang kapalit na visible focus style
+   — maitim na anti-pattern ito
+3. Compound controls (search input + button, card na buo clickable)
+   → :focus-within para iisang focus ang buong grupo
+4. Sticky headers/floating bars ay HINDI dapat takpan ang focused element
+   (SC 2.4.11 — bago sa WCAG 2.2)
+5. Modal → focus trap sa loob + ibalik ang focus sa trigger pagka-close
+6. Kapag may binura na element (delete row), ilipat ang focus sa
+   next logical element — huwag hayaang nawawala ang focus sa body
+```
+
+```css
+/* TAMA */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* MALI — tinatanggal ang tanging paraan ng keyboard user para makita kung nasaan sila */
+:focus { outline: none; }
+```
+
+> 📌 **Verified:** SC 2.4.7 (Focus Visible) at SC 2.4.11 (Focus Not Obscured — Minimum, bago sa WCAG 2.2). Ang "outline: none nang walang replacement" ay listed na anti-pattern sa Vercel *Web Interface Guidelines* at laging lumalabas sa accessibility audits.
+
+---
+
+# 46. Forms — Advanced Implementation Rules
+
+Bukod sa §19 (visible labels) at §24 (mobile keyboards), may mga implementation-level rules na madalas laktawan:
+
+```text
+1. Inputs → may autocomplete attribute + meaningful name
+2. Tamang type at inputmode (tingnan ang §24)
+3. HUWAG i-block ang paste sa kahit anong field (lalo na sa
+   confirm-password / OTP) — anti-pattern ang onPaste + preventDefault
+4. spellCheck={false} sa email, username, at code fields
+5. Checkbox/radio → label at control ay iisang hit target (walang dead zone
+   sa pagitan; tingnan din ang §23 sa target size)
+6. Submit button → naka-enabled hanggang sa magsimula ang request;
+   spinner LANG habang nagre-request (hindi naka-disable bago pa mag-submit)
+7. Validation errors → inline, malapit sa mismong field (hindi lang sa taas
+   ng form); i-focus ang unang field na may error pagkatapos mag-submit
+8. Placeholders → may example pattern ("e.g. juan@company.com"),
+   hindi label replacement (tingnan ang §19)
+9. May unsaved changes → i-warn bago mag-navigate palayo
+   (beforeunload o router guard)
+10. Non-auth fields → autocomplete="off" para hindi ma-trigger ang
+    password manager nang hindi inaasahan
+```
+
+> 📌 **Verified:** Ang inline error placement malapit sa field ay mas mabisa kaysa error summary lang sa taas (Baymard Institute form research). WCAG basehan: SC 3.3.1 (Error Identification), SC 3.3.3 (Error Suggestion), at SC 3.3.2 (Labels or Instructions). Ang focus-first-error ay best practice para sa keyboard at screen reader users. Pinapatupad din ang mga ito ng Vercel *Web Interface Guidelines* (Forms section).
+
+---
+
+# 47. Motion & Animation — Technical Rules
+
+Bukod sa §14 (durations), may mga teknikal na rules para gumana nang maayos ang motion:
+
+```text
+1. prefers-reduced-motion → LAGING may non-animated fallback
+2. Animate lang ang transform at opacity (compositor-friendly)
+   - MALI: pag-animate ng top/left/width/height (nagre-layout ang buong page)
+3. HUWAG gumamit ng transition: all — i-explicit ang properties:
+   transition: background-color 150ms ease, transform 150ms ease;
+4. I-explicit ang transform-origin kapag hindi center ang gusto
+5. Interruptible ang animations — dapat tumugon sa user input kahit
+   nasa gitna pa ng animation
+6. Autoplay motion na tumatagal nang >5s katabi ng content
+   → dapat may pause/stop/hide controls
+7. Iwasan ang animated GIF — gumamit ng compressed video na may
+   still-image fallback, at tumigil din sa prefers-reduced-motion
+```
+
+> 📌 **Verified:** Ang `prefers-reduced-motion` ay nasa SC 2.3.3 (Animation from Interactions, WCAG 2.2); ang autoplay rule ay SC 2.2.2 (Pause, Stop, Hide). Ang transform/opacity-only at "walang `transition: all`" rules ay galing sa Vercel *Web Interface Guidelines* — ang pag-animate ng layout properties ay nagre-render ng buong page (konektado sa §43 sa performance). Ang "honor reduced motion" rule ay nasa ui-ux-pro-max priority 7 (Animation) bilang anti-pattern ang "no reduced-motion".
+
+---
+
+# 48. Typography & Content Details
+
+```text
+1. Ellipsis character "…" — hindi "..." — lalo na sa loading states ("Loading…")
+2. Curly quotes " " sa display text, hindi straight quotes
+3. Non-breaking spaces sa value + unit: "10&nbsp;MB", "⌘&nbsp;K" —
+   para hindi mahiwalay sa line break
+4. tabular-nums sa number columns (tables, prices, timestamps):
+   font-variant-numeric: tabular-nums;
+   → nag-align ang digits kahit nag-iba ang values row-by-row
+5. Headings → text-wrap: balance (iwasan ang orphan/widow words);
+   body text → text-wrap: pretty
+6. Long text handling: truncate o line-clamp sa cards/list rows;
+   break-words sa free-flowing text
+7. Flex children na may text → min-width: 0 (para gumana ang truncation)
+8. Body text colors: huwag absolute black (#000) sa light mode —
+   off-black (#111827) + muted gray (#6B7280) para sa secondary (tingnan ang §2)
+```
+
+> 📌 **Verified:** Ang tabular-nums ay default lang sa monospaced fonts — sa proportional fonts, nag-iiba ang lapad ng bawat digit, kaya "naglalakad" ang table columns habang naglo-load ang data. Ang text-wrap: balance/pretty ay modern CSS na sinusuportahan na ng major browsers; target nito ang tinatawag na *orphans/widows* problem sa typography. Nasa Vercel *Web Interface Guidelines* (Typography at Content Handling sections) ang lahat ng rules sa itaas.
+
+---
+
+# 49. Images & Media
+
+```text
+1. Lahat ng <img> → may explicit width at height attributes
+   (nagre-reserve ng space — direct na pumipigil sa layout shift / CLS)
+2. Below-the-fold images → loading="lazy"
+3. Above-the-fold critical images → fetchpriority="high" (o priority sa Next.js)
+4. Meaningful media (video, audio) → captions o transcript para sa
+   deaf/hard-of-hearing users
+5. Media controls → keyboard-accessible
+6. Decorative media → itago sa assistive tech (aria-hidden o alt="")
+```
+
+> 📌 **Verified:** Ang explicit width/height sa `<img>` ay ang primary na paraan para iwasan ang CLS (konektado sa §43 — CLS ≤ 0.1 na threshold ng Google Core Web Vitals). Ang captions requirement ay SC 1.2.2 (Captions — Prerecorded, WCAG Level A). Nasa Vercel *Web Interface Guidelines* (Images section) ang lazy/priority loading rules.
+
+---
+
+# 50. Navigation & URL State
+
+```text
+1. Links → <a> / <Link>, hindi <div onClick>
+   (para gumana ang Cmd/Ctrl+click, middle-click, at right-click "open in new tab")
+2. Ang URL ay dapat sumasalamin sa state:
+   filters, tabs, pagination, expanded panels → query params
+   (hal. /appointments?status=pending&page=2)
+3. Deep-link lahat ng stateful UI — kung may useState na mahalaga,
+   i-sync sa URL
+4. Destructive actions → confirmation modal O undo window —
+   HINDI immediate (tingnan din ang §27)
+5. Back behavior → predictable; ang back button ay hindi dapat
+   biglang mag-logout o mag-discard nang walang warning
+```
+
+> 📌 **Verified:** Ang URL-as-state ay isa sa mga core rules ng Vercel *Web Interface Guidelines* (Navigation & State section) — pinapagana nito ang bookmarking, sharing, at browser refresh nang hindi nawawala ang context ng user. Ang back-behavior rule ay nasa ui-ux-pro-max priority 9 (Navigation Patterns) — anti-pattern ang "broken back behavior" at "no deep links".
+
+---
+
+# 51. Touch & Interaction Details (Web + Mobile)
+
+Bukod sa §23 (target sizes), may mga interaction-level rules:
+
+```text
+1. touch-action: manipulation sa clickable elements
+   (tinatanggal ang ~300ms double-tap zoom delay sa mobile)
+2. I-set nang intentional ang -webkit-tap-highlight-color
+   (huwag hayaang default; huwag din itago nang walang :active state na kapalit)
+3. Modals/drawers/bottom sheets → overscroll-behavior: contain
+   (para hindi ma-"scroll through" ang background page sa likod)
+4. Drag/swipe/pinch gestures → dapat may tap/click at keyboard alternative,
+   maliban kung gesture talaga ang esensya ng feature
+   (WCAG 2.5.7 — Dragging Movements, bago sa WCAG 2.2)
+5. Sa drag operations: i-disable ang text selection, at i-inert ang
+   dinadrag na element
+6. autoFocus → desktop lang, iisang primary input, bihira;
+   iwasan sa mobile (nabubuksan ang on-screen keyboard nang hindi inaasahan)
+7. Full-bleed mobile layouts → env(safe-area-inset-*) para sa notches
+   (iPhone safe areas) — lalo na sa bottom navigation at floating buttons
+```
+
+> 📌 **Verified:** Ang gesture-alternative rule ay SC 2.5.7 (Dragging Movements, WCAG 2.2 Level AA). Ang touch-action at overscroll-behavior rules ay galing sa Vercel *Web Interface Guidelines* (Touch & Interaction, Safe Areas & Layout sections); ang autoFocus rule ay listed din doon bilang anti-pattern kapag walang justification. Ang safe-area insets ay kinakailangan para sa notched devices (Apple HIG layout guidance).
+
+---
+
+# 52. Dark Mode & Theming
+
+```text
+1. color-scheme: dark sa <html> kapag dark theme
+   (inaayos ang native scrollbars, form controls, at inputs)
+2. <meta name="theme-color"> → tumutugma sa page background
+   (para sa mobile browser chrome)
+3. Native <select> → explicit na background-color at color
+   (sa Windows, sumusunod ang native select sa OS theme, hindi sa site theme)
+4. Ang dark mode ay HINDI basta baliktad ng colors —
+   i-re-check ang lahat ng contrast pairs sa dark background
+   (muted gray sa dark surface ay madalas bumagsak sa 4.5:1)
+5. Iwasan ang pure black (#000) background + pure white text —
+   mas komportable ang off-black (#111827-ish) at off-white
+6. Images/illustrations sa dark mode → baka kailanganin ng dimmed
+   variant o reduced brightness para hindi "sumisigaw"
+```
+
+> 📌 **Verified:** Ang color-scheme at theme-color rules ay galing sa Vercel *Web Interface Guidelines* (Dark Mode & Theming section). Ang dark-mode contrast re-check ay nasa ui-ux-pro-max references (§6: color-dark-mode + color-accessible-pairs) bilang karaniwang bug source. Lahat ng contrast pairs ay dapat pa ring pumasa sa 4.5:1 / 3:1 thresholds sa §36 kahit sa dark mode.
+
+---
+
+# 53. Locale & Internationalization (i18n)
+
+```text
+1. Dates/times → Intl.DateTimeFormat, hindi hardcoded formats
+   (hal. "08/12/2026" — alin ang buwan, alin ang araw?)
+2. Numbers/currency → Intl.NumberFormat, hindi toLocaleString
+   na may hardcoded locale o manual na comma/peso formatting
+3. Language detection → Accept-Language header / navigator.languages,
+   HINDI IP-based geolocation
+4. Brand names, code tokens, at identifiers → translate="no"
+   (para hindi magarble sa auto-translate ng browser)
+5. Iwasan ang text sa images — hindi ito nasasalin at
+   hindi nagre-scale kasama ang font settings
+```
+
+```js
+// TAMA
+new Intl.DateTimeFormat('en-PH', { dateStyle: 'medium' }).format(date);
+new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount);
+
+// MALI — hardcoded format na magiging mali sa ibang locale
+`${month}/${day}/${year}`;
+'₱' + amount.toLocaleString();
+```
+
+> 📌 **Verified:** Ang Intl.* rules ay galing sa Vercel *Web Interface Guidelines* (Locale & i18n section) — ang hardcoded date/number formatting ay listed din doon bilang anti-pattern. May libreng bonus pa: ang `Intl.NumberFormat` ay awtomatikong tama sa grouping at currency symbol placement per locale.
+
+---
+
+# 54. Charts & Data Visualization
+
+```text
+1. May legend O direct labels — hindi color-key lang na kailangang
+   i-match ng user sa chart
+2. May tooltips sa hover AND focus (keyboard-accessible)
+3. Huwag umasa sa color alone para i-distinguish ang series
+   — magdagdag ng pattern, label, o direct annotation
+4. Accessible colors: i-check na distinguished ang series colors
+   kahit sa color vision deficiency (i-test sa grayscale)
+5. Data tables na kapalit kapag hindi na-render ang chart
+   (o accessible alternative, hal. summary text ng key numbers)
+6. May clear axis labels at units — hindi bare numbers
+7. Sa dashboards: i-align ang number formatting
+   (tabular-nums — tingnan ang §48; parehong decimals/currency sa buong view)
+```
+
+> 📌 **Verified:** Ang "huwag umasa sa color alone" ay SC 1.4.1 (Use of Color, WCAG Level A) — ang ~8% ng mga lalaki ay may color vision deficiency. Ang charts guidance (legends, tooltips, accessible colors) ay tugma sa ui-ux-pro-max priority 10 (Charts & Data: "Relying on color alone to convey meaning" bilang anti-pattern).
+
+---
+
+# 55. Design Tokens & Component Architecture
+
+Para manatiling consistent ang buong app (tingnan ang §31), i-centralize ang design decisions sa **design tokens** at reusable components:
+
+```text
+TOKENS (CSS variables / theme config):
+--color-bg, --color-surface, --color-border
+--color-text, --color-text-muted
+--color-primary, --color-success, --color-warning, --color-error
+--space-1 … --space-8        (4px scale — tingnan ang §9)
+--radius-sm / md / lg        (iisang scale — tingnan ang §1)
+--shadow-card / dropdown / modal   (3–5 levels lang — tingnan ang §7)
+--duration-fast / base / slow      (150 / 200 / 250ms — tingnan ang §14)
+
+COMPONENT HIERARCHY:
+Primitive    → Button, Input, Badge (walang business logic, highly reusable)
+Component    → AppointmentCard, PatientForm (ginagamit ang primitives,
+               may domain meaning)
+Block/Template → Page layouts na binubuo ng components
+
+RULES:
+1. Components HINDI direktang mag-hardcode ng hex/px values —
+   tokens lang ang gagamitin (iwasan ang raw hex sa components)
+2. Component state → data attributes para sa styling:
+   data-state="loading" / "error" / "active" — hindi class name juggling
+3. Isang Button component sa buong app — hindi per-page variants
+4. Controlled vs uncontrolled: uncontrolled (defaultValue) ang default
+   para sa simple inputs; controlled lang kapag kailangan ng
+   real-time validation o sync sa ibang state
+5. Prefer extensible APIs: props na may sensible defaults,
+   hindi one-off props para sa bawat edge case
+```
+
+> 📌 **Verified:** Ang tokens + component hierarchy approach ay ang karaniwang arkitektura ng mga design system (tinuturo ito ng *building components* guidance: primitives → components → blocks, data attributes para sa state styling, at controlled/uncontrolled state rules). Ang "raw hex in components" ay listed na anti-pattern sa ui-ux-pro-max priority 6 (Typography & Color — "Semantic color tokens").
+
+---
+
+# 56. Performance Implementation Details
+
+Bukod sa §43 (Core Web Vitals), mga konkretong coding rules:
+
+```text
+1. Malalaking lists (>50 items) → i-virtualize
+   (virtua, react-window, o content-visibility: auto)
+   — huwag mag-.map() ng libu-libong rows nang sabay-sabay
+2. HUWAG mag-read ng layout sa render path:
+   getBoundingClientRect, offsetHeight, offsetWidth, scrollTop
+   — mag-cause ng forced synchronous layout (layout thrashing)
+3. I-batch ang DOM reads at writes — huwag i-interleave
+   (read → write → read → write = reflow kada read)
+4. Debounce ang search/filter inputs (150–300ms) at throttle ang
+   scroll/resize handlers
+5. Flex/grid muna bago JS measurement para sa layout
+6. Iwasan ang animated decorations sa unang render
+   (naaapektuhan ang LCP — tingnan ang §43)
+7. Code-level: iwasan ang unnecessary re-renders (memoization sa
+   mahalagang components; stable references sa callbacks/props)
+```
+
+> 📌 **Verified:** Ang virtualization threshold (>50 items), "no layout reads in render", at DOM batching rules ay galing sa Vercel *Web Interface Guidelines* (Performance section). Ang virtualize-lists at main-thread-budget ay nasa ui-ux-pro-max priority 3 (Performance) at §3 ng quick-reference nito. Ang debounce/throttle ay karaniwang pattern na rin sa mga performance guides.
+
+---
+
+# 57. Copy & Microcopy
+
+Ang text mismo ay bahagi ng UI — kasing-importante ng layout:
+
+```text
+1. Specific ang button labels, hindi generic:
+   - "Save Appointment" HINDI "Submit" o "OK"
+   - "Add Patient" HINDI "Continue"
+2. Active voice at direktang nagsasalita sa user:
+   "Install the app" HINDI "The app will be installed"
+3. Numerals sa counts: "8 appointments" HINDI "eight appointments"
+4. Error messages → laging may fix/next step, hindi lang problema
+   (tingnan ang §35)
+5. Ikalawang panao ("your appointments"), hindi first person
+   ("my appointments" — maliban sa settings na first-person ang convention)
+6. Plain, specific language — walang marketing jargon sa app UI
+   (tingnan ang §58 para sa listahan ng mga iwasang salita)
+7. Walang emojis sa UI text, headings, o alt text —
+   proper icons o text lang (tingnan din ang §11)
+```
+
+> 📌 **Verified:** Ang specific button labels at error-with-next-step rules ay galing sa Vercel *Web Interface Guidelines* (Content & Copy section) at tugma sa Nielsen #9 (§35). Ang "emoji as icons" ay listed na anti-pattern sa ui-ux-pro-max priority 4 (Style Selection). Ang plain-language rule ay tugma sa minimalist design heuristics (§11, Nielsen #8).
+
+---
+
+# 58. Anti-"AI Slop" Checklist
+
+Mga madalas mangyari sa AI-generated UI na hindi mukhang totoong produkto. I-flag ang mga ito sa review:
+
+```text
+LAYOUT & STYLE:
+- Purple/violet-blue gradients, gradient buttons/headings/borders (§2, §12)
+- Excessive centering — lahat left-aligned dapat kung app (§8)
+- Uniform na sobrang rounded corners sa lahat ng components (§1)
+- Glassmorphism/frosted panels na walang functional purpose (§3)
+- Heavy drop shadows sa lahat ng components (§7)
+- Emoji bilang icons sa UI (§11, §57)
+- Landing-page patterns sa loob ng application (§5)
+- Floating pill navigation sa web app (§6)
+
+FONTS:
+- Inter/Roboto/Open Sans bilang "identity" font — generic ang dating;
+  pumili ng typeface na may character o gamitin ang system stack
+  nang may tuned hierarchy (tingnan ang §29)
+- Lahat bold o lahat same weight — walang hierarchy (§13, §29)
+
+CONTENT:
+- Generic placeholders: "John Doe", "Acme Corp", "Lorem Ipsum"
+  — gumamit ng realistic, domain-appropriate data (§15)
+- AI copywriting clichés: "Elevate", "Seamless", "Unleash",
+  "Next-Gen", "Game-changer", "Delve" — plain language lang (§57)
+- Generic dashboard mock: "Welcome back, John" + random metrics (§10)
+- Emoji sa text content o alt text (§57)
+```
+
+> 📌 **Verified:** Ang mga pattern na ito ang listed na anti-patterns ng *anti-slop* design guidance (Vercel web-artifacts-builder: "avoid excessive centering, purple gradients, uniform rounded corners, Inter font"; minimalist-ui protocol: banned generic fonts, emojis, generic placeholders, AI copy clichés, heavy shadows, gradients; ui-taste anti-ui-slop workflow). Pareho lang ang conclusion nila: ang AI-generated defaults ay hindi production quality — ang mga sections ng guide na ito (§1–§15) ang mga konkretnong pamantayan na naka-verify laban sa WCAG/Material/Apple.
+
+---
+
+# 59. Pre-Delivery Checklist
+
+I-run ito bago i-consider na tapos ang anumang screen o component. Pinagsasama nito ang lahat ng sections sa itaas bilang isang audit pass:
+
+```text
+ACCESSIBILITY (§36, §44, §45):
+□ Lahat ng interactive elements ay keyboard-operable, may visible focus
+□ Icon-only buttons may aria-label; images may alt
+□ Contrast ≥ 4.5:1 (text) / 3:1 (non-text) — light AND dark mode
+□ Hindi color-only ang anumang meaning (may icon o text)
+□ Heading hierarchy tama; may skip link sa web pages
+
+INTERACTION (§23, §26, §51):
+□ Touch targets ≥ 44px (primary controls) / ≥ 24px + spacing (web AA floor)
+□ May hover/focus/active/loading states ang bawat interactive element
+□ Destructive actions may confirmation o undo
+□ Gesture features may tap/click + keyboard alternative
+
+STATES (§32–§35):
+□ May loading state (skeleton, hindi blank)
+□ May empty state (explanation + next action)
+□ May error state (plain language + recovery action)
+□ Form validation inline, may focus sa unang error
+
+RESPONSIVE (§25, §28, §51):
+□ Tables nagte-transform (hindi ni-squeeze lang) sa mobile
+□ Walang horizontal scroll sa kahit anong breakpoint
+□ Safe areas sinaalang-alang sa full-bleed mobile layouts
+
+CONTENT & DATA (§15, §48, §57):
+□ Test na sa mahahabang values, missing data, zero/empty results
+□ Truncation rules mayroon sa text-heavy components
+□ Specific labels; walang placeholder-only forms (§19)
+□ Dates/numbers via Intl.* APIs (§53)
+
+MOTION & PERFORMANCE (§14, §47, §56, §43):
+□ May prefers-reduced-motion fallback ang animations
+□ transform/opacity lang ang ina-animate; walang transition: all
+□ Malalaking lists virtualized; walang layout reads sa render path
+
+CONSISTENCY (§31, §55):
+□ Tokens lang ang ginamit (walang raw hex/magic px sa components)
+□ Pare-pareho ang radius, spacing, elevation sa buong screen
+□ Isang primary action per view (§30)
+```
+
+> 📌 **Verified:** Ang checklist structure na ito ay ang pinagsamang pre-delivery checklist ng ui-ux-pro-max (*pro-rules.md* checklist) at ng Vercel *Web Interface Guidelines* audit flow — inangkop sa mga sections ng guide na ito para isang pass lang ang kailangan. Kung may nakita kang failing item, i-fix muna bago i-ship.
+
+---
+
 # References
 
 Ang mga sumusunod ang mga sinanggunian sa pag-verify ng guide na ito:
@@ -1490,12 +1935,12 @@ Ang mga sumusunod ang mga sinanggunian sa pag-verify ng guide na ito:
 8. **Baymard Institute** — https://baymard.com/
    - E-commerce UX research (forms, checkout) — reference para sa §19, §24
 9. **Lindgaard, G. et al. (2006)** — *Attention web designers: You have 50 milliseconds to make a good first impression!*, Behaviour & Information Technology
-
-
-
-
-
-
-
-
+10. **Vercel — Web Interface Guidelines** ✅ *(naka-fetch na latest version)*
+    - https://github.com/vercel-labs/web-interface-guidelines
+    - Pinagmulan ng §44–§53 (focus management, forms, motion, typography, images, URL state, touch, dark mode, i18n) at §56 (performance)
+11. **W3C — WAI-ARIA Authoring Practices** — https://www.w3.org/WAI/ARIA/apg/
+    - "Semantic HTML first" rule (§44), focus management patterns (§45)
+12. **Google — Core Web Vitals** — https://web.dev/articles/vitals
+    - LCP/INP/CLS thresholds (§43), image width/height at lazy loading (§49)
+13. **Component Design Guidance** (*building-components* reference) — primitives/components/blocks taxonomy, data attributes, controlled vs uncontrolled state (§55)
 

@@ -84,6 +84,14 @@
   Aurora wash (the one orchestrated hero moment), the trust ticker,
   auth-slide page transitions (user-triggered), CountUp stats, Magnet hover,
   and 120ms control feedback.
+- **ui-guidelines audit pass (public pages):** the StarBorder CTA on the
+  Landing hero was replaced by a solid white `.btn-light` button (no glow /
+  gradient border), the Ribbons WebGL cursor-follow layer behind the closing
+  CTA was removed, and the trust ticker now pauses on hover and stops under
+  `prefers-reduced-motion` (vendored ScrollVelocity, WCAG 2.2.2). The
+  remaining public motion set is unchanged: hero crossfade + title shine +
+  Aurora wash, the (pausable) trust ticker, auth-slide page transitions
+  (user-triggered), CountUp stats, Magnet hover, and 120ms control feedback.
 - The Landing testimonial carousel auto-advance is pausable: it stops on
   hover/keyboard focus and via an explicit play/pause toggle (WCAG 2.2.2),
   styled as a third arrow button so it stays within the same control family.

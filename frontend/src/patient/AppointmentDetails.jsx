@@ -139,7 +139,7 @@ function AppointmentDetails({ apptId }) {
                   {myRating ? (
                     <>
                       <span className="rating-cell" style={{ fontSize: 14 }}>
-                        <Icon name="star" size={16} style={{ color: '#F59E0B' }} />
+                        <Icon name="star" size={16} style={{ color: 'var(--rating-star)' }} />
                         <strong>{myRating.stars}</strong> / 5
                       </span>
                       {myRating.comment && <p className="t-muted" style={{ fontSize: 13, margin: 0, lineHeight: 1.55 }}>{myRating.comment}</p>}

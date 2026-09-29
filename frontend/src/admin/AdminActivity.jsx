@@ -70,7 +70,7 @@ function AdminActivity() {
           <div className="table-toolbar">
             <div className="input-group search">
               <Icon name="search" size={16} className="input-icon" />
-              <input className="input" style={{ paddingLeft: 38 }} placeholder="Search action, name, or detail..." value={query} onChange={e => setQuery(e.target.value)} />
+              <input className="input" style={{ paddingLeft: 38 }} placeholder="Search action, name, or detail…" aria-label="Search activity by action, name, or detail" value={query} onChange={e => setQuery(e.target.value)} />
             </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {whoFilters.map(([key, label]) => (

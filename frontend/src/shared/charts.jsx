@@ -138,7 +138,7 @@ function DoctorRatingPill({ ratings, doctorId, compact = false }) {
       // Hover detail for mouse users; the visible text already spells it out
       title={`Average of ${count} patient rating${count === 1 ? '' : 's'} from completed visits`}
     >
-      <Icon name="star" size={13} style={{ color: '#F59E0B' }} />
+      <Icon name="star" size={13} style={{ color: 'var(--rating-star)' }} />
       <span style={{ color: 'var(--text)', fontWeight: 500 }}>{avg.toFixed(1)}</span>
       <span style={{ color: 'var(--text-muted)' }}>· {label}</span>
     </span>

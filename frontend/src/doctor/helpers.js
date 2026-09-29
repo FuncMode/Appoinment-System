@@ -41,6 +41,15 @@ function shortName(name) {
   return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0]}.` : parts[0];
 }
 
+// §46.7: after inline validation fails, move focus to the first invalid
+// field so keyboard and screen-reader users land straight on what needs
+// fixing. The shared TextInput/TextArea/SelectInput carry an .error class
+// whenever their error prop is set.
+function focusFirstError() {
+  const el = document.querySelector('.input.error, .textarea.error, .select.error');
+  if (el) el.focus();
+}
+
 // Mon–Sun ISO dates of the current week (shared by the dashboard's summary
 // count and the This week page)
 function getWeekDays() {
@@ -55,4 +64,4 @@ function getWeekDays() {
   });
 }
 
-export { localToday, useDoctor, markNoShow, shortName, getWeekDays };
+export { localToday, useDoctor, markNoShow, shortName, getWeekDays, focusFirstError };

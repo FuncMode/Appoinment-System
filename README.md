@@ -54,6 +54,13 @@ npx vite preview --port 4179 --strictPort   # terminal 1
 node scripts/clickthrough.mjs               # terminal 2
 ```
 
+Security assertions for the audit fixes in `docs/FRONTEND_SECURITY_AUDIT.md`
+(CSV formula injection, shared HTML escaper, CSPRNG modulo bias):
+
+```bash
+node scripts/security-checks.mjs
+```
+
 ## Demo Accounts
 
 | Role | Login page | Email | Password |
@@ -62,6 +69,8 @@ node scripts/clickthrough.mjs               # terminal 2
 | Admin / Staff | `#/admin/login` (staff console, **walang link sa public site**) | `admin@medicacare.ph` | `admin123` |
 
 Kahit anong hindi naka-register na credentials ay magti-trigger ng error state ("No account found" o maling password). Ang mga bagong account mula sa Register page ay naka-save sa `localStorage` (`nmc.users`) at pwede nang i-log in.
+
+Sa production build, hindi na naka-print ang password sa demo-account card (dev-only ang `Password: …` na linya, `SHOW_DEMO_PASSWORDS` sa `shared/data.js`) — i-click lang ang card para ma-fill ang form. Deliberate ito: para hindi lumabas ang mga password sa screenshots/screen-share ng deployed demo.
 
 ## Screens / User Flow
 

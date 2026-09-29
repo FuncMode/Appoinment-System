@@ -1,6 +1,7 @@
 // PatientFormModal — admin (split from screens-admin.jsx)
 import { useEffect, useRef, useState } from 'react';
 import { Field, Icon, Modal, PatientAvatar, SelectInput, TextInput } from '../shared/components.jsx';
+import { focusFirstError } from './helpers.js';
 
 function PatientFormModal({ open, onClose, patient, onSave }) {
   const isEdit = !!patient;
@@ -42,7 +43,7 @@ function PatientFormModal({ open, onClose, patient, onSave }) {
     if (!form.phone.trim()) e.phone = 'Phone is required';
     if (!form.age) e.age = 'Age is required';
     setErrors(e);
-    if (Object.keys(e).length) return;
+    if (Object.keys(e).length) { focusFirstError(); return; }
     onSave({ ...form, photo });
   };
 

@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { AppShell, Badge, Field, Icon, navigate, PageHeader, PageSpinner, TextArea, TextInput, useStore } from '../shared/components.jsx';
 import { CURRENT_PATIENT, HOSPITAL } from '../shared/data.js';
+import { focusFirstError } from './helpers.js';
 
 import { Profile } from './Profile.jsx';
 
@@ -36,7 +37,7 @@ function HelpSupport() {
     if (!q) errs.quote = 'Please share your experience';
     else if (q.length < 30) errs.quote = 'Please write a bit more (30+ characters)';
     setStoryErrors(errs);
-    if (Object.keys(errs).length) return;
+    if (Object.keys(errs).length) { focusFirstError(); return; }
     store.setTestimonials([
       {
         id: 't' + Date.now(),

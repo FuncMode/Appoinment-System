@@ -1,6 +1,6 @@
 // DoctorDashboard — doctor portal (split from screens-doctor.jsx)
 import { useEffect, useState } from 'react';
-import { AppShell, DoctorStatusBadge, EmptyState, Icon, navigate, PageHeader, PatientAvatar, StatusBadge, useStore } from '../shared/components.jsx';
+import { AppShell, ConfirmModal, DoctorStatusBadge, EmptyState, Icon, navigate, PageHeader, PatientAvatar, StatusBadge, useStore } from '../shared/components.jsx';
 import { formatDate, formatDateLong, formatDayRange, timeValue } from '../shared/data.js';
 import { localToday, markNoShow, useDoctor } from './helpers.js';
 import { CompleteVisitModal } from './CompleteVisitModal.jsx';
@@ -31,6 +31,9 @@ function DoctorDashboard() {
   const [completeAppt, setCompleteAppt] = useState(null);
   const [historyPatient, setHistoryPatient] = useState(null);
   const [notesAppt, setNotesAppt] = useState(null);
+  // No-show is consequential (marks the record and frees the slot), so it
+  // gets a confirmation instead of firing straight from the row (§5/§50.4)
+  const [confirmNoShow, setConfirmNoShow] = useState(null);
 
   const stats = [
     // Distinct icon per stat — three identical calendar icons read as template
@@ -128,7 +131,7 @@ function DoctorDashboard() {
                     <>
                       {/* Quiet ghost action — the old red icon read as delete;
                           no-show is a status report, not a destructive act */}
-                      <button className="btn btn-ghost sm" title="Patient did not arrive" onClick={() => markNoShow(store, a)}>
+                      <button className="btn btn-ghost sm" title="Patient did not arrive" onClick={() => setConfirmNoShow(a)}>
                         <Icon name="user-x" size={13} /> No-show
                       </button>
                       <button className="btn btn-primary sm" onClick={() => setCompleteAppt(a)}>Complete visit</button>
@@ -193,6 +196,16 @@ function DoctorDashboard() {
       <CompleteVisitModal appointment={completeAppt} onClose={() => setCompleteAppt(null)} />
       <PatientHistoryModal patient={historyPatient} onClose={() => setHistoryPatient(null)} />
       <VisitNotesModal appointment={notesAppt} onClose={() => setNotesAppt(null)} />
+
+      <ConfirmModal
+        open={!!confirmNoShow}
+        onClose={() => setConfirmNoShow(null)}
+        onConfirm={() => { markNoShow(store, confirmNoShow); setConfirmNoShow(null); }}
+        title="Mark as no-show?"
+        message={confirmNoShow ? `${(window.findPatient(confirmNoShow.patientId) || {}).name || 'This patient'} will be marked as a no-show for ${formatDate(confirmNoShow.date)} at ${confirmNoShow.time}, and the time slot will be freed for rebooking.` : ''}
+        confirmLabel="Mark no-show"
+        kind="danger"
+      />
     </AppShell>
   );
 }

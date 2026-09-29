@@ -60,7 +60,7 @@ function DoctorListing() {
           <div className="doctor-filters">
             <div className="input-group doctor-filter-search">
               <Icon name="search" size={16} className="input-icon" />
-              <input className="input" style={{ paddingLeft: 38 }} placeholder="Search by name or specialty..." value={query} onChange={e => setQuery(e.target.value)} />
+              <input className="input" style={{ paddingLeft: 38 }} placeholder="Search by name or specialty…" aria-label="Search doctors by name or specialty" value={query} onChange={e => setQuery(e.target.value)} />
             </div>
             <div className="doctor-filter-field">
               <SelectInput value={specialty} onChange={e => setSpecialty(e.target.value)}>

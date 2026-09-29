@@ -1,17 +1,10 @@
 // Login — public (split from screens-public.jsx)
 import { useState } from 'react';
 import { BrandMark, Field, Icon, navigate, OtpVerifyModal, PwField, TextInput, useStore } from '../shared/components.jsx';
-import { CURRENT_PATIENT } from '../shared/data.js';
+import { CURRENT_PATIENT, PATIENT_CREDENTIALS, SHOW_DEMO_PASSWORDS } from '../shared/data.js';
 import Aurora from '../shared/reactbits/Aurora.jsx';
-import ShinyText from '../shared/reactbits/ShinyText.jsx';
-import CountUp from '../shared/reactbits/CountUp.jsx';
 import SplitText from '../shared/reactbits/SplitText.jsx';
 import AnimatedContent from '../shared/reactbits/AnimatedContent.jsx';
-import Magnet from '../shared/reactbits/Magnet.jsx';
-import ScrollVelocity from '../shared/reactbits/ScrollVelocity.jsx';
-import StarBorder from '../shared/reactbits/StarBorder.jsx';
-import GlareHover from '../shared/reactbits/GlareHover.jsx';  // hero preview card only — the one deliberate hover flourish
-import Ribbons from '../shared/reactbits/Ribbons.jsx';
 
 import { AdminLogin } from './AdminLogin.jsx';
 
@@ -80,7 +73,7 @@ function Login() {
   const [demoOpen, setDemoOpen] = useState(false);
 
   const useDemo = () => {
-    setForm({ email: 'patient@medicacare.ph', password: 'patient123', remember: true });
+    setForm({ email: PATIENT_CREDENTIALS.email, password: PATIENT_CREDENTIALS.password, remember: true });
     setErrors({}); setAuthError(null);
   };
 
@@ -120,7 +113,7 @@ function Login() {
           </AnimatedContent>
 
           {authError && (
-            <div role="alert" style={{ background: 'var(--error-soft)', border: '1px solid #FCA5A5', color: 'var(--error-text)', padding: '10px 12px', borderRadius: 8, fontSize: 13, marginBottom: 14, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+            <div role="alert" style={{ background: 'var(--error-soft)', border: '1px solid var(--error-border)', color: 'var(--error-text)', padding: '10px 12px', borderRadius: 8, fontSize: 13, marginBottom: 14, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
               <Icon name="alert-circle" size={16} style={{ marginTop: 1 }} />
               <div>{authError}</div>
             </div>
@@ -164,8 +157,10 @@ function Login() {
               <button type="button" className="demo-account" onClick={useDemo}>
                 <span className="avatar sm">JB</span>
                 <span style={{ minWidth: 0 }}>
-                  <span style={{ display: 'block', fontSize: 13, fontWeight: 500 }}>patient@medicacare.ph</span>
-                  <span className="t-muted" style={{ display: 'block', fontSize: 11 }}>Password: patient123</span>
+                  <span style={{ display: 'block', fontSize: 13, fontWeight: 500 }}>{PATIENT_CREDENTIALS.email}</span>
+                  {SHOW_DEMO_PASSWORDS && (
+                    <span className="t-muted" style={{ display: 'block', fontSize: 11 }}>Password: {PATIENT_CREDENTIALS.password}</span>
+                  )}
                 </span>
                 <span className="demo-account-role">Patient</span>
               </button>

@@ -78,7 +78,7 @@ function PatientsMgmt() {
           <div className="table-toolbar">
             <div className="input-group search">
               <Icon name="search" size={16} className="input-icon" />
-              <input className="input" style={{ paddingLeft: 38 }} placeholder="Search by name, email, or phone..." value={query} onChange={e => { setQuery(e.target.value); setPage(1); }} />
+              <input className="input" style={{ paddingLeft: 38 }} placeholder="Search by name, email, or phone…" aria-label="Search patients by name, email, or phone" value={query} onChange={e => { setQuery(e.target.value); setPage(1); }} />
             </div>
             <button className="btn btn-secondary sm" onClick={() => setFilterOpen(o => !o)}>
               <Icon name="filter" size={14} /> Filter{gender !== 'all' ? (gender === 'M' ? ': Male' : ': Female') : ''}

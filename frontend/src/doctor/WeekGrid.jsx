@@ -25,6 +25,8 @@ function WeekGrid({ mine, weekDays, today }) {
               const p = window.findPatient(a.patientId);
               return (
                 <div key={a.id} className={'dw-appt st-' + a.status}
+                  tabIndex={0}
+                  aria-label={`${a.time} · ${p ? p.name : 'Patient'} · ${window.statusMeta(a.status).label}`}
                   title={`${a.time} · ${p ? p.name : 'Patient'} · ${window.statusMeta(a.status).label}`}>
                   <span className="dw-dot" aria-hidden="true" />
                   <span className="dw-body">

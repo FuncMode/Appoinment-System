@@ -3,15 +3,8 @@ import { useState } from 'react';
 import { BrandMark, Field, Icon, navigate, TextInput } from '../shared/components.jsx';
 
 import Aurora from '../shared/reactbits/Aurora.jsx';
-import ShinyText from '../shared/reactbits/ShinyText.jsx';
-import CountUp from '../shared/reactbits/CountUp.jsx';
 import SplitText from '../shared/reactbits/SplitText.jsx';
 import AnimatedContent from '../shared/reactbits/AnimatedContent.jsx';
-import Magnet from '../shared/reactbits/Magnet.jsx';
-import ScrollVelocity from '../shared/reactbits/ScrollVelocity.jsx';
-import StarBorder from '../shared/reactbits/StarBorder.jsx';
-import GlareHover from '../shared/reactbits/GlareHover.jsx';  // hero preview card only — the one deliberate hover flourish
-import Ribbons from '../shared/reactbits/Ribbons.jsx';
 
 // ---------- Forgot password ----------
 function ForgotPassword() {
@@ -56,7 +49,7 @@ function ForgotPassword() {
 
           {sent ? (
             <div>
-              <div role="status" style={{ background: 'var(--success-soft, #ECFDF5)', border: '1px solid #6EE7B7', color: '#047857', padding: '12px 14px', borderRadius: 8, fontSize: 13, display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 16 }}>
+              <div role="status" style={{ background: 'var(--success-soft)', border: '1px solid var(--success-border)', color: 'var(--success-text)', padding: '12px 14px', borderRadius: 8, fontSize: 13, display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 16 }}>
                 <Icon name="check-circle-2" size={16} style={{ marginTop: 1 }} />
                 <div>
                   If an account exists for <strong>{email}</strong>, a password reset link is on its way.

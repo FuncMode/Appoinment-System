@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Field, Modal, TextArea, useStore } from '../shared/components.jsx';
 import { formatDate } from '../shared/data.js';
+import { focusFirstError } from './helpers.js';
 
 // ---------- Visit notes — view and amend the doctor's own notes ----------
 // Completed visits are read-only in the UI until the doctor chooses to edit;
@@ -19,6 +20,7 @@ function VisitNotesModal({ appointment, onClose }) {
     const n = notes.trim();
     if (n.length < 10) {
       setError('Please write the visit summary (10+ characters).');
+      focusFirstError();
       return;
     }
     store.setAppointments(store.appointments.map(a => a.id === appointment.id ? { ...a, notes: n } : a));

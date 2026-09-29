@@ -12,13 +12,19 @@ import {
   APPOINTMENTS, AVAILABILITY_TEMPLATE,
   findDoctor, findPatient, formatDate, formatDateLong, initials, statusMeta, doctorStatusMeta,
   isSlotTaken, getSlotsFor, slotFitsInterval, downloadFile, formatDayRange, isClinicDay, timeValue,
+  // Shared hardened esc() — see docs/FRONTEND_SECURITY_AUDIT.md MEDIUM-002
+  escapeHTML as esc,
 } from '../shared/data.js';
 
 // ============================================================
 // CSV export helpers (downloadFile is the shared helper from data.js)
 // ============================================================
 function csvCell(v) {
-  const s = String(v == null ? '' : v);
+  let s = String(v == null ? '' : v);
+  // A leading =, +, -, @, TAB or CR makes Excel/LibreOffice treat the cell as
+  // a formula — prefix it with an apostrophe so exported free-text fields
+  // (patient name, reason for visit, message subject…) stay inert text.
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
   return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
 
@@ -33,7 +39,6 @@ function downloadCSV(filename, rows) {
 // a hidden print iframe — the browser's print dialog then offers
 // "Save as PDF" as the destination (see printDoctorSchedule below).
 function buildDoctorScheduleHTML(doctor, appts, dateStr) {
-  const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const count = (s) => appts.filter(a => a.status === s).length;
   const rows = appts.length ? appts.map((a, i) => {
     const p = window.findPatient(a.patientId);
@@ -166,6 +171,15 @@ function localToday() {
   return `${n.getFullYear()}-${pad(n.getMonth() + 1)}-${pad(n.getDate())}`;
 }
 
+// §46.7: after inline validation fails, move focus to the first invalid
+// field so keyboard and screen-reader users land straight on what needs
+// fixing. The shared TextInput/TextArea/SelectInput carry an .error class
+// whenever their error prop is set.
+function focusFirstError() {
+  const el = document.querySelector('.input.error, .textarea.error, .select.error');
+  if (el) el.focus();
+}
+
 // SortableTh now lives in components.jsx (shared with the patient History table);
 // timeValue lives in data.js (shared across all portals' time sorts)
 
@@ -174,4 +188,4 @@ function localToday() {
 // Admin screens
 // ============================================================
 
-export { csvCell, downloadCSV, buildDoctorScheduleHTML, printDoctorSchedule, localToday };
+export { csvCell, downloadCSV, buildDoctorScheduleHTML, printDoctorSchedule, localToday, focusFirstError };

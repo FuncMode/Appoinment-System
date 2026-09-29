@@ -5,11 +5,16 @@ import './data.js';
 import AnimatedContent from './reactbits/AnimatedContent.jsx';
 
 // ---------- Icon (Lucide inline via <i data-lucide>) ----------
+// Icon names are kebab-case constants from app code. The allowlist check keeps
+// a future user-controlled `name` from reaching Lucide's SVG builder, and
+// replaceChildren() clears the node without an HTML-parsing sink.
+const ICON_NAME = /^[a-z0-9-]{1,64}$/;
 function Icon({ name, size = 16, style = {}, className = '' }) {
   const ref = useRef(null);
   useEffect(() => {
+    if (!ICON_NAME.test(name)) return;
     if (window.lucide && ref.current) {
-      ref.current.innerHTML = '';
+      ref.current.replaceChildren();
       const el = document.createElement('i');
       el.setAttribute('data-lucide', name);
       ref.current.appendChild(el);

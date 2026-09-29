@@ -73,6 +73,7 @@ function DoctorAvailability({ doctorId }) {
                   const clinicDay = isClinicDay(doctorId, d);
                   return (
                     <button key={d} disabled={!clinicDay} title={clinicDay ? undefined : 'Not a clinic day'}
+                      aria-pressed={on}
                       onClick={() => { setDate(d); setSlot(null); }}
                       className="chip date-chip"
                       style={{
@@ -108,6 +109,7 @@ function DoctorAvailability({ doctorId }) {
                     <div className="chip-group">
                       {slots.map(([t, ok]) => (
                         <button key={t} className={'chip' + (slot === t ? ' on' : '')}
+                          aria-pressed={slot === t}
                           disabled={!ok}
                           onClick={() => setSlot(t)}>
                           {t}
@@ -166,7 +168,7 @@ function DoctorAvailability({ doctorId }) {
             </p>
 
             {slot && (
-              <div className="card" style={{ background: 'var(--primary-soft)', borderColor: '#DBEAFE' }}>
+              <div className="card" style={{ background: 'var(--primary-soft)', borderColor: 'var(--primary-border)' }}>
                 <div style={{ padding: 16 }}>
                   <div className="t-help" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--primary)' }}>Your selection</div>
                   <div style={{ marginTop: 8, fontSize: 14, color: 'var(--text)' }}>

@@ -1,7 +1,8 @@
 // DoctorFormModal — admin (split from screens-admin.jsx)
 import { useEffect, useRef, useState } from 'react';
 import { DoctorAvatar, Field, Icon, Modal, SelectInput, TextInput, useStore } from '../shared/components.jsx';
-import { SPECIALTIES } from '../shared/data.js';
+import { SPECIALTIES, randomInt } from '../shared/data.js';
+import { focusFirstError } from './helpers.js';
 
 function DoctorFormModal({ open, onClose, doctor, account, onSave, onRevoke }) {
   const isEdit = !!doctor;
@@ -51,8 +52,11 @@ function DoctorFormModal({ open, onClose, doctor, account, onSave, onRevoke }) {
   // re-type when the admin shares it with the doctor
   const generatePw = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
-    const rand = window.crypto.getRandomValues(new Uint32Array(10));
-    setAccessPw(Array.from(rand, n => chars[n % chars.length]).join(''));
+    // randomInt rejection-samples, so every character of the password is
+    // equally likely (a plain `n % chars.length` would skew the tail chars)
+    let pw = '';
+    for (let i = 0; i < 10; i++) pw += chars[randomInt(chars.length)];
+    setAccessPw(pw);
     if (accessErrors.password) setAccessErrors(ae => ({ ...ae, password: null }));
   };
 
@@ -82,7 +86,7 @@ function DoctorFormModal({ open, onClose, doctor, account, onSave, onRevoke }) {
     }
     setAccessErrors(ae);
     setErrors(e);
-    if (Object.keys(e).length || Object.keys(ae).length) return;
+    if (Object.keys(e).length || Object.keys(ae).length) { focusFirstError(); return; }
     // Access payload for the parent to apply to store.users (grant/reset)
     let access = null;
     if (granting && accessEmail.trim() && accessPw) {

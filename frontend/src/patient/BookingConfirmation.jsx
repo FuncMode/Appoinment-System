@@ -1,6 +1,6 @@
 // BookingConfirmation — patient (split from screens-patient.jsx)
 
-import { AppShell, DoctorAvatar, Icon, navigate, StatusBadge, useStore } from '../shared/components.jsx';
+import { AppShell, DoctorAvatar, EmptyState, Icon, navigate, StatusBadge, useStore } from '../shared/components.jsx';
 import { findDoctor, formatDate } from '../shared/data.js';
 
 // ---------- Booking Confirmation ----------
@@ -13,6 +13,18 @@ function BookingConfirmation() {
   return (
     <AppShell current="doctors">
       <div className="page" style={{ maxWidth: 720, margin: '0 auto', padding: '48px 24px' }}>
+        {/* §15/§32: deep-linking here without a recent booking (e.g. after the
+            store was cleared) must not read as a false success */}
+        {!appt ? (
+          <div className="card">
+            <EmptyState
+              icon="calendar-x"
+              title="No recent booking to show"
+              message="This page shows the confirmation of your latest booking. Book an appointment first, or open it later from your appointment history."
+              actions={<button className="btn btn-primary" onClick={() => navigate('/patient/book')}>Book an appointment</button>}
+            />
+          </div>
+        ) : (
         <div className="card" style={{ padding: 40, textAlign: 'center' }}>
           <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--success-soft)', color: 'var(--success)', display: 'grid', placeItems: 'center', margin: '0 auto 20px' }}>
             <Icon name="check-circle-2" size={36} />
@@ -61,6 +73,7 @@ function BookingConfirmation() {
             <button className="btn btn-primary" onClick={() => navigate('/patient/status')}>View appointment status</button>
           </div>
         </div>
+        )}
       </div>
     </AppShell>
   );

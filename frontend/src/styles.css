@@ -9,6 +9,7 @@
   --primary-pressed: #1E40AF;
   --primary-soft: #EFF4FF;
   --primary-soft-hover: #E1EAFE;
+  --primary-border: #DBEAFE;
   --primary-text: #1E3A8A;
 
   /* Neutrals */
@@ -27,17 +28,22 @@
   /* Semantic */
   --success: #16A34A;
   --success-soft: #ECFDF5;
+  --success-border: #6EE7B7;
   --success-text: #166534;
   --warning: #D97706;
   --warning-soft: #FEF7EC;
   --warning-text: #92400E;
   --error: #DC2626;
   --error-soft: #FEF2F2;
+  --error-border: #FCA5A5;
   --error-text: #991B1B;
   --info: #0891B2;
   --info-soft: #ECFEFF;
   --info-border: #A5F3FC;
   --info-text: #155E75;
+  /* Amber rating star — the one accent color outside the semantic set
+     (documented in DESIGN.md palette) */
+  --rating-star: #F59E0B;
 
   /* Radius */
   --r-xs: 4px;
@@ -258,13 +264,20 @@ a { color: inherit; text-decoration: none; }
 .btn-secondary { background: var(--surface); color: var(--text); border-color: var(--border-strong); }
 .btn-secondary:hover { background: var(--surface-muted); border-color: var(--text-muted); }
 
+/* Solid white CTA for dark surfaces (Landing photo hero): no glow, no
+   gradient border (ui-guidelines §2/§7) — primary-pressed text keeps
+   ≥ 4.5:1 contrast on white in every state */
+.btn-light { background: #FFFFFF; color: var(--primary-pressed); border-color: #FFFFFF; }
+.btn-light:hover { background: #EAF1FF; border-color: #EAF1FF; }
+.btn-light:active { background: #DCE7FB; border-color: #DCE7FB; }
+
 .btn-ghost { background: transparent; color: var(--text-secondary); }
 .btn-ghost:hover { background: var(--surface-muted); color: var(--text); }
 
 .btn-danger { background: var(--error); color: #fff; }
 .btn-danger:hover { background: #B91C1C; }
 
-.btn-danger-outline { background: var(--surface); color: var(--error); border-color: #FCA5A5; }
+.btn-danger-outline { background: var(--surface); color: var(--error); border-color: var(--error-border); }
 .btn-danger-outline:hover { background: var(--error-soft); }
 
 .btn-link { background: transparent; color: var(--primary); padding: 0; height: auto; }
@@ -715,7 +728,7 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
   color: var(--text-secondary);
   font-size: 13px; font-weight: 500;
   cursor: pointer; user-select: none;
-  transition: all 120ms ease;
+  transition: border-color 120ms ease, color 120ms ease, background-color 120ms ease;
 }
 .chip:hover:not(:disabled):not(.on) { border-color: var(--primary); color: var(--primary-text); }
 .chip.on { background: var(--primary); color: #fff; border-color: var(--primary); }
@@ -914,7 +927,10 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
 /* Light-on-dark text overrides for the photo variant. Scoped so the subpage
    heroes (Aurora + white surface) keep their dark-ink family treatment. */
 .public-hero--photo p { color: rgba(255, 255, 255, 0.88); }
-.public-hero--photo .public-hero-microcopy { color: rgba(255, 255, 255, 0.78); }
+/* Microcopy sits on the same photo veil as the small meta label: 0.9 white
+   keeps the 13px lines at ≥ 4.5:1 over the worst-case bright photo areas
+   (ui-guidelines §36) */
+.public-hero--photo .public-hero-microcopy { color: rgba(255, 255, 255, 0.9); }
 .public-hero--photo .public-hero-microcopy svg { color: #6EE7B7; }
 /* Ghost "Log in" on the photo hero: two filled-white buttons read as equal
    weight on the dark backdrop; the outlined ghost keeps the white primary
@@ -929,13 +945,6 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
   border-color: rgba(255, 255, 255, 0.85);
   color: #fff;
 }
-/* White StarBorder CTA (set in JSX): the global hover turns .inner-content
-   dark blue — wrong on a dark hero, so hover/focus go to a soft near-white */
-.public-hero--photo .star-border-cta:hover .inner-content,
-.public-hero--photo .star-border-cta:focus-visible .inner-content {
-  background: #EAF1FF !important;
-}
-
 /* ============================================================
    React Bits — Aurora hero backdrop (public pages)
    The canvas wash sits behind the hero content; .public-hero
@@ -998,11 +1007,10 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
 .animated-gradient-text.gradient-text-start { margin: 0; }
 
 /* ============================================================
-   React Bits — ScrollVelocity trust ticker (Landing) + StarBorder CTA
-   The ticker restyles the marquee to the muted brand voice; the
-   StarBorder override matches .btn-primary.lg sizing. The hover
-   rule needs !important because backgroundColor is an inline
-   React style on .inner-content.
+   React Bits — ScrollVelocity trust ticker (Landing)
+   The ticker restyles the marquee to the muted brand voice.
+   Pause-on-hover + reduced-motion gating live in the component
+   (WCAG 2.2.2); the CSS below only restyles the text.
    ============================================================ */
 .trust-ticker {
   background: var(--surface);
@@ -1021,30 +1029,6 @@ a:focus-visible, .sidebar-item:focus-visible, .quick-action:focus-visible,
 @media (min-width: 768px) {
   .trust-ticker .scroller { font-size: 14px; line-height: 1.5; }
 }
-.star-border-container.star-border-cta { border-radius: var(--r-sm); }
-.star-border-cta .inner-content {
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 42px;
-  height: 42px;
-  padding: 0 18px;
-  border-radius: var(--r-sm);
-  white-space: nowrap;
-  transition: background 120ms ease;
-}
-.star-border-cta:hover .inner-content,
-.star-border-cta:focus-visible .inner-content { background: var(--primary-hover) !important; }
-/* Patient portal reuses the StarBorder CTA as a real <button> (dashboard
-   header action); the demo skin targets <a>, so reset the UA button chrome. */
-button.star-border-container.star-border-cta {
-  border: 0;
-  background: transparent;
-  padding: 0;
-  cursor: pointer;
-  font-family: inherit;
-}
-
 /* ============================================================
    React Bits — Aurora wash on the auth visual columns
    (Login / Register / Staff / Forgot). The animated WebGL layer
@@ -1079,35 +1063,15 @@ button.star-border-container.star-border-cta {
 .auth-slide > .auth-visual-col { height: 100%; }
 
 /* ============================================================
-   React Bits — GlareHover / ClickSpark / Ribbons adaptations
+   React Bits — GlareHover adaptations
    - .glare-card: the hero portal preview swaps the grid centering
      GlareHover ships with for plain block flow (our card content
      is left-aligned rows, not centered tiles).
    - .glare-map: kills the inline-block baseline gap around the map.
-   - .public-section--cta / .cta-ribbons: the ribbons canvas layer
-     sits under the CTA content; pointer-events stay on so the
-     ribbons can follow the cursor over the empty backdrop.
    ============================================================ */
 .glare-hover.glare-card { display: block; padding: 16px; }
 .glare-hover.glare-card > * { width: 100%; }
 .glare-hover.glare-map { line-height: 0; }
-.public-section--cta {
-  position: relative;
-  overflow: hidden;
-}
-.public-section--cta > :not(.cta-ribbons) {
-  position: relative;
-  z-index: 1;
-}
-.cta-ribbons {
-  position: absolute;
-  inset: 0;
-  pointer-events: auto;
-  opacity: 0.3;
-}
-@media (prefers-reduced-motion: reduce) {
-  .cta-ribbons { display: none; }
-}
 
 /* ============================================================
    Initial-visit splash — brand mark + spinner circle.
@@ -1794,8 +1758,6 @@ button.star-border-container.star-border-cta {
     padding: 40px 20px 44px;
   }
   .public-hero-actions { flex-direction: column; align-items: stretch; }
-  .public-hero-actions > .star-border-container { width: 100%; }
-  .public-hero-actions .star-border-cta .inner-content { width: 100%; }
   .public-hero.page-hero { padding: 28px 16px 24px; }
   .public-hero.page-hero h1 { font-size: 25px; }
   .detail-row { grid-template-columns: 1fr; gap: 2px; }
@@ -2074,7 +2036,7 @@ button.star-border-container.star-border-cta {
   background: var(--surface-muted); border: 1px solid var(--border);
   font-size: 12px; color: var(--text-secondary);
 }
-.ctx-chip.alert { background: var(--error-soft); border-color: #FCA5A5; color: var(--error-text); font-weight: 500; }
+.ctx-chip.alert { background: var(--error-soft); border-color: var(--error-border); color: var(--error-text); font-weight: 500; }
 @media (max-width: 1100px) { .doctor-week-grid { grid-template-columns: repeat(4, 1fr); } }
 @media (max-width: 720px) {
   .doctor-week-grid { grid-template-columns: repeat(2, 1fr); }

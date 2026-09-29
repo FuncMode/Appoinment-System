@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Field, Modal, TextArea, useStore } from '../shared/components.jsx';
 import { formatDate } from '../shared/data.js';
+import { focusFirstError } from './helpers.js';
 
 // ---------- Complete visit — the doctor writes their own notes ----------
 function CompleteVisitModal({ appointment, onClose }) {
@@ -23,6 +24,7 @@ function CompleteVisitModal({ appointment, onClose }) {
     const n = notes.trim();
     if (n.length < 10) {
       setError('Please write the visit summary (10+ characters).');
+      focusFirstError();
       return;
     }
     store.setAppointments(store.appointments.map(a => a.id === appointment.id ? { ...a, status: 'completed', notes: n } : a));

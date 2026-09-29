@@ -1,7 +1,7 @@
 // ui.jsx — split from components.jsx (layered shared UI)
 import { useEffect, useRef, useState } from 'react';
 import brandLogo from '../assets/brand_logo.png';
-import './data.js';
+import { randomInt } from './data.js';
 import AnimatedContent from './reactbits/AnimatedContent.jsx';
 import { Icon } from './icons.jsx';
 import { useStore } from './store.jsx';
@@ -332,17 +332,12 @@ function generateOtp() {
   // Unambiguous letter charset (no I/L/O) so a code read from the demo box
   // is easy to re-type — same rule as the generated portal passwords
   const letters = 'ABCDEFGHJKMNPQRSTUVWXYZ';
-  const pick = (set) => {
-    const buf = new Uint32Array(1);
-    window.crypto.getRandomValues(buf);
-    return set[buf[0] % set.length];
-  };
+  // randomInt rejection-samples, so every character is equally likely
+  const pick = (set) => set[randomInt(set.length)];
   const chars = [pick(digits), pick(digits), pick(digits), pick(letters), pick(letters), pick(letters)];
   // Fisher–Yates shuffle so digits and letters mix instead of clustering
   for (let i = chars.length - 1; i > 0; i--) {
-    const buf = new Uint32Array(1);
-    window.crypto.getRandomValues(buf);
-    const j = buf[0] % (i + 1);
+    const j = randomInt(i + 1);
     [chars[i], chars[j]] = [chars[j], chars[i]];
   }
   return chars.join('');

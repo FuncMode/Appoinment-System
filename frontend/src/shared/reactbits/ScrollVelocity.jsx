@@ -9,6 +9,7 @@ import {
   useTransform,
   useMotionValue,
   useVelocity,
+  useReducedMotion,
   useAnimationFrame
 } from 'motion/react';
 import './ScrollVelocity.css';
@@ -38,6 +39,7 @@ export const ScrollVelocity = ({
   damping = 50,
   stiffness = 400,
   numCopies = 6,
+  pauseOnHover = false,
   velocityMapping = { input: [0, 1000], output: [0, 5] },
   parallaxClassName = 'parallax',
   scrollerClassName = 'scroller',
@@ -52,6 +54,7 @@ export const ScrollVelocity = ({
     damping,
     stiffness,
     numCopies,
+    pauseOnHover,
     velocityMapping,
     parallaxClassName,
     scrollerClassName,
@@ -76,6 +79,13 @@ export const ScrollVelocity = ({
     const copyRef = useRef(null);
     const copyWidth = useElementWidth(copyRef);
 
+    // WCAG 2.2.2 (pause/stop/hide): an infinite marquee runs past the 5s
+    // autoplay limit, so it must be pausable and must respect the OS
+    // reduced-motion preference (motion stops entirely, content stays).
+    const reduceMotion = useReducedMotion();
+    const [hoverPaused, setHoverPaused] = useState(false);
+    const paused = hoverPaused || reduceMotion;
+
     function wrap(min, max, v) {
       const range = max - min;
       const mod = (((v - min) % range) + range) % range;
@@ -89,6 +99,7 @@ export const ScrollVelocity = ({
 
     const directionFactor = useRef(1);
     useAnimationFrame((t, delta) => {
+      if (paused) return;
       let moveBy = directionFactor.current * baseVelocity * (delta / 1000);
 
       if (velocityFactor.get() < 0) {
@@ -111,7 +122,12 @@ export const ScrollVelocity = ({
     }
 
     return (
-      <div className={parallaxClassName} style={parallaxStyle}>
+      <div
+        className={parallaxClassName}
+        style={parallaxStyle}
+        onMouseEnter={pauseOnHover ? () => setHoverPaused(true) : undefined}
+        onMouseLeave={pauseOnHover ? () => setHoverPaused(false) : undefined}
+      >
         <motion.div className={scrollerClassName} style={{ x, ...scrollerStyle }}>
           {spans}
         </motion.div>
@@ -130,6 +146,7 @@ export const ScrollVelocity = ({
           damping={damping}
           stiffness={stiffness}
           numCopies={numCopies}
+          pauseOnHover={pauseOnHover}
           velocityMapping={velocityMapping}
           parallaxClassName={parallaxClassName}
           scrollerClassName={scrollerClassName}

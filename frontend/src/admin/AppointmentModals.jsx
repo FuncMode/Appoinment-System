@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Field, Modal, SelectInput, StatusBadge, TextArea, useStore } from '../shared/components.jsx';
 import { AVAILABILITY_TEMPLATE, CURRENT_ADMIN, findDoctor, findPatient, formatDate, getSlotsFor, isClinicDay, isSlotTaken, slotFitsInterval, statusMeta } from '../shared/data.js';
+import { focusFirstError } from './helpers.js';
 
 // ---------- Edit / reschedule appointment (staff) ----------
 // Patients can reschedule from their portal; staff get the same here instead
@@ -41,7 +42,7 @@ function AppointmentEditModal({ appointment, onClose }) {
       e.time = 'That slot is already booked for this doctor.';
     }
     setErrors(e);
-    if (Object.keys(e).length) return;
+    if (Object.keys(e).length) { focusFirstError(); return; }
     store.setAppointments(store.appointments.map(a => a.id === appointment.id ? { ...a, ...form, reason: form.reason.trim() } : a));
     store.pushActivity(CURRENT_ADMIN.name, 'Updated appointment',
       `Ref ${appointment.id.toUpperCase()} → ${window.formatDate(form.date)} at ${form.time}`);
@@ -70,7 +71,7 @@ function AppointmentEditModal({ appointment, onClose }) {
             // Switching doctors invalidates the previously chosen slot
             if (e.target.value !== prev) setForm(f => ({ ...f, date: '', time: '' }));
           }} error={errors.doctorId}>
-            <option value="">Select a doctor...</option>
+            <option value="">Select a doctor…</option>
             {store.doctors.map(d => <option key={d.id} value={d.id}>{d.name} ({d.specialty})</option>)}
           </SelectInput>
         </Field>
@@ -86,7 +87,7 @@ function AppointmentEditModal({ appointment, onClose }) {
           </Field>
           <Field label="Time slot" required error={errors.time} help={!errors.time && 'Already-booked slots are disabled.'}>
             <SelectInput value={form.time} onChange={e => set('time', e.target.value)} error={errors.time} disabled={!form.date}>
-              <option value="">{form.date ? 'Select a time...' : 'Pick a date first'}</option>
+              <option value="">{form.date ? 'Select a time…' : 'Pick a date first'}</option>
               {slotTimes.map(t => <option key={t} value={t}>{t}</option>)}
             </SelectInput>
           </Field>
@@ -130,7 +131,7 @@ function AppointmentFormModal({ open, onClose, onSave }) {
       e.time = 'That slot is already booked for this doctor.';
     }
     setErrors(e);
-    if (Object.keys(e).length) return;
+    if (Object.keys(e).length) { focusFirstError(); return; }
     onSave(form);
   };
 
@@ -149,7 +150,7 @@ function AppointmentFormModal({ open, onClose, onSave }) {
       <div className="stack md">
         <Field label="Patient" required error={errors.patientId}>
           <SelectInput value={form.patientId} onChange={e => set('patientId', e.target.value)} error={errors.patientId}>
-            <option value="">Select a patient...</option>
+            <option value="">Select a patient…</option>
             {store.patients.map(p => <option key={p.id} value={p.id}>{p.name} ({p.phone})</option>)}
           </SelectInput>
         </Field>
@@ -160,14 +161,14 @@ function AppointmentFormModal({ open, onClose, onSave }) {
             // Switching doctors invalidates the previously chosen slot
             if (e.target.value !== prev) setForm(f => ({ ...f, date: '', time: '' }));
           }} error={errors.doctorId}>
-            <option value="">Select a doctor...</option>
+            <option value="">Select a doctor…</option>
             {store.doctors.map(d => <option key={d.id} value={d.id}>{d.name} ({d.specialty})</option>)}
           </SelectInput>
         </Field>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Field label="Date" required error={errors.date}>
             <SelectInput value={form.date} onChange={e => { set('date', e.target.value); set('time', ''); }} error={errors.date}>
-              <option value="">Select a date...</option>
+              <option value="">Select a date…</option>
               {dates.map(d => (
                 <option key={d} value={d}>
                   {window.formatDate(d)} ({AVAILABILITY_TEMPLATE[d].day}){form.doctorId && !isClinicDay(form.doctorId, d) ? ' — not a clinic day' : ''}
@@ -177,7 +178,7 @@ function AppointmentFormModal({ open, onClose, onSave }) {
           </Field>
           <Field label="Time slot" required error={errors.time} help={!errors.time && 'Only available slots are listed.'}>
             <SelectInput value={form.time} onChange={e => set('time', e.target.value)} error={errors.time} disabled={!form.date}>
-              <option value="">{form.date ? 'Select a time...' : 'Pick a date first'}</option>
+              <option value="">{form.date ? 'Select a time…' : 'Pick a date first'}</option>
               {slots.map(t => <option key={t} value={t}>{t}</option>)}
             </SelectInput>
           </Field>

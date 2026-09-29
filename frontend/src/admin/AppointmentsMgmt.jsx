@@ -159,7 +159,7 @@ function AppointmentsMgmt() {
           <div className="table-toolbar">
             <div className="input-group search">
               <Icon name="search" size={16} className="input-icon" />
-              <input className="input" style={{ paddingLeft: 38 }} placeholder="Search patient, doctor, or reason..." value={query} onChange={e => { setQuery(e.target.value); setPage(1); }} />
+              <input className="input" style={{ paddingLeft: 38 }} placeholder="Search patient, doctor, or reason…" aria-label="Search appointments by patient, doctor, or reason" value={query} onChange={e => { setQuery(e.target.value); setPage(1); }} />
             </div>
             <SelectInput
               value={status}

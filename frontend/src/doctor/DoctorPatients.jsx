@@ -1,6 +1,6 @@
 // DoctorPatients — doctor portal (split from screens-doctor.jsx)
 import { useEffect, useState } from 'react';
-import { AppShell, EmptyState, Icon, navigate, PageHeader, PatientAvatar, StatusBadge, useStore } from '../shared/components.jsx';
+import { AppShell, ConfirmModal, EmptyState, Icon, navigate, PageHeader, PatientAvatar, StatusBadge, useStore } from '../shared/components.jsx';
 import { formatDate, timeValue } from '../shared/data.js';
 import { localToday, markNoShow, useDoctor } from './helpers.js';
 import { CompleteVisitModal } from './CompleteVisitModal.jsx';
@@ -19,6 +19,9 @@ function DoctorPatients() {
   const [completeAppt, setCompleteAppt] = useState(null);
   const [viewNotes, setViewNotes] = useState(null);
   const [historyPatient, setHistoryPatient] = useState(null);
+  // No-show is consequential (marks the record and frees the slot), so it
+  // gets a confirmation instead of firing straight from the row (§5/§50.4)
+  const [confirmNoShow, setConfirmNoShow] = useState(null);
 
   const today = localToday();
   const q = query.trim().toLowerCase();
@@ -62,7 +65,7 @@ function DoctorPatients() {
           <div className="table-toolbar">
             <div className="input-group search">
               <Icon name="search" size={16} className="input-icon" />
-              <input className="input" style={{ paddingLeft: 38 }} placeholder="Search patient name or reason..." value={query} onChange={e => setQuery(e.target.value)} />
+              <input className="input" style={{ paddingLeft: 38 }} placeholder="Search patient name or reason…" aria-label="Search patients by name or reason" value={query} onChange={e => setQuery(e.target.value)} />
             </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {filters.map(([key, label]) => (
@@ -127,7 +130,7 @@ function DoctorPatients() {
                       <td className="col-actions">
                         {canComplete ? (
                           <>
-                            <button className="btn btn-ghost sm" title="Patient did not arrive" onClick={() => markNoShow(store, a)}>
+                            <button className="btn btn-ghost sm" title="Patient did not arrive" onClick={() => setConfirmNoShow(a)}>
                               <Icon name="user-x" size={13} /> No-show
                             </button>
                             {/* Quieter secondary here: in a long table of equal
@@ -155,6 +158,16 @@ function DoctorPatients() {
           shared-chart history — both read the same store as every portal */}
       <VisitNotesModal appointment={viewNotes} onClose={() => setViewNotes(null)} />
       <PatientHistoryModal patient={historyPatient} onClose={() => setHistoryPatient(null)} />
+
+      <ConfirmModal
+        open={!!confirmNoShow}
+        onClose={() => setConfirmNoShow(null)}
+        onConfirm={() => { markNoShow(store, confirmNoShow); setConfirmNoShow(null); }}
+        title="Mark as no-show?"
+        message={confirmNoShow ? `${(window.findPatient(confirmNoShow.patientId) || {}).name || 'This patient'} will be marked as a no-show for ${formatDate(confirmNoShow.date)} at ${confirmNoShow.time}, and the time slot will be freed for rebooking.` : ''}
+        confirmLabel="Mark no-show"
+        kind="danger"
+      />
     </AppShell>
   );
 }

@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { AppShell, Field, PageHeader, PageSpinner, SelectInput, StoreProvider, TextInput, useStore } from '../shared/components.jsx';
 import { HOSPITAL } from '../shared/data.js';
+import { focusFirstError } from './helpers.js';
 
 // ---------- Settings ----------
 function AdminSettings() {
@@ -16,13 +17,17 @@ function AdminSettings() {
   const [prefs, setPrefs] = useState({ ...store.prefs });
   const [savingClinic, setSavingClinic] = useState(false);
   const [savingPrefs, setSavingPrefs] = useState(false);
+  // Inline field error (§19/§46): empty clinic name is shown next to the
+  // field itself, not only as a toast
+  const [clinicError, setClinicError] = useState('');
   const updateClinic = (k, v) => setClinic(f => ({ ...f, [k]: v }));
   const updatePref = (k, v) => setPrefs(f => ({ ...f, [k]: v }));
 
   const saveClinic = (e) => {
     e.preventDefault();
     if (!clinic.name.trim()) {
-      store.pushToast({ kind: 'error', title: 'Clinic name required', msg: 'Please enter a clinic name before saving.' });
+      setClinicError('Clinic name is required');
+      focusFirstError();
       return;
     }
     setSavingClinic(true);
@@ -72,8 +77,8 @@ function AdminSettings() {
           <form onSubmit={saveClinic}>
             <div className="card-body">
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                <Field label="Clinic name" required>
-                  <TextInput value={clinic.name} onChange={e => updateClinic('name', e.target.value)} />
+                <Field label="Clinic name" required error={clinicError}>
+                  <TextInput value={clinic.name} onChange={e => { updateClinic('name', e.target.value); if (clinicError) setClinicError(''); }} error={clinicError} />
                 </Field>
                 <Field label="Contact number" required>
                   <TextInput type="tel" value={clinic.phone} onChange={e => updateClinic('phone', e.target.value)} icon="phone" />

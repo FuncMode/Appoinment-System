@@ -127,7 +127,7 @@ function DoctorsMgmt() {
           <div className="table-toolbar">
             <div className="input-group search">
               <Icon name="search" size={16} className="input-icon" />
-              <input className="input" style={{ paddingLeft: 38 }} placeholder="Search by name or specialty..." value={query} onChange={e => { setQuery(e.target.value); setPage(1); }} />
+              <input className="input" style={{ paddingLeft: 38 }} placeholder="Search by name or specialty…" aria-label="Search doctors by name or specialty" value={query} onChange={e => { setQuery(e.target.value); setPage(1); }} />
             </div>
             <SelectInput style={{ maxWidth: 180 }} value={specialty} onChange={e => { setSpecialty(e.target.value); setPage(1); }}>
               <option value="all">All specialties</option>

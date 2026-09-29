@@ -364,7 +364,7 @@ function PhoneHistory() {
               <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)', display: 'flex', gap: 8 }}>
                 <button style={{ flex: 1, height: 34, background: 'var(--surface-muted)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12.5, fontWeight: 500 }}>View details</button>
                 {(a.status === 'pending' || a.status === 'confirmed') && (
-                  <button style={{ flex: 1, height: 34, background: '#fff', border: '1px solid #FCA5A5', color: 'var(--error)', borderRadius: 8, fontSize: 12.5, fontWeight: 500 }}>Cancel</button>
+                  <button style={{ flex: 1, height: 34, background: '#fff', border: '1px solid var(--error-border)', color: 'var(--error)', borderRadius: 8, fontSize: 12.5, fontWeight: 500 }}>Cancel</button>
                 )}
               </div>
             </div>

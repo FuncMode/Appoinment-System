@@ -12,6 +12,9 @@ import {
   APPOINTMENTS, AVAILABILITY_TEMPLATE,
   findDoctor, findPatient, formatDate, formatDateLong, initials, statusMeta, doctorStatusMeta,
   isSlotTaken, getSlotsFor, slotFitsInterval, downloadFile, isClinicDay, timeValue,
+  // Shared hardened esc() — escapes <>& plus quotes so the printed/exported
+  // documents stay safe even where a value lands in an attribute (MEDIUM-002)
+  escapeHTML as esc,
 } from '../shared/data.js';
 import { CARE_GUIDE } from '../public/content.js';
 
@@ -26,6 +29,15 @@ function activateOnKey(action) {
       action();
     }
   };
+}
+
+// §46.7: after inline validation fails, move focus to the first invalid
+// field so keyboard and screen-reader users land straight on what needs
+// fixing. The shared TextInput/TextArea/SelectInput carry an .error class
+// whenever their error prop is set.
+function focusFirstError() {
+  const el = document.querySelector('.input.error, .textarea.error, .select.error');
+  if (el) el.focus();
 }
 
 // "2026-09-11" + "10:30 AM" → ICS timestamp "20260911T103000" (floating local time)
@@ -63,7 +75,6 @@ function buildICS(appt, doctor) {
 
 // Simple printable HTML receipt
 function buildReceipt(appt, doctor, patient) {
-  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   return `<!doctype html>
 <html>
 <head><meta charset="utf-8"><title>Receipt ${esc(appt.id.toUpperCase())} at MedicaCare</title></head>
@@ -98,7 +109,6 @@ function localToday() {
 // file the browser can "Save as PDF". Same pattern as the appointment receipt;
 // addresses the privacy page's "you may request a copy of your records" right.
 function buildRecordsHTML(patient, records, meds, labs, bills) {
-  const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const row = (label, value) => `<tr><td class="l">${esc(label)}</td><td>${esc(value)}</td></tr>`;
   const recordRows = records.map(r =>
     `<tr><td>${esc(window.formatDate(r.date))}</td><td>${esc((window.findDoctor(r.doctorId) || {}).name || '—')}</td><td>${esc(r.title)}</td><td>${esc(r.summary)}</td></tr>`).join('');
@@ -160,4 +170,4 @@ function buildRecordsHTML(patient, records, meds, labs, bills) {
 // Patient screens
 // ============================================================
 
-export { activateOnKey, toICSStamp, buildICS, buildReceipt, localToday, buildRecordsHTML };
+export { activateOnKey, focusFirstError, toICSStamp, buildICS, buildReceipt, localToday, buildRecordsHTML };

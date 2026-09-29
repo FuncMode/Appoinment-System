@@ -2,17 +2,6 @@
 import { useState } from 'react';
 import { ClinicStatus, Field, Icon, PublicFooter, PublicNav, TextArea, TextInput, useStore } from '../shared/components.jsx';
 import { HOSPITAL } from '../shared/data.js';
-import Aurora from '../shared/reactbits/Aurora.jsx';
-import ShinyText from '../shared/reactbits/ShinyText.jsx';
-import CountUp from '../shared/reactbits/CountUp.jsx';
-import SplitText from '../shared/reactbits/SplitText.jsx';
-import AnimatedContent from '../shared/reactbits/AnimatedContent.jsx';
-import Magnet from '../shared/reactbits/Magnet.jsx';
-import ScrollVelocity from '../shared/reactbits/ScrollVelocity.jsx';
-import StarBorder from '../shared/reactbits/StarBorder.jsx';
-import GlareHover from '../shared/reactbits/GlareHover.jsx';  // hero preview card only — the one deliberate hover flourish
-import Ribbons from '../shared/reactbits/Ribbons.jsx';
-
 import { HeroAurora, HeroTitle } from './hero.jsx';
 
 // ---------- Contact page ----------
@@ -130,7 +119,7 @@ function ContactPage() {
             <a
               href="https://www.openstreetmap.org/?mlat=14.63000&mlon=121.03200#map=16/14.63000/121.03200"
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 500 }}
             >
               Open larger map

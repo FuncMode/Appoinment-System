@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AppShell, ConfirmModal, EmptyState, Field, Icon, PageHeader, PageSpinner, PatientAvatar, PwField, SelectInput, TextInput, useStore } from '../shared/components.jsx';
 import { CURRENT_PATIENT, PATIENTS } from '../shared/data.js';
+import { focusFirstError } from './helpers.js';
 
 // ---------- Profile ----------
 function Profile() {
@@ -72,7 +73,7 @@ function Profile() {
     const errs = {};
     if (!famForm.name.trim()) errs.name = 'Name is required';
     setFamErrors(errs);
-    if (Object.keys(errs).length) return;
+    if (Object.keys(errs).length) { focusFirstError(); return; }
     store.setFamilyMembers([
       ...(store.familyMembers || []),
       { id: 'fam' + Date.now(), name: famForm.name.trim(), relation: famForm.relation, age: null },
@@ -98,7 +99,7 @@ function Profile() {
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Enter a valid email';
     if (!form.phone.trim()) e.phone = 'Phone is required';
     setErrors(e);
-    if (Object.keys(e).length) return;
+    if (Object.keys(e).length) { focusFirstError(); return; }
     setSaving(true);
     setTimeout(() => {
       setSaving(false);
@@ -124,7 +125,7 @@ function Profile() {
     if (!pw.confirm) e.confirm = 'Please confirm your new password';
     else if (pw.confirm !== pw.next) e.confirm = 'Passwords do not match';
     setPwErrors(e);
-    if (Object.keys(e).length) return;
+    if (Object.keys(e).length) { focusFirstError(); return; }
     setSavingPw(true);
     setTimeout(() => {
       setSavingPw(false);

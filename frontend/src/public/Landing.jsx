@@ -2,12 +2,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { ClinicStatus, DoctorAvatar, FaqAccordion, Icon, navigate, NoticeBar, PublicFooter, PublicNav, StatusBadge, TestimonialCarousel, useStore } from '../shared/components.jsx';
 import { APPOINTMENTS, CURRENT_PATIENT, DOCTORS, findDoctor, HOSPITAL, SPECIALTIES } from '../shared/data.js';
-import CountUp from '../shared/reactbits/CountUp.jsx';
 import Magnet from '../shared/reactbits/Magnet.jsx';
 import ScrollVelocity from '../shared/reactbits/ScrollVelocity.jsx';
-import StarBorder from '../shared/reactbits/StarBorder.jsx';
 import GlareHover from '../shared/reactbits/GlareHover.jsx';  // hero preview card only — the one deliberate hover flourish
-import Ribbons from '../shared/reactbits/Ribbons.jsx';
 import { CARE_GUIDE, LANDING_FAQS, PROTOTYPE_STORIES } from './content.js';
 import { HeroAurora, HeroTitle } from './hero.jsx';
 
@@ -77,21 +74,10 @@ function Landing() {
             <p>Pick from {DOCTORS.length} board-certified doctors across {SPECIALTIES.length} departments,
                view real-time availability, and get a confirmation in minutes. Reschedule anytime from your portal.</p>
             <div className="public-hero-actions">
-              {/* White CTA — the blue-on-blue primary would vanish against the
-                  photo's blue overlay */}
-              <StarBorder
-                as="a"
-                href="#/register"
-                color="#2563EB"
-                backgroundColor="#FFFFFF"
-                textColor="var(--primary)"
-                borderColor="#93C5FD"
-                speed="5s"
-                thickness={1}
-                className="star-border-cta"
-              >
-                Create patient account
-              </StarBorder>
+              {/* Solid white CTA — the blue-on-blue primary would vanish against
+                  the photo's blue overlay. Plain button, no glow/gradient border
+                  (ui-guidelines §2/§7/§14; replaced the React Bits StarBorder). */}
+              <a className="btn btn-light lg" href="#/register">Create patient account</a>
               <a className="btn btn-secondary lg" href="#/login">Log in</a>
             </div>
           </div>
@@ -100,7 +86,7 @@ function Landing() {
             {/* Portal preview — built from the demo patient's real next appointment */}
             {previewAppt && previewDoc && (
               <>
-                <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.78)', marginBottom: 8, textAlign: 'right' }}>
+                <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.92)', marginBottom: 8, textAlign: 'right' }}>
                   A peek at your patient portal
                 </div>
                 <GlareHover
@@ -146,12 +132,15 @@ function Landing() {
         </div>
       </section>
 
-      {/* Trust ticker — React Bits ScrollVelocity. aria-hidden: decorative repeat. */}
+      {/* Trust ticker — React Bits ScrollVelocity. aria-hidden: decorative repeat.
+          pauseOnHover + reduced-motion gate live in the vendored component
+          (WCAG 2.2.2: moving content that runs past 5s needs pause/stop/hide). */}
       <div className="trust-ticker" aria-hidden="true">
         <ScrollVelocity
           texts={['HMO-friendly · 24/7 emergency care · Online booking, no phone calls · Real-time doctor availability']}
           velocity={40}
           numCopies={6}
+          pauseOnHover
           className="trust-ticker-text"
         />
       </div>
@@ -167,6 +156,7 @@ function Landing() {
                 <button
                   key={g.symptom}
                   className={`chip ${pickedSymptom === g.symptom ? 'on' : ''}`}
+                  aria-pressed={pickedSymptom === g.symptom}
                   onClick={() => setPickedSymptom(pickedSymptom === g.symptom ? null : g.symptom)}
                 >
                   {g.symptom}
@@ -274,13 +264,7 @@ function Landing() {
         </div>
       </section>
 
-      <section className="public-section public-section--cta" style={{ paddingTop: 32 }}>
-        {/* Ribbons layer — React Bits WebGL ribbons follow the cursor across the
-            empty CTA backdrop; brand-blue palette at low opacity. The layer
-            sits under the content (see .public-section--cta in styles.css). */}
-        <div className="cta-ribbons" aria-hidden="true">
-          <Ribbons colors={['#93C5FD', '#2563EB', '#7CC0FF']} baseThickness={20} speedMultiplier={0.5} />
-        </div>
+      <section className="public-section" style={{ paddingTop: 32 }}>
         <div className="public-section-inner" style={{ textAlign: 'center' }}>
           <h2 style={{ marginBottom: 8 }}>Ready to book your first visit?</h2>
           <p className="public-section-sub" style={{ maxWidth: 520, margin: '0 auto 24px' }}>

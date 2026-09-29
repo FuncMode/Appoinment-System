@@ -83,7 +83,7 @@ function StoriesMgmt() {
           <div className="table-toolbar">
             <div className="input-group search">
               <Icon name="search" size={16} className="input-icon" />
-              <input className="input" style={{ paddingLeft: 38 }} placeholder="Search by quote, display name, or patient..." value={query} onChange={e => setQuery(e.target.value)} />
+              <input className="input" style={{ paddingLeft: 38 }} placeholder="Search by quote, display name, or patient…" aria-label="Search stories by quote, display name, or patient" value={query} onChange={e => setQuery(e.target.value)} />
             </div>
             <div style={{ marginLeft: 'auto', fontSize: 13, color: 'var(--text-muted)' }}>
               <strong style={{ color: 'var(--text)' }}>{pending.length + approved.length + rejected.length}</strong> matching

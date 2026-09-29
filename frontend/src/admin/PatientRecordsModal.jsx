@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { Badge, EmptyState, Field, Icon, Modal, SelectInput, TextInput, useStore } from '../shared/components.jsx';
 import { CURRENT_ADMIN, findDoctor, formatDate } from '../shared/data.js';
-import { localToday } from './helpers.js';
+import { localToday, focusFirstError } from './helpers.js';
 
 // ---------- Patient records (labs & medications, staff-encoded) ----------
 // Staff-side creation path for the Medical Records sections in the patient
@@ -45,7 +45,7 @@ function PatientRecordsModal({ patient, onClose }) {
     if (!findings.length) e.findings = 'Add at least one finding (item and value)';
     else if (findings.some(f => !f.item.trim() || !f.value.trim())) e.findings = 'Each finding needs an item and a value';
     setLabErrors(e);
-    if (Object.keys(e).length) return;
+    if (Object.keys(e).length) { focusFirstError(); return; }
     const rec = {
       id: 'lab' + Date.now(),
       patientId: patient.id,
@@ -71,7 +71,7 @@ function PatientRecordsModal({ patient, onClose }) {
     if (!medForm.frequency.trim()) e.frequency = 'Frequency is required';
     if (!medForm.prescriberId) e.prescriberId = 'Select the prescriber';
     setMedErrors(e);
-    if (Object.keys(e).length) return;
+    if (Object.keys(e).length) { focusFirstError(); return; }
     const rec = {
       id: 'med' + Date.now(),
       patientId: patient.id,
@@ -227,7 +227,7 @@ function PatientRecordsModal({ patient, onClose }) {
             </Field>
             <Field label="Prescriber" required error={medErrors.prescriberId}>
               <SelectInput value={medForm.prescriberId} onChange={e => setMed('prescriberId', e.target.value)} error={medErrors.prescriberId}>
-                <option value="">Select a doctor...</option>
+                <option value="">Select a doctor…</option>
                 {store.doctors.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
               </SelectInput>
             </Field>

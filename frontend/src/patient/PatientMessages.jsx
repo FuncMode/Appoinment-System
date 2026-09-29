@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { AppShell, Badge, EmptyState, Field, Icon, PageHeader, PageSpinner, TextArea, TextInput, useStore } from '../shared/components.jsx';
 import { CURRENT_PATIENT, formatDate } from '../shared/data.js';
 
-import { localToday } from './helpers.js';
+import { localToday, focusFirstError } from './helpers.js';
 
 // ---------- My messages (patient portal — dedicated page) ----------
 // "Message the clinic" used to be a card at the bottom of Help & support; it
@@ -32,7 +32,7 @@ function PatientMessages() {
     if (!m) errs.message = 'Please write your message';
     else if (m.length < 10) errs.message = 'Please provide a bit more detail (10+ characters)';
     setMsgErrors(errs);
-    if (Object.keys(errs).length) return;
+    if (Object.keys(errs).length) { focusFirstError(); return; }
     store.setTickets([{
       id: 'tkt' + Date.now(),
       patientId: me.id,
@@ -56,7 +56,7 @@ function PatientMessages() {
   const [fuError, setFuError] = useState('');
   const sendFollowUp = (t) => {
     const text = fuText.trim();
-    if (text.length < 10) { setFuError('Please write a bit more (10+ characters).'); return; }
+    if (text.length < 10) { setFuError('Please write a bit more (10+ characters).'); focusFirstError(); return; }
     store.setTickets((store.tickets || []).map(x => x.id === t.id
       ? {
           ...x,
@@ -143,7 +143,7 @@ function PatientMessages() {
                   </div>
                   <div className="t-muted" style={{ fontSize: 12.5, marginTop: 4, lineHeight: 1.5 }}>{t.message}</div>
                   {(t.thread || []).map(m => m.from === 'staff' ? (
-                    <div key={m.id} style={{ marginTop: 8, fontSize: 12.5, lineHeight: 1.5, background: 'var(--success-soft)', border: '1px solid #6EE7B7', borderRadius: 6, padding: '8px 10px', color: 'var(--success-text)' }}>
+                    <div key={m.id} style={{ marginTop: 8, fontSize: 12.5, lineHeight: 1.5, background: 'var(--success-soft)', border: '1px solid var(--success-border)', borderRadius: 6, padding: '8px 10px', color: 'var(--success-text)' }}>
                       <strong>Staff reply:</strong> {m.text}
                       {m.date && <div className="t-help" style={{ marginTop: 2 }}>{window.formatDate(m.date)}</div>}
                     </div>
@@ -154,7 +154,7 @@ function PatientMessages() {
                     </div>
                   ))}
                   {!t.thread && t.reply && (
-                    <div style={{ marginTop: 8, fontSize: 12.5, lineHeight: 1.5, background: 'var(--success-soft)', border: '1px solid #6EE7B7', borderRadius: 6, padding: '8px 10px', color: 'var(--success-text)' }}>
+                    <div style={{ marginTop: 8, fontSize: 12.5, lineHeight: 1.5, background: 'var(--success-soft)', border: '1px solid var(--success-border)', borderRadius: 6, padding: '8px 10px', color: 'var(--success-text)' }}>
                       <strong>Staff reply:</strong> {t.reply}
                     </div>
                   )}
@@ -168,7 +168,7 @@ function PatientMessages() {
                       <Field label="Your follow-up" required error={fuError} help={`${fuText.trim().length}/500 characters. Minimum 10.`}>
                         <TextArea rows={3} value={fuText} maxLength={500}
                           onChange={e => { setFuText(e.target.value); if (fuError) setFuError(''); }}
-                          placeholder="e.g., Thank you! One more question about the schedule..." />
+                          placeholder="e.g., Thank you! One more question about the schedule…" />
                       </Field>
                       <div style={{ display: 'flex', gap: 8 }}>
                         <button type="button" className="btn btn-primary sm" onClick={() => sendFollowUp(t)}>Send</button>

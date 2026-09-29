@@ -1,7 +1,7 @@
 // store.jsx — split from components.jsx (layered shared UI)
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import brandLogo from '../assets/brand_logo.png';
-import './data.js';
+import { DOCTOR_CREDENTIALS, PATIENT_CREDENTIALS } from './data.js';
 import AnimatedContent from './reactbits/AnimatedContent.jsx';
 
 // ---------- App-wide store (kept simple, in-memory + localStorage for appointments/role) ----------
@@ -60,11 +60,11 @@ function StoreProvider({ children }) {
     // list. This seeded row keeps the demo doctor login working out of the box.
     const demoDoctorUser = {
       id: 'udoctor',
-      name: (window.findDoctor(window.DOCTOR_CREDENTIALS.doctorId) || {}).name || 'Doctor',
-      email: window.DOCTOR_CREDENTIALS.email,
-      password: window.DOCTOR_CREDENTIALS.password,
+      name: (window.findDoctor(DOCTOR_CREDENTIALS.doctorId) || {}).name || 'Doctor',
+      email: DOCTOR_CREDENTIALS.email,
+      password: DOCTOR_CREDENTIALS.password,
       role: 'doctor',
-      doctorId: window.DOCTOR_CREDENTIALS.doctorId,
+      doctorId: DOCTOR_CREDENTIALS.doctorId,
       createdAt: '2024-08-14',
     };
     try {
@@ -75,8 +75,8 @@ function StoreProvider({ children }) {
         // inject the demo doctor account when missing so the demo login keeps
         // working. Skipped when the demo doctor was removed from the
         // directory, so a deleted doctor stays unloginnable.
-        const hasDemoDoctor = list.some(u => u.role === 'doctor' && u.doctorId === window.DOCTOR_CREDENTIALS.doctorId);
-        if (!hasDemoDoctor && window.findDoctor(window.DOCTOR_CREDENTIALS.doctorId)) {
+        const hasDemoDoctor = list.some(u => u.role === 'doctor' && u.doctorId === DOCTOR_CREDENTIALS.doctorId);
+        if (!hasDemoDoctor && window.findDoctor(DOCTOR_CREDENTIALS.doctorId)) {
           list.unshift(demoDoctorUser);
         }
         return list;
@@ -85,8 +85,8 @@ function StoreProvider({ children }) {
     // Seed: demo patient account (Login screen) + demo doctor account (Doctor portal)
     return [{
       id: window.CURRENT_PATIENT.id, name: window.CURRENT_PATIENT.name,
-      email: 'patient@medicacare.ph', phone: window.CURRENT_PATIENT.phone,
-      password: 'patient123', role: 'patient',
+      email: PATIENT_CREDENTIALS.email, phone: window.CURRENT_PATIENT.phone,
+      password: PATIENT_CREDENTIALS.password, role: 'patient',
     }, demoDoctorUser];
   });
   // Identity of the logged-in patient (demo patient by default)
