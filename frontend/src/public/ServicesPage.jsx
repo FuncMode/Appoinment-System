@@ -1,6 +1,6 @@
 // ServicesPage — public (split from screens-public.jsx)
 
-import { FaqAccordion, Icon, navigate, PublicFooter, PublicNav } from '../shared/components.jsx';
+import { FaqAccordion, Icon, navigate, PublicFooter, PublicNav, useStore } from '../shared/components.jsx';
 import { SPECIALTIES } from '../shared/data.js';
 import Magnet from '../shared/reactbits/Magnet.jsx';
 import { SERVICES_FAQS } from './content.js';
@@ -8,6 +8,7 @@ import { HeroAurora, HeroTitle } from './hero.jsx';
 
 // ---------- Services page ----------
 function ServicesPage() {
+  const store = useStore();
   const services = [
     { icon: 'stethoscope', title: 'General & specialty consultations', desc: 'Board-certified physicians across 10 specialties, from family medicine to neurology.' },
     { icon: 'calendar-check', title: 'Online appointment booking', desc: 'Pick a doctor, choose an open time slot, and get instant confirmation, no phone calls needed.' },
@@ -77,12 +78,22 @@ function ServicesPage() {
       <section className="public-section" style={{ paddingTop: 32, textAlign: 'center' }}>
         <div className="public-section-inner">
           <h2>Skip the phone queue: book online</h2>
-          <p className="public-section-sub">Create a free patient account and see a specialist as early as tomorrow.</p>
+          <p className="public-section-sub">
+            {store.patientSession
+              ? 'You already have an account — book your next visit from the patient portal.'
+              : 'Create a free patient account and see a specialist as early as tomorrow.'}
+          </p>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Magnet padding={40} magnetStrength={3}>
-              <a className="btn btn-primary" href="#/register">Create patient account</a>
-            </Magnet>
-            <a className="btn btn-secondary" href="#/doctors">Browse doctors</a>
+            {store.patientSession ? (
+              <a className="btn btn-primary" href="#/patient/doctors">Open patient portal</a>
+            ) : (
+              <>
+                <Magnet padding={40} magnetStrength={3}>
+                  <a className="btn btn-primary" href="#/register">Create patient account</a>
+                </Magnet>
+                <a className="btn btn-secondary" href="#/doctors">Browse doctors</a>
+              </>
+            )}
           </div>
         </div>
       </section>

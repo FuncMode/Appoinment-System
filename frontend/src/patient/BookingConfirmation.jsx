@@ -6,6 +6,7 @@ import { findDoctor, formatDate } from '../shared/data.js';
 // ---------- Booking Confirmation ----------
 function BookingConfirmation() {
   const store = useStore();
+  const me = store.currentPatient || window.CURRENT_PATIENT;
   const id = store.lastBookingId;
   const appt = store.appointments.find(a => a.id === id);
   const doctor = appt ? window.findDoctor(appt.doctorId) : null;
@@ -64,6 +65,13 @@ function BookingConfirmation() {
                   <div className="t-help">Reference #</div>
                   <div className="t-mono" style={{ fontSize: 14, fontWeight: 500 }}>{appt.id.toUpperCase()}</div>
                 </div>
+                {/* Proxy booking: confirm immediately who the visit is for */}
+                {appt.bookedFor && appt.bookedFor !== me.name && (
+                  <div>
+                    <div className="t-help">Booking for</div>
+                    <div style={{ fontSize: 14, fontWeight: 500 }}>{appt.bookedFor}</div>
+                  </div>
+                )}
               </div>
             </div>
           )}

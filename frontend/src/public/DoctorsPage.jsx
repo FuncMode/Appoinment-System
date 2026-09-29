@@ -209,14 +209,22 @@ function DoctorsPage({ initialSpecialty = '' }) {
             <div style={{ flex: '1 1 240px' }}>
               <div style={{ fontWeight: 600 }}>Ready to book an appointment?</div>
               <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
-                Log in or create an account to view real-time availability and reserve a slot.
+                {store.patientSession
+                  ? "You're signed in — pick a doctor and reserve a slot from your patient portal."
+                  : 'Log in or create an account to view real-time availability and reserve a slot.'}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
-              <Magnet padding={40} magnetStrength={3}>
-                <a className="btn btn-primary" href="#/register">Register</a>
-              </Magnet>
-              <a className="btn btn-secondary" href="#/login">Log in</a>
+              {store.patientSession ? (
+                <a className="btn btn-primary" href="#/patient/doctors">Open patient portal</a>
+              ) : (
+                <>
+                  <Magnet padding={40} magnetStrength={3}>
+                    <a className="btn btn-primary" href="#/register">Register</a>
+                  </Magnet>
+                  <a className="btn btn-secondary" href="#/login">Log in</a>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -233,9 +241,15 @@ function DoctorsPage({ initialSpecialty = '' }) {
         footer={
           <>
             <button className="btn btn-secondary" onClick={() => setSelectedDoctor(null)}>Close</button>
-            <a className="btn btn-primary" href="#/register" onClick={() => setSelectedDoctor(null)}>
-              Book with this doctor
-            </a>
+            {store.patientSession ? (
+              <a className="btn btn-primary" href={'#/patient/availability/' + selectedDoctor.id} onClick={() => setSelectedDoctor(null)}>
+                Book with this doctor
+              </a>
+            ) : (
+              <a className="btn btn-primary" href="#/register" onClick={() => setSelectedDoctor(null)}>
+                Book with this doctor
+              </a>
+            )}
           </>
         }
       >

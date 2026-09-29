@@ -123,6 +123,9 @@ function DoctorDashboard() {
                       <button type="button" className="link-btn" onClick={() => setHistoryPatient(p || { id: a.patientId, name: 'Unknown patient' })}>
                         {p ? p.name : 'Unknown patient'}
                       </button>
+                      {a.bookedFor && p && a.bookedFor !== p.name && (
+                        <span className="t-muted" style={{ fontWeight: 400 }}> · booking for {a.bookedFor}</span>
+                      )}
                     </div>
                     <div className="list-item-sub">{a.reason}</div>
                   </div>
@@ -182,6 +185,9 @@ function DoctorDashboard() {
                       <button type="button" className="link-btn" onClick={() => setHistoryPatient(p || { id: a.patientId, name: 'Unknown patient' })}>
                         {p ? p.name : 'Unknown patient'}
                       </button>
+                      {a.bookedFor && p && a.bookedFor !== p.name && (
+                        <span className="t-muted" style={{ fontWeight: 400 }}> · booking for {a.bookedFor}</span>
+                      )}
                     </div>
                     <div className="list-item-sub">{a.reason}</div>
                   </div>

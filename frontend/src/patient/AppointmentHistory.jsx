@@ -1,9 +1,10 @@
 // AppointmentHistory — patient (split from screens-patient.jsx)
 import { useEffect, useState } from 'react';
-import { AppShell, ConfirmModal, DoctorAvatar, EmptyState, Icon, navigate, PageHeader, Pagination, SelectInput, SkeletonRows, SortableTh, StatusBadge, useStore } from '../shared/components.jsx';
+import { AppShell, ConfirmModal, DoctorAvatar, EmptyState, Icon, navigate, PageHeader, Pagination, SelectInput, SkeletonRows, SortableTh, StatusBadge, useHashRoute, useStore } from '../shared/components.jsx';
 import { CURRENT_PATIENT, findDoctor, formatDate, timeValue } from '../shared/data.js';
 
 import { RateVisitModal } from './AppointmentDetails.jsx';
+import { syncListParams } from './helpers.js';
 
 // ---------- Appointment History ----------
 function AppointmentHistory() {
@@ -13,9 +14,31 @@ function AppointmentHistory() {
   // the admin list pages
   const [loading, setLoading] = useState(true);
   useEffect(() => { const t = setTimeout(() => setLoading(false), 600); return () => clearTimeout(t); }, []);
-  const [status, setStatus] = useState('all');
-  const [query, setQuery] = useState('');
-  const [page, setPage] = useState(1);
+  // §50 URL state: status / q / page are reflected in the URL so a filtered
+  // history view survives a refresh and can be deep-linked (same pattern as
+  // the admin Appointments ?status= link from the dashboard)
+  const route = useHashRoute();
+  const [, historyQuery] = route.split('?');
+  const linkParams = new URLSearchParams(historyQuery || '');
+  const linkStatus = linkParams.get('status');
+  const [status, setStatus] = useState(
+    ['pending', 'confirmed', 'completed', 'cancelled', 'no-show'].includes(linkStatus) ? linkStatus : 'all'
+  );
+  const [query, setQuery] = useState(linkParams.get('q') || '');
+  const [page, setPage] = useState(() => {
+    const p = parseInt(linkParams.get('page'), 10);
+    return Number.isFinite(p) && p > 0 ? p : 1;
+  });
+  // Write the visible state back to the URL. replaceState adds no history
+  // entry and fires no hashchange, so the back button keeps behaving like
+  // navigation between pages, not between filter clicks.
+  useEffect(() => {
+    syncListParams('/patient/history', {
+      ...(status !== 'all' ? { status } : {}),
+      ...(query.trim() ? { q: query.trim() } : {}),
+      ...(page > 1 ? { page: String(page) } : {}),
+    });
+  }, [status, query, page]);
   const [confirmCancel, setConfirmCancel] = useState(null);
   const [cancelLoading, setCancelLoading] = useState(false);
   // Rate-your-visit modal (Option B): completed appointments only, one rating
@@ -62,6 +85,11 @@ function AppointmentHistory() {
   const paged = sorted.slice((page - 1) * PAGE, page * PAGE);
   // A sort change can move the current page out of range
   useEffect(() => { setPage(1); }, [sortKey, sortDir]);
+  // A stale ?page= from an old URL can point past the current result set
+  useEffect(() => {
+    const last = Math.max(1, Math.ceil(filtered.length / PAGE));
+    if (page > last) setPage(last);
+  }, [filtered.length]);
 
   const doCancel = () => {
     setCancelLoading(true);

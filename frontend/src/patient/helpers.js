@@ -40,6 +40,15 @@ function focusFirstError() {
   if (el) el.focus();
 }
 
+// §50 URL state: reflect list state (filters/search/page) in the URL so it
+// survives a refresh and can be deep-linked/shared. history.replaceState
+// keeps the back button clean — only real navigation goes into history.
+function syncListParams(path, params) {
+  const qs = new URLSearchParams(params).toString();
+  const url = `${window.location.pathname}${window.location.search}#${path}${qs ? '?' + qs : ''}`;
+  window.history.replaceState(null, '', url);
+}
+
 // "2026-09-11" + "10:30 AM" → ICS timestamp "20260911T103000" (floating local time)
 function toICSStamp(dateStr, timeStr, addMinutes = 0) {
   const m = String(timeStr || '').trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
@@ -170,4 +179,4 @@ function buildRecordsHTML(patient, records, meds, labs, bills) {
 // Patient screens
 // ============================================================
 
-export { activateOnKey, focusFirstError, toICSStamp, buildICS, buildReceipt, localToday, buildRecordsHTML };
+export { activateOnKey, focusFirstError, syncListParams, toICSStamp, buildICS, buildReceipt, localToday, buildRecordsHTML };

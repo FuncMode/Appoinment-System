@@ -247,6 +247,11 @@ function AppointmentsMgmt() {
                           <PatientAvatar person={p} size={28} />                          <div>
                             <div className="cell-primary cell-primary-truncate" style={{ maxWidth: 150 }}>{p?.name || 'Unknown'}</div>
                             <div className="cell-secondary">{p?.phone || '—'}</div>
+                            {/* Proxy booking: the slot may be for a family member
+                                saved on the patient's Profile, not the owner */}
+                            {a.bookedFor && p && a.bookedFor !== p.name && (
+                              <div className="cell-secondary">Booking for: {a.bookedFor}</div>
+                            )}
                           </div>
                         </div>
                       </td>

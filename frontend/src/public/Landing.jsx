@@ -76,9 +76,17 @@ function Landing() {
             <div className="public-hero-actions">
               {/* Solid white CTA — the blue-on-blue primary would vanish against
                   the photo's blue overlay. Plain button, no glow/gradient border
-                  (ui-guidelines §2/§7/§14; replaced the React Bits StarBorder). */}
-              <a className="btn btn-light lg" href="#/register">Create patient account</a>
-              <a className="btn btn-secondary lg" href="#/login">Log in</a>
+                  (ui-guidelines §2/§7/§14; replaced the React Bits StarBorder).
+                  Session-aware: a signed-in patient gets a portal link instead
+                  of the register CTA. */}
+              {store.patientSession ? (
+                <a className="btn btn-light lg" href="#/patient/dashboard">Open patient portal</a>
+              ) : (
+                <>
+                  <a className="btn btn-light lg" href="#/register">Create patient account</a>
+                  <a className="btn btn-secondary lg" href="#/login">Log in</a>
+                </>
+              )}
             </div>
           </div>
 
@@ -268,13 +276,21 @@ function Landing() {
         <div className="public-section-inner" style={{ textAlign: 'center' }}>
           <h2 style={{ marginBottom: 8 }}>Ready to book your first visit?</h2>
           <p className="public-section-sub" style={{ maxWidth: 520, margin: '0 auto 24px' }}>
-            Create a free account, pick a specialist, and choose a slot that fits your schedule.
+            {store.patientSession
+              ? 'You already have an account — pick a specialist and choose a slot that fits your schedule.'
+              : 'Create a free account, pick a specialist, and choose a slot that fits your schedule.'}
           </p>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Magnet padding={40} magnetStrength={3}>
-              <a className="btn btn-primary lg" href="#/register">Create patient account</a>
-            </Magnet>
-            <a className="btn btn-secondary lg" href="#/doctors">Browse doctors</a>
+            {store.patientSession ? (
+              <a className="btn btn-primary lg" href="#/patient/doctors">Open patient portal</a>
+            ) : (
+              <>
+                <Magnet padding={40} magnetStrength={3}>
+                  <a className="btn btn-primary lg" href="#/register">Create patient account</a>
+                </Magnet>
+                <a className="btn btn-secondary lg" href="#/doctors">Browse doctors</a>
+              </>
+            )}
           </div>
         </div>
       </section>

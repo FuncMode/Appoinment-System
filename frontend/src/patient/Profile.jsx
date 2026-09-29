@@ -110,6 +110,11 @@ function Profile() {
       const idx = window.PATIENTS.findIndex(x => x.id === updated.id);
       if (idx > -1) Object.assign(window.PATIENTS[idx], updated);
       store.setPatients(store.patients.map(p => p.id === updated.id ? { ...p, ...updated } : p));
+      // Keep the login account in sync — Login matches the email/password
+      // against store.users, so an unchanged users row would lock the patient
+      // out with their new email
+      store.setUsers(store.users.map(u => (u.id === updated.id && u.role === 'patient')
+        ? { ...u, email: updated.email, name: updated.name, phone: updated.phone } : u));
       store.pushToast({ title: 'Profile updated', msg: 'Your changes have been saved.' });
     }, 700);
   };

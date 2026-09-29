@@ -367,6 +367,14 @@ function AppShell({ current, children }) {
 // ---------- Public shell ----------
 function PublicNav({ activeLink = 'home' }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const store = useStore();
+  // Session-aware CTA: a signed-in visitor gets a link to their portal
+  // instead of Log in/Register (the marketing pages stay browsable for all)
+  const session = store.patientSession ? 'patient' : store.adminSession ? 'admin' : store.doctorSession ? 'doctor' : null;
+  const sessionCta = session === 'patient' ? { label: 'Patient portal', cta: 'Open patient portal', href: '#/patient/dashboard' }
+    : session === 'admin' ? { label: 'Admin console', cta: 'Open admin console', href: '#/admin/dashboard' }
+    : session === 'doctor' ? { label: 'Doctor portal', cta: 'Open doctor portal', href: '#/doctor/dashboard' }
+    : null;
   // Shadow + solid background once the page scrolls (nav is sticky on public pages)
   const [scrolled, setScrolled] = useState(false);
   const links = [
@@ -426,8 +434,14 @@ function PublicNav({ activeLink = 'home' }) {
           ))}
         </div>
         <div className="public-nav-cta">
-          <a className="btn btn-ghost" href="#/login">Log in</a>
-          <a className="btn btn-primary" href="#/register">Register</a>
+          {sessionCta ? (
+            <a className="btn btn-primary" href={sessionCta.href}>{sessionCta.cta}</a>
+          ) : (
+            <>
+              <a className="btn btn-ghost" href="#/login">Log in</a>
+              <a className="btn btn-primary" href="#/register">Register</a>
+            </>
+          )}
         </div>
         <button className="public-nav-burger" title="Open menu" aria-label="Open menu" onClick={() => setMenuOpen(true)}>
           <Icon name="menu" size={20} />
@@ -457,8 +471,14 @@ function PublicNav({ activeLink = 'home' }) {
             </nav>
             </AnimatedContent>
             <div className="public-drawer-cta">
-              <a className="btn btn-secondary" href="#/login" onClick={() => setMenuOpen(false)}>Log in</a>
-              <a className="btn btn-primary" href="#/register" onClick={() => setMenuOpen(false)}>Register</a>
+              {sessionCta ? (
+                <a className="btn btn-primary" href={sessionCta.href} onClick={() => setMenuOpen(false)}>{sessionCta.label}</a>
+              ) : (
+                <>
+                  <a className="btn btn-secondary" href="#/login" onClick={() => setMenuOpen(false)}>Log in</a>
+                  <a className="btn btn-primary" href="#/register" onClick={() => setMenuOpen(false)}>Register</a>
+                </>
+              )}
             </div>
           </div>
         </Fragment>

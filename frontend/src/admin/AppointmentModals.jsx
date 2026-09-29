@@ -236,6 +236,12 @@ function AppointmentDetailsModal({ appointment, onClose }) {
               <div className="t-help">Status</div>
               <div style={{ fontWeight: 600 }}>{window.statusMeta(appt.status).label}</div>
             </div>
+            {appt.bookedFor && (!patient || appt.bookedFor !== patient.name) && (
+              <div>
+                <div className="t-help">Booked for</div>
+                <div style={{ fontWeight: 600 }}>{appt.bookedFor}</div>
+              </div>
+            )}
           </div>
           <div>
             <div className="t-help">Reason for visit</div>

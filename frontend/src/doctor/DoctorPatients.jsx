@@ -117,10 +117,17 @@ function DoctorPatients() {
                       <td data-label="Patient">
                         <div className="cell-with-avatar">
                           <PatientAvatar person={p} size={28} />
-                          <div className="cell-primary">
-                            <button type="button" className="link-btn" onClick={() => setHistoryPatient(p || { id: a.patientId, name: 'Unknown patient' })}>
-                              {p ? p.name : 'Unknown patient'}
-                            </button>
+                          <div>
+                            <div className="cell-primary">
+                              <button type="button" className="link-btn" onClick={() => setHistoryPatient(p || { id: a.patientId, name: 'Unknown patient' })}>
+                                {p ? p.name : 'Unknown patient'}
+                              </button>
+                            </div>
+                            {/* Proxy booking: the visit may be for a family member,
+                                not the chart owner — clinically relevant context */}
+                            {a.bookedFor && p && a.bookedFor !== p.name && (
+                              <div className="cell-secondary" style={{ marginTop: 2 }}>Booking for: {a.bookedFor}</div>
+                            )}
                           </div>
                         </div>
                       </td>
