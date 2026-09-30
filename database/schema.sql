@@ -10,6 +10,25 @@
 -- ============================================================
 
 -- ------------------------------------------------------------
+-- ENCRYPTION REGISTRY (field-level, AES-256-GCM sa backend)
+--   Ang mga column na may [ENC] marker sa ibaba ay PHI/PII: sa totoong
+--   deployment, ciphertext lang ang itatabi dito — ine-encrypt/i-decrypt ng
+--   backend (shared/utils/crypto.js) gamit ang ENCRYPTION_KEY env (hindi
+--   kailanman nasa DB/frontend/logs). Buong design:
+--   docs/ENCRYPTION_DESIGN.md · Cross-layer: docs/SECURITY_ALIGNMENT.md §I
+--   TIER 1 [ENC]: patients.date_of_birth/blood_type/allergies/address/
+--     emergency_contact · appointments.reason/additional_notes/notes/
+--     contact_number · medical_records.title/summary · lab_results.test_name/
+--     findings · medications.name/dose/instructions ·
+--     support_ticket_messages.body · contact_messages.name/email/message ·
+--     patient_family_members.full_name/relation
+--   TIER 2 blind index (HMAC, equality search): patients.phone_search
+--   TIER 3 plaintext (sadya): email (login identity), full_name (search),
+--     doctors (public), dates/times/status (slot logic) — tingnan §1 ng design.
+--   HUWAG i-kalat: password_hash = one-way HASH (bcrypt/pgcrypto), hindi ENC.
+-- ------------------------------------------------------------
+
+-- ------------------------------------------------------------
 -- Enumerations
 -- ------------------------------------------------------------
 -- 'no-show' — doctor-side status sa Doctor portal ("Patient did not arrive").
@@ -43,11 +62,11 @@ create table patients (
   phone             text not null,
   password_hash     text not null,
   gender            gender,
-  date_of_birth     date,
-  blood_type        text,
-  allergies         text,
-  address           text,
-  emergency_contact text,
+  date_of_birth     date,                -- [ENC] PII — ciphertext sa backend path
+  blood_type        text,                -- [ENC] PHI
+  allergies         text,                -- [ENC] PHI
+  address           text,                -- [ENC] PII
+  emergency_contact text,                -- [ENC] PII ng third party (name+phone)
   photo_url         text,
   email_reminders   boolean not null default true,     -- Profile > "Email reminders" toggle
   portal_notifications boolean not null default true,  -- Profile > "Portal notifications" toggle
@@ -143,13 +162,13 @@ create table appointments (
   appointment_date date not null,
   start_time       time not null,
   end_time         time not null,
-  reason           text not null check (char_length(reason) between 1 and 500),
-  additional_notes text,
-  contact_number   text not null,
+  reason           text not null check (char_length(reason) between 1 and 500),  -- [ENC] PHI (health complaint) — sa backend path, ciphertext; CHECK ay papalitan ng Zod (playbook sa ibaba)
+  additional_notes text,             -- [ENC] pweding maglaman ng health details
+  contact_number   text not null,    -- [ENC] PII (phone); search via blind index (phone_search)
   booked_for       text,  -- proxy booking: pangalan ng pinag-book-an; NULL = self
   is_first_visit   boolean not null default true,  -- "Is this your first visit with this doctor?" (booking form)
   status           appointment_status not null default 'pending',
-  notes            text check (notes is null or char_length(notes) between 10 and 500),  -- doctor's visit notes ("Complete visit")
+  notes            text check (notes is null or char_length(notes) between 10 and 500),  -- [ENC] doctor's visit notes ("Complete visit") — PHI; CHECK ay papalitan ng Zod sa backend path
   created_at       timestamptz not null default now(),
   updated_at       timestamptz not null default now(),
   confirmed_at     timestamptz,
@@ -257,6 +276,12 @@ create index idx_visit_ratings_patient on visit_ratings (patient_id);           
 -- Computed averages para sa Doctor cards / Admin Doctors table. Laging
 -- ipapares ang avg_rating sa rating_count sa display (small samples stay
 -- labeled; walang rating = walang ipinapakita, hindi invented number).
+-- SECURITY note: ang view na ito ay nag-e-expose lang ng aggregates
+-- (doctor_id, avg, count) — walang per-patient rows. Sa PG15+, kung gusto
+-- mong sumailalim din ito sa RLS ng visit_ratings, gawin:
+--   create view v_doctor_rating_averages with (security_invoker = true) as ...
+-- (default na security-definer semantics ang views — bypass nito ang RLS ng
+--  base table; dito, intended yan para public ang doctor ratings).
 create view v_doctor_rating_averages as
 select
   doctor_id,
@@ -614,6 +639,13 @@ $$;
 --   cached) — hindi per-row. Lahat ng policy columns (patient_id, doctor_id,
 --   ticket_id, atbp.) ay may indexes sa schema sa itaas. Kailangan din ang
 --   to authenticated sa mga user-scoped policies para hindi tumama sa anon.
+--   Kapag naka-enable na, isama DIN ang contact_messages/doctors/specialties/
+--   doctor_weekly_availability (mga policy sa ibaba) — ang table na naiwanang
+--   walang RLS ay BUO ang write access ng authenticated role
+--   (security-rls-basics rule). OPTIONAL hardening: `alter table <t>
+--   force row level security;` para sumailalim din sa RLS ang table owner
+--   (may BYPASSRLS pa rin ang service_role sa Supabase, kaya hindi
+--   maaapektuhan ang backend path).
 -- ============================================================
 -- alter table patients enable row level security;
 -- alter table appointments enable row level security;
@@ -723,10 +755,31 @@ $$;
 -- service_role mula sa lahat ng roles — tingnan ang admin policies sa ibaba).
 -- alter table activity_log enable row level security;
 --
+-- Contact messages: PUBLIC submission (walang auth) + admin read/manage.
+-- HUWAG laktawan ito — kung naka-enable ang RLS sa lahat maliban dito, ang
+-- contact_messages (may PII: name/email) ay mananatiling buo ang access.
+-- alter table contact_messages enable row level security;
+-- (Phase 2 direct path: public submission — anon ay INSERT lang, walang read;
+--  sa prototype/backend path, service_role ang nag-i-insert at nagbabasa.)
+-- create policy "public insert contact messages" on contact_messages
+--   to anon
+--   for insert with check (true);
+--
 -- Ang doctors / specialties / doctor_weekly_availability ay public read
--- (marketing + booking data) — pwedeng iwanang walang RLS o gawan ng
--- "public read" policy; ang WRITE dito ay admin-only (phase 2) o
--- service_role lang habang prototype pa.
+-- (marketing + booking data) — PERO i-enable pa rin ang RLS at maglagay ng
+-- explicit na public-read policy: ang table na WALANG RLS ay buo ang
+-- insert/update/delete access ng authenticated role sa Supabase (kahit sino
+-- sa portal ay pwedeng mag-DELETE ng doctors!). Ang writes dito ay
+-- admin/service_role lang — walang write policy = denied sa anon/authenticated.
+-- alter table doctors enable row level security;
+-- alter table specialties enable row level security;
+-- alter table doctor_weekly_availability enable row level security;
+-- create policy "public read doctors" on doctors
+--   for select using (true);
+-- create policy "public read specialties" on specialties
+--   for select using (true);
+-- create policy "public read doctor availability" on doctor_weekly_availability
+--   for select using (true);
 --
 -- ============================================================
 -- ADMIN CONSOLE RLS (i-uncomment kasama ng mga nasa itaas)
@@ -811,6 +864,46 @@ $$;
 
 
 -- ============================================================
+-- FIELD-LEVEL ENCRYPTION PLAYBOOK (phase 2 — i-run KASAMA ng backend wiring)
+--   Hindi isinasagawa ngayon: ang prototype ay walang backend, at ang seed
+--   ay plaintext demo data. Kapag naka-implement na ang shared/utils/crypto.js
+--   (docs/ENCRYPTION_DESIGN.md §5 checklist), i-run ang mga sumusunod sa
+--   order — kasama ng one-time re-encrypt migration script ng backend:
+--
+--   1) Blind index column para sa equality search sa encrypted phone:
+--      alter table patients add column phone_search text;
+--      create index idx_patients_phone_search on patients (phone_search);
+--      (i-populate ng backend: HMAC-SHA256 ng normalized phone — hindi
+--       reversible kung walang key; hindi kayang i-WHERE ang randomized
+--       AES-GCM ciphertext kaya kailangan ito ng admin Patients search)
+--
+--   2) I-drop ang char_length CHECKs sa [ENC] columns — ang base64 ciphertext
+--      ay mas mahaba at variable ang haba; ang validation ay lilipat nang BUO
+--      sa backend Zod (mas mahigpit pa: length + format + sanitize):
+--      alter table appointments drop constraint appointments_reason_check;
+--      alter table appointments drop constraint appointments_notes_check;
+--      -- (pati ang visit_ratings.comment / support_tickets.subject /
+--      --  support_ticket_messages.body / patient_stories CHECKs kung ie-encrypt;
+--      --  sa kasalukuyang TIER-1 listahan, reason + notes lang ang sasaktan)
+--
+--   3) Widen kung may limit ang mga [ENC] columns (lahat ay `text` ngayon —
+--      sapat na para sa base64; walang type change na kailangan).
+--
+--   4) Ang JSONB columns (`lab_results.findings`) ay magiging base64 ciphertext
+--      text sa backend path — ang commented GIN index sa itaas ay HUWAG nang
+--      i-uncomment (hindi na kayang i-containment-query ang ciphertext).
+--
+--   5) BAWAL i-encrypt sa DB side gamit ang pgcrypto sa app path: ang key ay
+--      dadaan sa query text/logs. Ang pgcrypto sa schema na ito ay para LANG
+--      sa password hashing (crypt/gen_salt). Ang field encryption ay
+--      backend-side (Node crypto, AES-256-GCM) — docs/ENCRYPTION_DESIGN.md.
+--
+--   6) Verification: i-scan ang DB dump laban sa mga kilalang plaintext values
+--      (hal. 'Penicillin', 'Amlodipine') — dapat ZERO na ang hits pagkatapos
+--      ng migration.
+-- ============================================================
+
+-- ============================================================
 -- SEED DATA — fictional demo data ng buong app (public pages +
 -- Patient Portal + Admin Console + Doctor portal)
 --   - FICTIONAL lahat: pangalan, email, phone, address, atbp. — demo/test
@@ -831,7 +924,12 @@ $$;
 --       admin        40000000-0000-4000-8000-000000000001
 --       tickets      50000000-0000-4000-8000-0000000000<n>
 -- ============================================================
-create extension if not exists pgcrypto;  -- crypt()/gen_salt() para sa password hashes
+create schema if not exists extensions;  -- dedicated schema para sa extensions (tingnan ang note sa ibaba)
+create extension if not exists pgcrypto with schema extensions;  -- crypt()/gen_salt() para sa password hashes
+-- Extensions sa dedicated `extensions` schema, HINDI sa public (security rule:
+-- bawat function sa public ay callable ng kahit sinong may schema usage).
+-- Kung existing na ang pgcrypto sa ibang schema sa deployment mo, tanggalin muna
+-- (drop extension pgcrypto) bago i-run ito, o i-qualify na lang ang calls sa ibaba.
 
 -- Specialties (10 — SPECIALTIES ng app)
 insert into specialties (name) values
@@ -906,7 +1004,7 @@ select
   v.full_name,
   v.email,
   v.phone,
-  crypt('patient123', gen_salt('bf')),  -- demo hash; sa totoong wiring, account creation ang magse-set
+  extensions.crypt('patient123', extensions.gen_salt('bf')),  -- demo hash; sa totoong wiring, account creation ang magse-set
   v.gender::gender,
   case when v.ord = 1 then date '1991-04-12' else make_date(2026 - v.age, 6, 15) end,
   case when v.ord = 1 then '18 Sampaguita St., Barangay San Antonio, Quezon City' end,
@@ -940,7 +1038,7 @@ insert into patients (
 select
   ('10000000-0000-4000-8000-' || lpad(v.ord::text, 12, '0'))::uuid,
   v.full_name, v.email, v.phone,
-  crypt('patient123', gen_salt('bf')),
+  extensions.crypt('patient123', extensions.gen_salt('bf')),
   v.gender::gender,
   make_date(2026 - v.age, 6, 15),
   'https://randomuser.me/api/portraits/' ||
@@ -966,14 +1064,14 @@ from (values
 -- Admin (CURRENT_ADMIN ng app; login email = ADMIN_CREDENTIALS)
 insert into admins (id, full_name, email, password_hash, role, photo_url) values
   ('40000000-0000-4000-8000-000000000001'::uuid, 'Dr. Helena Cruz-Ilagan',
-   'admin@medicacare.ph', crypt('admin123', gen_salt('bf')),
+   'admin@medicacare.ph', extensions.crypt('admin123', extensions.gen_salt('bf')),
    'Administrator', 'https://randomuser.me/api/portraits/women/44.jpg');
 
 -- Doctor portal account (DOCTOR_CREDENTIALS ng app — d1 ang may access)
 insert into doctor_accounts (doctor_id, email, password_hash)
 values
   (('00000000-0000-4000-8000-000000000001')::uuid,
-   'doctor@medicacare.ph', crypt('doctor123', gen_salt('bf')));
+   'doctor@medicacare.ph', extensions.crypt('doctor123', extensions.gen_salt('bf')));
 
 -- Weekly availability (AVAIL_PATTERNS rotation ng app — 6 patterns, per-doctor
 -- rotation; weekdays 08:30-16:30, Saturday 08:30-11:30, Sunday 08:30-12:00)
@@ -1295,8 +1393,9 @@ values
    'Hi Juan! Your ECG results are ready — you can view them under Medical records in your portal, or pick up a printed copy at the Records section, Ground Floor.',
    '2026-09-11'::timestamptz);
 
--- Patient stories (SEED_TESTIMONIALS ng app — 2 pending + 1 approved;
--- ang approved ay lalabas sa public "What patients say" carousel)
+-- Patient stories (SEED_TESTIMONIALS ng app — 2 pending + 3 approved;
+-- ang mga approved ay lalabas sa public "What patients say" carousel —
+-- tatlong slides para lumabas ang left/right arrows at ang auto-rotate)
 insert into patient_stories (patient_id, display_name, quote, status, created_at, reviewed_at, reviewed_by)
 values
   (('10000000-0000-4000-8000-000000000002')::uuid, 'Kristina F.',
@@ -1308,6 +1407,14 @@ values
   (('10000000-0000-4000-8000-000000000005')::uuid, 'Carlo R.',
    'Booked my annual check-up while commuting and the confirmation was already waiting when I got to the office.',
    'approved', '2026-09-10'::timestamptz, '2026-09-11'::timestamptz,
+   ('40000000-0000-4000-8000-000000000001')::uuid),
+  (('10000000-0000-4000-8000-000000000008')::uuid, 'Diana M.',
+   'The reminders kept me on track with my check-ups, and my lab results were already in the portal before my follow-up call.',
+   'approved', '2026-09-08'::timestamptz, '2026-09-09'::timestamptz,
+   ('40000000-0000-4000-8000-000000000001')::uuid),
+  (('10000000-0000-4000-8000-000000000011')::uuid, 'Miguel T.',
+   'Moving my father''s follow-up took one tap, and the confirmation arrived instantly — no more calling just to change a schedule.',
+   'approved', '2026-09-09'::timestamptz, '2026-09-10'::timestamptz,
    ('40000000-0000-4000-8000-000000000001')::uuid);
 
 -- Activity log (SEED_ACTIVITY ng app — timestamps relative sa run time,

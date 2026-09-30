@@ -14,6 +14,11 @@ const CSP = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
   "img-src 'self' data: https://randomuser.me",
+  // SECURITY ALIGNMENT (docs/SECURITY_ALIGNMENT.md): kapag naka-deploy na ang
+  // backend sa ibang origin (hal. Vercel serverless URL), DAPAT dagdagan dito ang
+  // API origin — hal. "connect-src 'self' https://medicacare-api.vercel.app" —
+  // kung hindi, i-b-block ng CSP ang lahat ng API calls. Sa dev, same-origin
+  // proxy ang gumagana kaya 'self' muna. I-tugma din sa CORS_ORIGINS ng backend.
   "connect-src 'self'",
   "frame-src https://www.openstreetmap.org",
   "object-src 'none'",

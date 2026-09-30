@@ -136,19 +136,19 @@ function StoreProvider({ children }) {
   });
   // Public testimonials — patient-submitted (portal), staff-moderated before
   // they appear on the public website. Seeded with two pending demo stories so
-  // the admin moderation page has data; no seeded approved stories (the public
-  // carousel keeps its labeled fictional fallback until real ones are approved).
+  // the admin moderation page has data, plus approved demo stories so the
+  // public carousel has multiple slides (arrows visible) from day one.
   const [testimonials, setTestimonials] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('nmc.testimonials'));
       if (Array.isArray(saved) && saved.length) {
-        // Migration: the approved demo story (tDemo3) was added to the seed
-        // after earlier saves existed — inject it into already-stored lists
-        // so the admin "Approved & shown publicly" section has demo data too
-        if (!saved.some(t => t.id === 'tDemo3')) {
-          const demoApproved = (window.SEED_TESTIMONIALS || []).filter(t => t.id === 'tDemo3');
-          return [...demoApproved, ...saved];
-        }
+        // Migration: approved demo stories added to the seed after earlier
+        // saves existed (tDemo3, then tDemo4/tDemo5) are injected into
+        // already-stored lists so the public carousel and the admin
+        // "Approved & shown publicly" section stay complete
+        const missingApproved = (window.SEED_TESTIMONIALS || [])
+          .filter(t => t.status === 'approved' && !saved.some(s => s.id === t.id));
+        if (missingApproved.length) return [...missingApproved, ...saved];
         return saved;
       }
     } catch { /* fall through to seed */ }

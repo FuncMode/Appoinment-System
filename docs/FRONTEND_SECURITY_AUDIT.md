@@ -22,6 +22,39 @@
 
 ---
 
+### Status as of 2026-09-29 (re-audit vs. this document)
+
+Re-run ng `frontend-security` checklist laban sa current code. Lahat ng
+frontend-fixable items sa "Recommended order of work" (rows 1–6) ay **naka-apply
+na at verified**:
+
+| Finding | Fix (verified this re-audit) |
+|---|---|
+| HIGH-002 CSV injection | `csvCell` sa `admin/helpers.js` may leading `= + - @ TAB CR` guard |
+| MEDIUM-002 escaper | hardened `escapeHTML` sa `shared/data.js` (kasama ang quotes), shared bilang `esc` sa admin + patient helpers |
+| CRITICAL-002 window credentials | `DOCTOR_CREDENTIALS` hindi na naka-publish sa `window`; demo passwords dev-gated (`import.meta.env.DEV`, `data.js: SHOW_DEMO_PASSWORDS`) |
+| MEDIUM-001 CSP | `Content-Security-Policy` meta injected at build time (`vite.config.js` `securityMeta()` plugin); referrer meta sa `index.html` |
+| LOW-001 innerHTML | `icons.jsx` gumagamit na ng `replaceChildren()` + `ICON_NAME` allowlist regex |
+| LOW-002 modulo bias | `randomInt()` rejection-samples na (`data.js`); ginagamit ng `generateOtp()` |
+| LOW-004 noopener | `ContactPage` map link: `rel="noopener noreferrer"` |
+
+**Verification run (2026-09-29):** `node scripts/security-checks.mjs` →
+**25/25 PASS** (CSV formula, HTML escaping, CSPRNG distribution, OTP charset);
+`npm run build` → **SUCCESS**.
+
+**Natitirang open (hindi kaya ng frontend lang):**
+
+| Finding | Bakit open | Susunod na hakbang |
+|---|---|---|
+| CRITICAL-001, HIGH-001, MEDIUM-004 (+ natitirang CRITICAL-002/LOW-005) | nangangailangan ng totoong server auth | `backend/` scaffold ay ready na — auth module ang unang i-implement (JWT + bcrypt + refresh tokens, tingnan ang `docs/BACKEND_ARCHITECTURE.md` §6) |
+| MEDIUM-003 vite/esbuild advisory (GHSA-67mh-4wv8-2f99, dev-server lang) | fix = Vite 5 → 8 major upgrade (breaking) | i-schedule ang upgrade; huwag i-expose ang dev server (`--host`) sa network |
+| LOW-003 third-party assets walang SRI | asset work (self-host fonts + portraits) | i-vendor ang IBM Plex at placeholder portraits sa `public/` |
+
+`npm audit` (2026-09-29): 2 advisories, **parehong dev-only** (esbuild moderate +
+vite high — dev-server exposure lang, wala sa production bundle).
+
+---
+
 ### Critical Findings
 
 #### [CRITICAL-001] Authentication and route guards are forgeable from the browser

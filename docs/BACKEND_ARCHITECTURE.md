@@ -4,6 +4,18 @@
 > Goal: A **modular, scalable, industry-standard** backend that is **explicitly connected to the Frontend (React + Vite + Tailwind)** and the **Database (Supabase PostgreSQL)**.
 > Stack agreed by user: **Node.js + Express** (JavaScript), **Supabase PostgreSQL** (existing DB), **Vercel** deployment.
 
+> **Dependencies installed (2026-09-29):** runtime — `express` (v4, pinaka-wide
+> middleware compatibility), `@supabase/supabase-js`, `dotenv`, `zod`,
+> `jsonwebtoken`, **`bcryptjs`** (pure-JS bcrypt — walang native build issue sa
+> Windows/Vercel; tugma sa ASVS V2.4 bcrypt ≥ cost 10), `express-rate-limit`,
+> `helmet` (API8), `morgan`; dev — `nodemon`, `eslint` (flat config sa
+> `eslint.config.js`). Scripts: `dev` / `start` / `lint` / `test`
+> (`node --test` built-in runner — walang extra test framework).
+> **Brevo: walang SDK** — tinatanggihan ang abandoned na `sib-api-v3-sdk`;
+> gagamit ng Node 18 built-in `fetch` laban sa Brevo REST API sa `config/brevo.js`
+> (mas maliit, walang vulnerable transitive deps). `npm audit --omit=dev` = 0
+> vulnerabilities sa install time.
+
 ---
 
 ## 1. Architecture Pattern: Modular ("Feature-based" / Vertical Slices)
@@ -373,4 +385,7 @@ dapat lumabas kung saan ito papasok.
 5. **Password hashing**: bcrypt/argon2 sa `auth.service` at
    `doctor.service` (portal access grant) — tugma sa "HUWAG plain text" note ng
    schema.
+6. **Security requirements map**: ang kumpletong security checklist bawat
+   module (OWASP API Top 10 + ASVS citations, verification tests, deployment
+   notes) ay nasa `docs/BACKEND_SECURITY_AUDIT.md` — basahin bago mag-code.
 

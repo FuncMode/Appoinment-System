@@ -45,7 +45,7 @@ seed credentials bago i-publish.
 - **24 patients** (p1 = demo patient, kumpleto ang health summary; may `patient123` hash lahat)
 - **~142 appointments**: 25 fixed-date + 24 "today" (dated `current_date` kaya laging may live na schedule) + ~93 fictional completed demo visits (dinadala nila ang ~93 seed ratings — FK-safe)
 - **Visit ratings** (deterministic 4–7 bawat doctor, tugma sa seeded rating tiers)
-- **3 patient stories** (2 pending para sa moderation demo + 1 approved sa public carousel)
+- **5 patient stories** (2 pending para sa moderation demo + 3 approved sa public carousel — sapat para lumabas ang left/right arrows at mag-slide)
 - **3 lab results** (findings JSONB, may high flag) + **3 medications** + **2 family members** (p1)
 - **4 support tickets** (2 open, 2 resolved na may staff reply sa thread)
 - **8 activity log entries** (timestamps relative sa run time)
@@ -147,7 +147,10 @@ appointments seed para hindi bumagsak ang buong run.
 ## Postgres best-practices audit (Supabase agent skill v1.1.1)
 
 Na-audit at na-apply ang [supabase-postgres-best-practices](https://github.com/supabase/agent-skills)
-skill laban sa `schema.sql`:
+skill laban sa `schema.sql`. **Re-audit 2026-09-29:** lahat ng rules ay muling
+na-verify at nag-close ang 5 security gaps (RLS coverage sa `contact_messages` +
+public tables, `pgcrypto` sa `extensions` schema, view security note, force-RLS
+guidance) — buong detalye sa `docs/DATABASE_SECURITY_AUDIT.md`:
 
 | Rule (category) | Resulta |
 | --- | --- |
@@ -175,6 +178,14 @@ skill laban sa `schema.sql`:
 3. **service_role key**: huwag ilalagay sa frontend. Sa prototype, ang
    kaya ng app ay client-side lang — sa totoong deployment, API/RLS ang
    gagawa ng verification (tingnan din ang README.md "Limitations").
+4. **Field-level encryption (PHI)**: ang mga column na may `[ENC]` marker sa
+   schema (reason, notes, findings, meds, allergies, address, atbp.) ay
+   iimbak bilang **AES-256-GCM ciphertext** sa totoong deployment — ine-
+   encrypt/i-decrypt ang backend, key sa `ENCRYPTION_KEY` env lang. Ang
+   Supabase at-rest encryption + TLS ay layered pa rin sa ilalim. Buong
+   design at column classification: **`docs/ENCRYPTION_DESIGN.md`** ·
+   cross-layer: `docs/SECURITY_ALIGNMENT.md` §I. Ang `password_hash` ay
+   one-way HASH (hindi encryption) at hindi kasama rito.
 
 ## Next steps (pagkatapos i-wire sa Supabase)
 

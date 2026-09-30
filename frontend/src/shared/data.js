@@ -289,13 +289,23 @@ export const SEED_TESTIMONIALS = [
     quote: 'I used to call three times just to ask for available schedules. Now I can see the open slots myself and pick one.',
     status: 'pending', createdAt: '2026-09-14',
   },
-  // Approved demo story — gives the admin "Approved & shown publicly" section
+  // Approved demo stories — give the admin "Approved & shown publicly" section
   // demo data from day one; per the moderation rule, approved stories also
-  // surface on the public website's What patients say carousel
+  // surface on the public website's What patients say carousel (arrows/slides)
   {
     id: 'tDemo3', patientId: 'p5', displayName: 'Carlo R.',
     quote: 'Booked my annual check-up while commuting and the confirmation was already waiting when I got to the office.',
     status: 'approved', createdAt: '2026-09-10', reviewedAt: '2026-09-11',
+  },
+  {
+    id: 'tDemo4', patientId: 'p8', displayName: 'Diana M.',
+    quote: 'The reminders kept me on track with my check-ups, and my lab results were already in the portal before my follow-up call.',
+    status: 'approved', createdAt: '2026-09-08', reviewedAt: '2026-09-09',
+  },
+  {
+    id: 'tDemo5', patientId: 'p11', displayName: 'Miguel T.',
+    quote: 'Moving my father\'s follow-up took one tap, and the confirmation arrived instantly — no more calling just to change a schedule.',
+    status: 'approved', createdAt: '2026-09-09', reviewedAt: '2026-09-10',
   },
 ];
 
