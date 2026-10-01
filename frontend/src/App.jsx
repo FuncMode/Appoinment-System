@@ -142,7 +142,7 @@ function App() {
   } else if (first === '/terms') {
     screen = <TermsPage />;
   } else if (path === 'patient') {
-    // Route guard — the patient portal requires a patient session
+    // Route guard — the patient portal requires a patient session.
     if (!store.patientSession) {
       screen = <Login />;
     } else {
@@ -168,7 +168,9 @@ function App() {
     // login itself is unlinked from the public site (URL is shared internally).
     if (!isDesktop) {
       screen = <DesktopOnlyNotice role="admin" />;
-    } else if (sub === 'login' || !store.adminSession) {
+    } else if (sub === 'login') {
+      screen = <AdminLogin />;
+    } else if (!store.adminSession) {
       screen = <AdminLogin />;
     } else if (sub === 'dashboard') screen = <AdminDashboard />;
     else if (sub === 'patients') screen = <PatientsMgmt />;
@@ -186,7 +188,9 @@ function App() {
     // login itself is unlinked from the public site (shared internally).
     if (!isDesktop) {
       screen = <DesktopOnlyNotice role="doctor" />;
-    } else if (sub === 'login' || !store.doctorSession) {
+    } else if (sub === 'login') {
+      screen = <DoctorLogin />;
+    } else if (!store.doctorSession) {
       screen = <DoctorLogin />;
     } else if (!window.findDoctor(store.doctorSession.doctorId)) {
       // The session points at a doctor the Admin console has removed from

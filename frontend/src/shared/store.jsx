@@ -1,13 +1,50 @@
 // store.jsx — split from components.jsx (layered shared UI)
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import brandLogo from '../assets/brand_logo.png';
-import { DOCTOR_CREDENTIALS, PATIENT_CREDENTIALS } from './data.js';
 import AnimatedContent from './reactbits/AnimatedContent.jsx';
 
 // ---------- App-wide store (kept simple, in-memory + localStorage for appointments/role) ----------
 const StoreCtx = createContext(null);
 
 function useStore() { return useContext(StoreCtx); }
+
+// Seed-data purge — the frontend no longer ships fictional demo data, but
+// browsers that ran the earlier prototype still carry seeded rows in
+// localStorage. Strip every row whose id matches an old seed pattern on
+// startup (idempotent: real user-created rows use timestamp ids and survive).
+const SEED_ID_PURGE = [
+  ['nmc.appointments', (id) => /^apT/.test(id) || /^ap\d{1,2}$/.test(id)],
+  ['nmc.ratings', (id) => /^demo-/.test(id)],
+  ['nmc.testimonials', (id) => /^tDemo/.test(id)],
+  ['nmc.tickets', (id) => /^tkt[1-4]$/.test(id)],
+  ['nmc.family', (id) => /^fam[12]$/.test(id)],
+  ['nmc.labs', (id) => /^lab[1-3]$/.test(id)],
+  ['nmc.meds', (id) => /^med[1-3]$/.test(id)],
+  // '/^act/' catches BOTH the seed rows (act1–act8) and the runtime entries
+  // generated during demo sessions (act_<timestamp>_<rand>) — new activity
+  // entries use the 'al_' prefix so they survive this purge
+  ['nmc.activity', (id) => /^act/.test(id)],
+  ['nmc.users', (id) => id === 'udoctor' || /^p\d{1,2}$/.test(id)],
+];
+
+function purgeSeedRows() {
+  for (const [key, isSeed] of SEED_ID_PURGE) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(key));
+      if (!Array.isArray(saved)) continue;
+      const cleaned = saved.filter(item => !item || !isSeed(String(item.id)));
+      if (cleaned.length !== saved.length) localStorage.setItem(key, JSON.stringify(cleaned));
+    } catch { /* corrupted storage — leave as-is */ }
+  }
+  // Seed identities/sessions — no longer valid without the demo accounts
+  const isSeedSession = (v) => v && typeof v === 'object'
+    && (/^p\d{1,2}$/.test(String(v.id)) || /^d\d{1,2}$/.test(String(v.doctorId)));
+  try {
+    if (isSeedSession(JSON.parse(localStorage.getItem('nmc.currentPatient')))) localStorage.removeItem('nmc.currentPatient');
+    if (isSeedSession(JSON.parse(localStorage.getItem('nmc.patientSession')))) localStorage.removeItem('nmc.patientSession');
+    if (isSeedSession(JSON.parse(localStorage.getItem('nmc.doctorSession')))) localStorage.removeItem('nmc.doctorSession');
+  } catch { /* leave as-is */ }
+}
 
 // Rename migration: accounts/identities saved before the MedicaCare rename
 // still carry the old @northgate-medical.ph domain — remap them on load so
@@ -19,91 +56,36 @@ function migratedEmail(user) {
 }
 
 function StoreProvider({ children }) {
+  purgeSeedRows();
   const [role, setRole] = useState(() => localStorage.getItem('nmc.role') || 'patient');
   const [appointments, setAppointments] = useState(() => {
     try {
-      const saved = localStorage.getItem('nmc.appointments');
-      if (saved) {
-        const list = JSON.parse(saved);
-        if (Array.isArray(list) && list.length) {
-          // The apT* rows are date-bound to "today" (see data.js), so they are
-          // regenerated on every load with the current date — the same way a
-          // real clinic's daily schedule is rebuilt each day. Everything else
-          // in storage (user bookings, older seed rows) is kept as-is.
-          const seedById = new Map(window.APPOINTMENTS.map(a => [a.id, a]));
-          const kept = list
-            .filter(a => !String(a.id).startsWith('apT'))
-            // Upgrade: seed appointments now carry doctor's notes (medical
-            // records derive from them) — copy them into stored lists that
-            // predate the notes field
-            .map(a => {
-              const seed = seedById.get(a.id);
-              return (seed && seed.notes && !a.notes) ? { ...a, notes: seed.notes } : a;
-            });
-          const freshToday = window.APPOINTMENTS.filter(a => String(a.id).startsWith('apT'));
-          return [...freshToday, ...kept];
-        }
-      }
-      return window.APPOINTMENTS;
-    } catch { return window.APPOINTMENTS; }
+      const saved = JSON.parse(localStorage.getItem('nmc.appointments'));
+      if (Array.isArray(saved)) return saved;
+    } catch { /* fall through */ }
+    return [];
   });
   const [doctors, setDoctors] = useState(window.DOCTORS);
   const [patients, setPatients] = useState(window.PATIENTS);
   const [pendingBooking, setPendingBooking] = useState(null); // {doctorId, date, time}
   const [lastBookingId, setLastBookingId] = useState(null);
   const [toasts, setToasts] = useState([]);
-  // Registered accounts (prototype auth) — persisted so credentials survive reloads
   const [users, setUsers] = useState(() => {
-    // Demo doctor portal account. Portal access is admin-issued (created from
-    // the Admin console's Doctors page) and stored as user rows with
-    // role 'doctor' + a doctorId link — DoctorLogin validates against this
-    // list. This seeded row keeps the demo doctor login working out of the box.
-    const demoDoctorUser = {
-      id: 'udoctor',
-      name: (window.findDoctor(DOCTOR_CREDENTIALS.doctorId) || {}).name || 'Doctor',
-      email: DOCTOR_CREDENTIALS.email,
-      password: DOCTOR_CREDENTIALS.password,
-      role: 'doctor',
-      doctorId: DOCTOR_CREDENTIALS.doctorId,
-      createdAt: '2024-08-14',
-    };
+    // Registered accounts (prototype auth) — persisted so credentials survive
+    // reloads. Starts empty: accounts come from the backend credential store
+    // (patients/admins/doctor_accounts) once the API is wired.
     try {
       const saved = JSON.parse(localStorage.getItem('nmc.users'));
-      if (Array.isArray(saved) && saved.length) {
-        const list = saved.map(migratedEmail);
-        // Migration: stored lists predate admin-issued doctor accounts —
-        // inject the demo doctor account when missing so the demo login keeps
-        // working. Skipped when the demo doctor was removed from the
-        // directory, so a deleted doctor stays unloginnable.
-        const hasDemoDoctor = list.some(u => u.role === 'doctor' && u.doctorId === DOCTOR_CREDENTIALS.doctorId);
-        if (!hasDemoDoctor && window.findDoctor(DOCTOR_CREDENTIALS.doctorId)) {
-          list.unshift(demoDoctorUser);
-        }
-        return list;
-      }
-    } catch { /* fall through to seed */ }
-    // Seed: demo patient account (Login screen) + demo doctor account (Doctor portal)
-    return [{
-      id: window.CURRENT_PATIENT.id, name: window.CURRENT_PATIENT.name,
-      email: PATIENT_CREDENTIALS.email, phone: window.CURRENT_PATIENT.phone,
-      password: PATIENT_CREDENTIALS.password, role: 'patient',
-    }, demoDoctorUser];
+      if (Array.isArray(saved)) return saved.map(migratedEmail);
+    } catch { /* fall through */ }
+    return [];
   });
-  // Identity of the logged-in patient (demo patient by default)
+  // Identity of the logged-in patient (hydrated from the backend session
+  // once wired; neutral placeholder identity until then)
   const [currentPatient, setCurrentPatient] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('nmc.currentPatient'));
-      if (saved && saved.id) {
-        const m = migratedEmail(saved);
-        // Photo backfill: profiles saved before the portrait pass carried no
-        // photo — merge the seed portrait so the avatar matches the patient
-        // registry instead of falling back to the initials circle
-        if (!m.photo) {
-          const seed = window.PATIENTS.find(p => p.id === m.id);
-          if (seed && seed.photo) return { ...m, photo: seed.photo };
-        }
-        return m;
-      }
+      if (saved && saved.id) return migratedEmail(saved);
     } catch { /* fall through */ }
     return window.CURRENT_PATIENT;
   });
@@ -122,37 +104,24 @@ function StoreProvider({ children }) {
     try { return JSON.parse(localStorage.getItem('nmc.doctorSession')) || null; } catch { return null; }
   });
   // Visit ratings — one per completed appointment (submitted from the patient
-  // portal), seeded with fictional demo feedback so the demo shows realistic
-  // averages from day one. Persisted like appointments; once the logged-in
-  // patient submits a real rating, the real list takes over permanently.
+  // portal). Persisted; the history comes from the database (visit_ratings)
+  // via the backend.
   const [ratings, setRatings] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('nmc.ratings'));
-      // An empty saved list means nothing real has been submitted yet — fall
-      // back to the demo seed
-      if (Array.isArray(saved) && saved.length) return saved;
-    } catch { /* fall through to seed */ }
-    return window.SEED_RATINGS || [];
+      if (Array.isArray(saved)) return saved;
+    } catch { /* fall through */ }
+    return [];
   });
   // Public testimonials — patient-submitted (portal), staff-moderated before
-  // they appear on the public website. Seeded with two pending demo stories so
-  // the admin moderation page has data, plus approved demo stories so the
-  // public carousel has multiple slides (arrows visible) from day one.
+  // they appear on the public website. Persisted; approved stories are
+  // served by the backend from patient_stories in the database.
   const [testimonials, setTestimonials] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('nmc.testimonials'));
-      if (Array.isArray(saved) && saved.length) {
-        // Migration: approved demo stories added to the seed after earlier
-        // saves existed (tDemo3, then tDemo4/tDemo5) are injected into
-        // already-stored lists so the public carousel and the admin
-        // "Approved & shown publicly" section stay complete
-        const missingApproved = (window.SEED_TESTIMONIALS || [])
-          .filter(t => t.status === 'approved' && !saved.some(s => s.id === t.id));
-        if (missingApproved.length) return [...missingApproved, ...saved];
-        return saved;
-      }
-    } catch { /* fall through to seed */ }
-    return window.SEED_TESTIMONIALS || [];
+      if (Array.isArray(saved)) return saved;
+    } catch { /* fall through */ }
+    return [];
   });
 
   // Clinic info + appointment preferences — persisted, and clinic info is
@@ -177,11 +146,9 @@ function StoreProvider({ children }) {
     try {
       const saved = JSON.parse(localStorage.getItem('nmc.family'));
       if (Array.isArray(saved)) return saved;
-    } catch { /* fall through to seed */ }
-    return window.SEED_FAMILY || [];
+    } catch { /* fall through */ }
+    return [];
   });
-  // Support tickets — portal "Message the clinic" → admin "Patient messages"
-  // page. Seeded with fictional demo tickets; persisted like appointments.
   // Support tickets — portal "Message the clinic" submissions that land on
   // the admin console's Patient messages page; persisted like appointments.
   // `thread` carries the conversation AFTER the first message (staff replies
@@ -194,36 +161,26 @@ function StoreProvider({ children }) {
     };
     try {
       const saved = JSON.parse(localStorage.getItem('nmc.tickets'));
-      if (Array.isArray(saved) && saved.length) {
-        // Migration: the demo tickets for the demo patient (tkt3/tkt4) were
-        // added later so the portal side of the reply loop is demo-able.
-        // Browsers with an older saved list would never see them, so merge
-        // the p1 seeds in when the saved list has none for that patient.
-        if (!saved.some(t => t.patientId === window.CURRENT_PATIENT.id)) {
-          const p1Demos = (window.SEED_TICKETS || []).filter(t => t.patientId === window.CURRENT_PATIENT.id);
-          if (p1Demos.length) return [...p1Demos, ...saved].map(withThread);
-        }
-        return saved.map(withThread);
-      }
-    } catch { /* fall through to seed */ }
-    return (window.SEED_TICKETS || []).map(withThread);
+      if (Array.isArray(saved)) return saved.map(withThread);
+    } catch { /* fall through */ }
+    return [];
   });
   // Lab results + medications — staff-encoded (Admin console → Patients →
   // Labs & medications) and shown on the patient's Medical Records page.
-  // Seeded with fictional demo rows for the demo patient; persisted.
+  // Persisted; rows come from the database (lab_results / medications).
   const [labs, setLabs] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('nmc.labs'));
       if (Array.isArray(saved)) return saved;
-    } catch { /* fall through to seed */ }
-    return window.SEED_LABS || [];
+    } catch { /* fall through */ }
+    return [];
   });
   const [meds, setMeds] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('nmc.meds'));
       if (Array.isArray(saved)) return saved;
-    } catch { /* fall through to seed */ }
-    return window.SEED_MEDICATIONS || [];
+    } catch { /* fall through */ }
+    return [];
   });
   // Patient-side reminder preferences (Profile page → Notifications & reminders)
   const [patientPrefs, setPatientPrefs] = useState(() => {
@@ -234,18 +191,19 @@ function StoreProvider({ children }) {
     return { emailReminders: true, portalNotifs: true };
   });
   // Activity log — staff/doctor/portal actions surfaced on the admin Activity
-  // page. Persisted; seeded with fictional demo entries until real actions
-  // land (same pattern as ratings: an empty saved list falls back to seed)
+  // page. Persisted; real actions append at runtime (database-backed later).
   const [activity, setActivity] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('nmc.activity'));
-      if (Array.isArray(saved) && saved.length) return saved;
-    } catch { /* fall through to seed */ }
-    return (window.SEED_ACTIVITY || []).slice();
+      if (Array.isArray(saved)) return saved;
+    } catch { /* fall through */ }
+    return [];
   });
   const pushActivity = useCallback((actor, action, detail) => {
     setActivity(prev => [
-      { id: 'act_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), actor, action, detail: detail || '', at: Date.now() },
+      // 'al_' prefix — IDs starting with 'act' belong to the pre-backend demo
+      // era and are stripped by purgeSeedRows() on startup
+      { id: 'al_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), actor, action, detail: detail || '', at: Date.now() },
       ...prev,
     ].slice(0, 20));
   }, []);

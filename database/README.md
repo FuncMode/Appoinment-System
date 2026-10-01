@@ -30,8 +30,8 @@ psql -U postgres -d medicacare -f database/schema.sql
 
 | Role | Login page | Email | Password |
 | --- | --- | --- | --- |
-| Patient | `#/login` (public) | `patient@medicacare.ph` | `patient123` |
-| Admin / Staff | `#/admin/login` | `admin@medicacare.ph` | `admin123` |
+| Patient | `#/login` (public) | `mwawlasly@gmail.com` | `patient123` |
+| Admin / Staff | `#/admin/login` | `angelitotallod1234@gmail.com` | `admin123` |
 | Doctor | `#/doctor/login` | `doctor@medicacare.ph` | `doctor123` |
 
 Ipinapakita rin ang mga credentials na ito sa demo-account panel ng mga login
@@ -42,10 +42,10 @@ seed credentials bago i-publish.
 ## Ano ang naka-seed (lahat ng fictional demo data ng app)
 
 - **10 specialties**, **18 doctors** (may photo, fee, room, status, weekly availability)
-- **24 patients** (p1 = demo patient, kumpleto ang health summary; may `patient123` hash lahat)
+- **26 patients** (p1 = demo patient, kumpleto ang health summary; may `patient123` hash lahat)
 - **~142 appointments**: 25 fixed-date + 24 "today" (dated `current_date` kaya laging may live na schedule) + ~93 fictional completed demo visits (dinadala nila ang ~93 seed ratings — FK-safe)
 - **Visit ratings** (deterministic 4–7 bawat doctor, tugma sa seeded rating tiers)
-- **5 patient stories** (2 pending para sa moderation demo + 3 approved sa public carousel — sapat para lumabas ang left/right arrows at mag-slide)
+- **8 patient stories** (2 pending para sa moderation demo + 6 approved sa public carousel — kasama ang 3 fictional prototype stories, naka-preserba sa DB)
 - **3 lab results** (findings JSONB, may high flag) + **3 medications** + **2 family members** (p1)
 - **4 support tickets** (2 open, 2 resolved na may staff reply sa thread)
 - **8 activity log entries** (timestamps relative sa run time)
@@ -186,6 +186,10 @@ guidance) — buong detalye sa `docs/DATABASE_SECURITY_AUDIT.md`:
    design at column classification: **`docs/ENCRYPTION_DESIGN.md`** ·
    cross-layer: `docs/SECURITY_ALIGNMENT.md` §I. Ang `password_hash` ay
    one-way HASH (hindi encryption) at hindi kasama rito.
+5. **Storage buckets (avatars)**: ang profile photos ay nasa **PRIVATENG** `avatars`
+   bucket sa Supabase Storage — backend-only uploads (service_role), backend-
+   signed URLs (TTL 5 min) ang serve path, WALANG public policy. Buong design:
+   **`docs/STORAGE_DESIGN.md`** · cross-layer: `docs/SECURITY_ALIGNMENT.md` §K.
 
 ## Next steps (pagkatapos i-wire sa Supabase)
 

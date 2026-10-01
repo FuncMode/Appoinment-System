@@ -1,7 +1,7 @@
 // DoctorLogin — public (split from screens-public.jsx)
 import { useEffect, useState } from 'react';
 import { BrandMark, Field, Icon, navigate, OtpVerifyModal, TextInput, useStore } from '../shared/components.jsx';
-import { DOCTOR_CREDENTIALS, SHOW_DEMO_PASSWORDS, findDoctor, initials } from '../shared/data.js';
+import { findDoctor, initials } from '../shared/data.js';
 import Aurora from '../shared/reactbits/Aurora.jsx';
 import SplitText from '../shared/reactbits/SplitText.jsx';
 import AnimatedContent from '../shared/reactbits/AnimatedContent.jsx';
@@ -20,7 +20,6 @@ function DoctorLogin({ removed = false }) {
   const [errors, setErrors] = useState({});
   const [authError, setAuthError] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [demoOpen, setDemoOpen] = useState(false);
   // Step 2 of doctor login (prototype demo): the emailed 6-character code
   // gates the portal — `pendingDoc` holds the session payload and the
   // session is only created from onVerified
@@ -140,33 +139,6 @@ function DoctorLogin({ removed = false }) {
               Patient? <a href="#/login">Use the patient portal instead</a>
             </div>
           </form>
-
-          <div className={`demo-accounts ${demoOpen ? 'open' : ''}`}>
-            <button
-              type="button"
-              className="demo-accounts-toggle"
-              aria-expanded={demoOpen}
-              onClick={() => setDemoOpen(o => !o)}
-            >
-              <span className="demo-accounts-title">Demo account: click to use</span>
-              <Icon name="chevron-down" size={14} />
-            </button>
-            {demoOpen && (
-              <button type="button" className="demo-account" onClick={() => {
-                setForm({ email: DOCTOR_CREDENTIALS.email, password: DOCTOR_CREDENTIALS.password });
-                setErrors({}); setAuthError(null);
-              }}>
-                <span className="avatar sm neutral">{window.initials((window.findDoctor(DOCTOR_CREDENTIALS.doctorId) || {}).name)}</span>
-                <span style={{ minWidth: 0 }}>
-                  <span style={{ display: 'block', fontSize: 13, fontWeight: 500 }}>{DOCTOR_CREDENTIALS.email}</span>
-                  {SHOW_DEMO_PASSWORDS && (
-                    <span className="t-muted" style={{ display: 'block', fontSize: 11 }}>Password: {DOCTOR_CREDENTIALS.password}</span>
-                  )}
-                </span>
-                <span className="demo-account-role">Doctor</span>
-              </button>
-            )}
-          </div>
         </div>
       </div>
       </AnimatedContent>

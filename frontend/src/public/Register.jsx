@@ -35,7 +35,7 @@ function Register() {
     evt.preventDefault();
     const e = validate();
     const em = form.email.toLowerCase().trim();
-    const reservedEmails = ['patient@medicacare.ph', 'admin@medicacare.ph'];
+    const reservedEmails = ['mwawlasly@gmail.com', 'angelitotallod1234@gmail.com'];
     if (!e.email && (reservedEmails.includes(em) || store.users.some(u => u.email.toLowerCase() === em))) {
       e.email = 'An account with this email already exists. Try logging in instead.';
     }

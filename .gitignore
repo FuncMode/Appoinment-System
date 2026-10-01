@@ -1,0 +1,8 @@
+# Vite cache / temp deps (deps_temp_*) — maaaring lumitaw kahit saang folder
+# kung saan tumakbo ang vite; junk lang, huwag isama sa commit.
+.vite/
+
+# OS junk
+Thumbs.db
+Desktop.ini
+.DS_Store

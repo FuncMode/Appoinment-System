@@ -20,18 +20,6 @@ const CARE_GUIDE = [
   { symptom: 'General annual check-up', specialty: 'Family Medicine' },
 ];
 
-// Prototype testimonial stories — shown on the Landing "What patients say"
-// carousel as clearly labeled fiction while no real patient stories have been
-// approved yet (labeled on the card AND in the section copy, per R-18: never
-// present invented reviews as real social proof). Once real stories are
-// approved via the portal → admin moderation flow, they replace these
-// entirely — the two are never mixed in one carousel (DESIGN.md).
-const PROTOTYPE_STORIES = [
-  { quote: 'Booking my cardiology follow-up used to take a whole afternoon of phone calls. Now I do it in two taps before work.', who: 'Sofia R. · fictional patient story' },
-  { quote: "I booked my son's pediatric check-up after my night shift and had a confirmation before I even got home.", who: 'Marco T. · fictional parent story' },
-  { quote: "Rescheduling used to mean three phone calls and crossing my fingers. Now it's two taps and done.", who: 'Andrea L. · fictional patient story' },
-];
-
 // Homepage FAQ — expandable accordion (Cleveland-Clinic-style FAQ section)
 const LANDING_FAQS = [
   { q: 'Do I need an account to book an appointment?', a: 'Yes. Create a free patient account first so your bookings, records, and reminders live in one secure place. Registration takes under a minute.' },
@@ -50,4 +38,4 @@ const SERVICES_FAQS = [
   { q: 'How does HMO assistance work?', a: 'Present your HMO card at the billing counter. Our staff verifies eligibility and processes the claim directly with your provider so you focus on recovery.' },
 ];
 
-export { CARE_GUIDE, PROTOTYPE_STORIES, LANDING_FAQS, SERVICES_FAQS };
+export { CARE_GUIDE, LANDING_FAQS, SERVICES_FAQS };

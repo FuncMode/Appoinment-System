@@ -10,15 +10,23 @@ import { HeroAurora, HeroTitle } from './hero.jsx';
 // ---------- About page ----------
 function AboutPage() {
   // Every figure matches the app's own data or the fictional hospital's stated
-  // lore (est. 1991); nothing invented beyond the disclosed fiction (R-17)
-  const minFee = Math.min(...DOCTORS.map(d => d.fee));
+  // lore (est. 1991); nothing invented beyond the disclosed fiction (R-17).
+  // With the directory not yet loaded from the database, empty figures show a
+  // neutral dash instead of ₱NaN / 0 counts.
+  const minFee = DOCTORS.length ? Math.min(...DOCTORS.map(d => d.fee)) : null;
   // Numeric stats animate in with React Bits CountUp; the non-numeric
   // '35 yrs' figure stays static. Same seed-data numbers as before (R-17).
   const stats = [
-    { to: DOCTORS.length, label: 'Board-certified specialists' },
-    { to: SPECIALTIES.length, label: 'Departments & centers' },
+    DOCTORS.length
+      ? { to: DOCTORS.length, label: 'Board-certified specialists' }
+      : { value: '—', label: 'Board-certified specialists' },
+    SPECIALTIES.length
+      ? { to: SPECIALTIES.length, label: 'Departments & centers' }
+      : { value: '—', label: 'Departments & centers' },
     { value: '35 yrs', label: 'Serving Quezon City (est. 1991)' },
-    { to: minFee, prefix: '₱', label: 'Consultation fees start at' },
+    minFee != null
+      ? { value: `₱${minFee.toLocaleString('en-PH')}`, label: 'Consultation fees start at' }
+      : { value: '—', label: 'Consultation fees start at' },
   ];
   // Equal-weight by design: these values are peers, and the uniform treatment
   // IS the hierarchy decision (documented in DESIGN.md, RHYTHM note)

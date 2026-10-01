@@ -1,7 +1,6 @@
 // Login — public (split from screens-public.jsx)
 import { useState } from 'react';
 import { BrandMark, Field, Icon, navigate, OtpVerifyModal, PwField, TextInput, useStore } from '../shared/components.jsx';
-import { CURRENT_PATIENT, PATIENT_CREDENTIALS, SHOW_DEMO_PASSWORDS } from '../shared/data.js';
 import Aurora from '../shared/reactbits/Aurora.jsx';
 import SplitText from '../shared/reactbits/SplitText.jsx';
 import AnimatedContent from '../shared/reactbits/AnimatedContent.jsx';
@@ -22,17 +21,14 @@ function Login() {
   const [otpAccount, setOtpAccount] = useState(null);
 
   const finishLogin = (account) => {
-    // Registered account (including the seeded demo patient) — enter the
-    // portal as that patient identity so bookings/history belong to them
-    if (account.id === CURRENT_PATIENT.id) {
-      store.setCurrentPatient(CURRENT_PATIENT);
-    } else {
-      store.setCurrentPatient({
-        id: account.id, name: account.name, email: account.email, phone: account.phone,
-        dob: '', gender: '', address: '', emergencyContact: '', bloodType: '—', allergies: 'None',
-        photo: account.photo || '',
-      });
-    }
+    // Registered account — enter the portal as that patient identity so
+    // bookings/history belong to them. Health summary fields start empty
+    // until the backend supplies the real profile.
+    store.setCurrentPatient({
+      id: account.id, name: account.name, email: account.email, phone: account.phone,
+      dob: '', gender: '', address: '', emergencyContact: '', bloodType: '—', allergies: 'None',
+      photo: account.photo || '',
+    });
     store.loginPatient(account);
     store.setRole('patient');
     setOtpAccount(null);
@@ -65,16 +61,6 @@ function Login() {
           : 'No account found with this email. Please register first.');
       }
     }, 700);
-  };
-
-  // Demo account accordion — collapsed by default to keep the form clean.
-  // Patient credentials only; the staff login lives on the separate AdminLogin
-  // screen so admin credentials are never exposed on the public login page.
-  const [demoOpen, setDemoOpen] = useState(false);
-
-  const useDemo = () => {
-    setForm({ email: PATIENT_CREDENTIALS.email, password: PATIENT_CREDENTIALS.password, remember: true });
-    setErrors({}); setAuthError(null);
   };
 
   return (
@@ -142,30 +128,6 @@ function Login() {
               New here? <a href="#/register">Create an account</a>
             </div>
           </form>
-
-          <div className={`demo-accounts ${demoOpen ? 'open' : ''}`}>
-            <button
-              type="button"
-              className="demo-accounts-toggle"
-              aria-expanded={demoOpen}
-              onClick={() => setDemoOpen(o => !o)}
-            >
-              <span className="demo-accounts-title">Demo accounts: click to use</span>
-              <Icon name="chevron-down" size={14} />
-            </button>
-            {demoOpen && (
-              <button type="button" className="demo-account" onClick={useDemo}>
-                <span className="avatar sm">JB</span>
-                <span style={{ minWidth: 0 }}>
-                  <span style={{ display: 'block', fontSize: 13, fontWeight: 500 }}>{PATIENT_CREDENTIALS.email}</span>
-                  {SHOW_DEMO_PASSWORDS && (
-                    <span className="t-muted" style={{ display: 'block', fontSize: 11 }}>Password: {PATIENT_CREDENTIALS.password}</span>
-                  )}
-                </span>
-                <span className="demo-account-role">Patient</span>
-              </button>
-            )}
-          </div>
         </div>
       </div>
       </AnimatedContent>

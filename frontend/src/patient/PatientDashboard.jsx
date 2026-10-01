@@ -226,6 +226,12 @@ function PatientDashboard() {
                   <span className="skel" style={{ width: 70, height: 18 }} />
                 </div>
               ))
+            ) : myAppts.length === 0 ? (
+              <EmptyState
+                icon="activity"
+                title="No activity yet"
+                message="Your bookings, visits, and updates will appear here."
+              />
             ) : myAppts.slice(0, 4).map(a => {
               const d = window.findDoctor(a.doctorId);
               return (

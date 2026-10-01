@@ -5,7 +5,7 @@ import { APPOINTMENTS, CURRENT_PATIENT, DOCTORS, findDoctor, HOSPITAL, SPECIALTI
 import Magnet from '../shared/reactbits/Magnet.jsx';
 import ScrollVelocity from '../shared/reactbits/ScrollVelocity.jsx';
 import GlareHover from '../shared/reactbits/GlareHover.jsx';  // hero preview card only — the one deliberate hover flourish
-import { CARE_GUIDE, LANDING_FAQS, PROTOTYPE_STORIES } from './content.js';
+import { CARE_GUIDE, LANDING_FAQS } from './content.js';
 import { HeroAurora, HeroTitle } from './hero.jsx';
 
 // ============================================================
@@ -71,8 +71,8 @@ function Landing() {
               <ClinicStatus />
             </div>
             <HeroTitle light>Book a MedicaCare specialist online, no phone calls needed.</HeroTitle>
-            <p>Pick from {DOCTORS.length} board-certified doctors across {SPECIALTIES.length} departments,
-               view real-time availability, and get a confirmation in minutes. Reschedule anytime from your portal.</p>
+            <p>Board-certified specialists across every department, real-time availability,
+               and a confirmation in minutes. Reschedule anytime from your portal.</p>
             <div className="public-hero-actions">
               {/* Solid white CTA — the blue-on-blue primary would vanish against
                   the photo's blue overlay. Plain button, no glow/gradient border
@@ -91,8 +91,10 @@ function Landing() {
           </div>
 
           <div className="public-hero-visual">
-            {/* Portal preview — built from the demo patient's real next appointment */}
-            {previewAppt && previewDoc && (
+            {/* Portal preview — mirrors the signed-in patient's real next
+                appointment; a neutral placeholder takes its place while the
+                doctor/appointment data has not loaded from the database yet */}
+            {previewAppt && previewDoc ? (
               <>
                 <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.92)', marginBottom: 8, textAlign: 'right' }}>
                   A peek at your patient portal
@@ -128,6 +130,19 @@ function Landing() {
                   </div>
                 </GlareHover>
               </>
+            ) : (
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.92)', marginBottom: 8 }}>
+                  A peek at your patient portal
+                </div>
+                <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 10, padding: 16, textAlign: 'left' }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>Next appointment</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>Nothing booked yet</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                    Your next visit appears here as soon as you book — doctors load from the hospital database.
+                  </div>
+                </div>
+              </div>
             )}
             {/* Quiet reassurance microcopy — cost / payment / wait answered up
                 front; centered under the preview card to balance the column */}
@@ -178,9 +193,11 @@ function Landing() {
                     We recommend our <span style={{ color: 'var(--primary)' }}>{pickedGuide.specialty}</span> department
                   </div>
                   <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
-                    {pickedDoctors > 0
-                      ? `${pickedDoctors} available specialist${pickedDoctors === 1 ? '' : 's'} right now. Bookings open as early as this week.`
-                      : 'Specialists are currently busy or on leave. You can still browse their profiles and check schedules.'}
+                    {DOCTORS.length === 0
+                      ? 'Our doctor directory is being connected to the hospital database — available specialists will appear here shortly.'
+                      : pickedDoctors > 0
+                        ? `${pickedDoctors} available specialist${pickedDoctors === 1 ? '' : 's'} right now. Bookings open as early as this week.`
+                        : 'Specialists are currently busy or on leave. You can still browse their profiles and check schedules.'}
                   </div>
                   <div style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                     <a className="btn btn-primary" href={`#/doctors?spec=${encodeURIComponent(pickedGuide.specialty)}`}>
@@ -233,16 +250,22 @@ function Landing() {
           <span className="section-kicker">Our departments</span>
           <h2>Departments</h2>
           <p className="public-section-sub">Tap a department to see its specialists.</p>
-          <div className="grid-4">
-            {/* Arrow kept deliberately: it signals "this chip navigates to the
-                filtered doctors list", which is exactly where it goes (R-08) */}
-            {SPECIALTIES.map(s => (
-              <button key={s} className="dept-chip" onClick={() => navigate(`/doctors?spec=${encodeURIComponent(s)}`)}>
-                {s}
-                <Icon name="arrow-right" size={14} className="dept-arrow" />
-              </button>
-            ))}
-          </div>
+          {SPECIALTIES.length > 0 ? (
+            <div className="grid-4">
+              {/* Arrow kept deliberately: it signals "this chip navigates to the
+                  filtered doctors list", which is exactly where it goes (R-08) */}
+              {SPECIALTIES.map(s => (
+                <button key={s} className="dept-chip" onClick={() => navigate(`/doctors?spec=${encodeURIComponent(s)}`)}>
+                  {s}
+                  <Icon name="arrow-right" size={14} className="dept-arrow" />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="t-muted" style={{ fontSize: 14 }}>
+              Our department directory is being connected to the hospital database — check back shortly.
+            </p>
+          )}
         </div>
       </section>
 
@@ -251,15 +274,17 @@ function Landing() {
           <span className="section-kicker">Patient stories</span>
           <h2>What patients say</h2>
           <p className="public-section-sub">
-            {approvedStories.length > 0
-              ? 'Stories shared by patients from the MedicaCare portal, reviewed by our staff before publishing.'
-              : 'Fictional stories written for this prototype to show what booking with MedicaCare feels like.'}
+            Stories shared by patients from the MedicaCare portal, reviewed by our staff before publishing.
           </p>
-          <TestimonialCarousel
-            items={approvedStories.length > 0
-              ? approvedStories.map(t => ({ quote: t.quote, who: `${t.displayName} · patient` }))
-              : PROTOTYPE_STORIES}
-          />
+          {approvedStories.length > 0 ? (
+            <TestimonialCarousel
+              items={approvedStories.map(t => ({ quote: t.quote, who: `${t.displayName} · patient` }))}
+            />
+          ) : (
+            <p className="t-muted" style={{ fontSize: 14 }}>
+              No published stories yet — be the first to share your experience from the patient portal.
+            </p>
+          )}
         </div>
       </section>
 

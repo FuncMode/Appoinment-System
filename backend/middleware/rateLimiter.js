@@ -1,7 +1,32 @@
 // backend/middleware/rateLimiter.js
-// Blueprint stub - walang code pa (tingnan ang docs/BACKEND_ARCHITECTURE.md).
-// Role: express-rate-limit on /api/auth/* (brute-force protection).
-// Security (API4 / ASVS V2.5): keyed by IP(+route); mas mahigpit na window/limit
-//   sa credential endpoints; i-log ang mga 429 (V16.3) para sa brute-force
-//   monitoring; sa behind-proxy deployment, i-set ang trust proxy nang tama
-//   (kung hindi, ang rate limit ay mada-market sa iisang IP).
+// Brute-force protection (API4 / ASVS V2.5): keyed by IP. Ang general apiLimiter
+// ay naka-apply sa lahat ng /api; ang authLimiter (mas mahigpit) ay i-a-attach ng
+// auth routes sa mga credential endpoints. I-log ang mga 429 para sa
+// brute-force monitoring (V16.3).
+
+import rateLimit from 'express-rate-limit';
+
+const handler = (_req, _res, next, options) => {
+  console.warn(`[rate-limit] 429 — ${options.statusCode} sa ${options.windowMs}ms window`);
+  next(options.message);
+};
+
+// General: sapat para sa normal na clinic usage, mapoprotektahan ang uptime.
+export const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  handler,
+});
+
+// Credential endpoints: mas mahigpit (brute-force surface).
+export const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  handler,
+});
+
+export default apiLimiter;

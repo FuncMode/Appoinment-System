@@ -55,14 +55,20 @@ function ServicesPage() {
           <span className="section-kicker">Find your department</span>
           <h2>Departments & specialties</h2>
           <p className="public-section-sub">Tap a department to see its specialists.</p>
-          <div className="grid-4">
-            {SPECIALTIES.map(s => (
-              <button key={s} className="dept-chip" onClick={() => navigate(`/doctors?spec=${encodeURIComponent(s)}`)}>
-                {s}
-                <Icon name="arrow-right" size={14} className="dept-arrow" />
-              </button>
-            ))}
-          </div>
+          {SPECIALTIES.length > 0 ? (
+            <div className="grid-4">
+              {SPECIALTIES.map(s => (
+                <button key={s} className="dept-chip" onClick={() => navigate(`/doctors?spec=${encodeURIComponent(s)}`)}>
+                  {s}
+                  <Icon name="arrow-right" size={14} className="dept-arrow" />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="t-muted" style={{ fontSize: 14 }}>
+              Our department directory is being connected to the hospital database — check back shortly.
+            </p>
+          )}
         </div>
       </section>
 

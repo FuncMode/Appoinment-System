@@ -5,7 +5,7 @@ import { findDoctor, SPECIALTIES } from '../shared/data.js';
 import { downloadCSV } from './helpers.js';
 
 // ---------- Reports ----------
-// Prototype reports — computed from the in-memory demo data.
+// Report figures — computed from live store data (API-backed once wired)
 function AdminReports() {
   const store = useStore();
   const appts = store.appointments;
@@ -20,17 +20,39 @@ function AdminReports() {
   const completionRate = appts.length ? Math.round((completed / appts.length) * 100) : 0;
   const cancellationRate = appts.length ? ((cancelled / appts.length) * 100).toFixed(1) : '0.0';
 
-  // Trend lines are prototype data (same approach as the Dashboard cards) —
-  // each series ends at the card's current value so line and number agree
+  // Trend sparklines — counts per day over the last 7 days from real store
+  // data (same helper as the Dashboard cards). Returns null when there is no
+  // activity at all so the card renders without a fake trend line.
+  // Date object (not the localToday() string) — dayCounts below needs
+  // getFullYear()/getMonth()/getDate() for its 7-day buckets
+  const now = new Date();
+  const dayCounts = (list, dateKey) => {
+    const counts = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      counts.push(list.filter(x => (x[dateKey] || '') === iso).length);
+    }
+    return counts.some(c => c > 0) ? counts : null;
+  };
+  // Rate trends: daily % of appointments in the given status (0% days stay
+  // honest instead of hiding the line once any appointment exists)
+  const dayRate = (status) => {
+    const totals = dayCounts(appts, 'date');
+    if (!totals) return null;
+    const matched = dayCounts(appts.filter(a => a.status === status), 'date') || totals.map(() => 0);
+    return totals.map((t, i) => (t ? Math.round((matched[i] / t) * 100) : 0));
+  };
+
   const stats = [
-    { label: 'Total appointments', value: appts.length, icon: 'calendar-days', tone: 'success', trend: [19, 20, 21, 21, 23, 24, 25] },
-    { label: 'Completed visits', value: completed, icon: 'check-circle-2', tone: 'success', trend: [3, 4, 4, 5, 5, 6, 6] },
-    { label: 'Completion rate', value: `${completionRate}%`, icon: 'trending-up', tone: 'success', trend: [18, 20, 19, 22, 21, 25, 24] },
+    { label: 'Total appointments', value: appts.length, icon: 'calendar-days', tone: 'success', trend: dayCounts(appts, 'date') },
+    { label: 'Completed visits', value: completed, icon: 'check-circle-2', tone: 'success', trend: dayCounts(appts.filter(a => a.status === 'completed'), 'date') },
+    { label: 'Completion rate', value: `${completionRate}%`, icon: 'trending-up', tone: 'success', trend: dayRate('completed') },
     // Rising cancellations are bad news — the trend line reads red
-    { label: 'Cancellation rate', value: `${cancellationRate}%`, icon: 'x-circle', tone: 'error', trend: [6, 5.5, 7, 6.5, 7.5, 8, 8] },
+    { label: 'Cancellation rate', value: `${cancellationRate}%`, icon: 'x-circle', tone: 'error', trend: dayRate('cancelled') },
   ];
 
-  // Appointments per specialty, computed from the demo data
+  // Appointments per specialty, computed from store data
   const bySpecialty = SPECIALTIES
     .map(sp => {
       const doctorIds = store.doctors.filter(d => d.specialty === sp).map(d => d.id);
@@ -53,7 +75,8 @@ function AdminReports() {
 
   const chartData = bySpecialty.slice(0, 6).map(r => ({ label: r.specialty, value: r.total }));
   // Highlight the peak specialty bar, same as the Dashboard week chart
-  const peak = Math.max(...chartData.map(d => d.value));
+  // (guard: Math.max on an empty list is -Infinity)
+  const peak = chartData.length ? Math.max(...chartData.map(d => d.value)) : 0;
 
   // Busiest doctors by appointment count (3 rows to visually match the specialty chart beside it)
   const byDoctor = store.doctors
@@ -108,6 +131,8 @@ function AdminReports() {
                 <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <span className="spinner" role="status" aria-label="Loading chart" />
                 </div>
+              ) : chartData.length === 0 ? (
+                <EmptyState icon="bar-chart" title="No appointment data yet" message="The specialty chart will appear once appointments are booked." />
               ) : (
                 <MiniBarChart
                   data={chartData.map(d => ({ ...d, highlight: d.value === peak }))}
@@ -132,6 +157,8 @@ function AdminReports() {
                     <span className="skel" style={{ width: 92, height: 22, borderRadius: 'var(--r-pill)', flexShrink: 0 }} />
                   </div>
                 ))
+              ) : byDoctor.length === 0 ? (
+                <EmptyState icon="stethoscope" title="No appointment data yet" message="Doctor activity will appear once appointments are booked." />
               ) : byDoctor.map(d => (
                 <div key={d.id} className="list-item">
                   <DoctorAvatar doctor={d} size={28} />
@@ -185,7 +212,7 @@ function AdminReports() {
         </div>
 
         <p className="t-muted" style={{ fontSize: 12, marginTop: 12 }}>
-          Note: figures are computed from the prototype's fictional demo data.
+          Note: figures are computed live from the system's appointment records.
         </p>
       </div>
     </AppShell>

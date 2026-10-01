@@ -276,13 +276,13 @@ create index idx_visit_ratings_patient on visit_ratings (patient_id);           
 -- Computed averages para sa Doctor cards / Admin Doctors table. Laging
 -- ipapares ang avg_rating sa rating_count sa display (small samples stay
 -- labeled; walang rating = walang ipinapakita, hindi invented number).
--- SECURITY note: ang view na ito ay nag-e-expose lang ng aggregates
--- (doctor_id, avg, count) — walang per-patient rows. Sa PG15+, kung gusto
--- mong sumailalim din ito sa RLS ng visit_ratings, gawin:
---   create view v_doctor_rating_averages with (security_invoker = true) as ...
--- (default na security-definer semantics ang views — bypass nito ang RLS ng
---  base table; dito, intended yan para public ang doctor ratings).
-create view v_doctor_rating_averages as
+-- SECURITY note: nag-e-expose lang ng aggregates (doctor_id, avg, count) —
+-- walang per-patient rows. `security_invoker = true`: sumasailalim sa RLS ng
+-- visit_ratings ang caller — denied ang anon/authenticated habang walang
+-- policies (phase 1, deny-by-default), buo sa service_role/backend
+-- (BYPASSRLS). Hinahatiwan ang Security Advisor ERROR (security_definer_view):
+-- ang definer view ang magiging tanging RLS-bypass hole sa public schema.
+create view v_doctor_rating_averages with (security_invoker = true) as
 select
   doctor_id,
   round(avg(stars)::numeric, 1) as avg_rating,
@@ -492,6 +492,8 @@ create index idx_patient_stories_patient on patient_stories (patient_id);       
 create table clinic_info (
   id         int primary key default 1 check (id = 1),
   name       text not null,
+  short_name text,                -- app HOSPITAL.short (branding lockup)
+  tagline    text,                -- app HOSPITAL.tagline (marketing line)
   phone      text not null,
   email      text not null,
   address    text,
@@ -531,7 +533,9 @@ create table app_settings (
 
 -- updated_at sa bawat update
 create or replace function fn_set_updated_at() returns trigger
-language plpgsql as $$
+language plpgsql
+set search_path = ''   -- Supabase linter: fixed search_path (hindi role-mutable); now() ay nasa pg_catalog (implicit sa path)
+as $$
 begin
   new.updated_at = now();
   return new;
@@ -547,27 +551,46 @@ create trigger trg_support_tickets_updated_at before update on support_tickets f
 create trigger trg_clinic_info_updated_at before update on clinic_info for each row execute function fn_set_updated_at();
 create trigger trg_app_settings_updated_at before update on app_settings for each row execute function fn_set_updated_at();
 
--- Status timestamps + automatic status history (status timeline feature)
-create or replace function fn_appointment_status_change() returns trigger
-language plpgsql as $$
+-- Status timestamps + automatic status history (status timeline feature).
+-- DALAWANG triggers (hindi iisa): ang history INSERT ay kailangang AFTER —
+-- ang BEFORE trigger na nag-i-insert sa appointment_status_history ay
+-- bumabagsak sa FK (child row muna bago pa maisulat ang parent). Ang
+-- timestamp-setting ay BEFORE dahil binabago nito ang NEW row.
+create or replace function fn_appointment_status_timestamps() returns trigger
+language plpgsql
+set search_path = ''   -- fixed search_path (Supabase linter); walang table reference sa body
+as $$
+begin
+  if new.status = 'confirmed' then new.confirmed_at = now(); end if;
+  if new.status = 'completed' then new.completed_at = now(); end if;
+  if new.status = 'cancelled' then new.cancelled_at = now(); end if;
+  return new;
+end;
+$$;
+
+create trigger trg_appointment_status_timestamps
+  before update of status on appointments
+  for each row execute function fn_appointment_status_timestamps();
+
+create or replace function fn_appointment_status_history() returns trigger
+language plpgsql
+set search_path = public   -- fixed search_path (Supabase linter); may table reference (appointment_status_history)
+as $$
 begin
   if (tg_op = 'INSERT') then
     insert into appointment_status_history (appointment_id, from_status, to_status)
     values (new.id, null, new.status);
   elsif (new.status is distinct from old.status) then
-    if new.status = 'confirmed' then new.confirmed_at = now(); end if;
-    if new.status = 'completed' then new.completed_at = now(); end if;
-    if new.status = 'cancelled' then new.cancelled_at = now(); end if;
     insert into appointment_status_history (appointment_id, from_status, to_status)
     values (new.id, old.status, new.status);
   end if;
-  return new;
+  return null;  -- AFTER trigger: hindi pinapansin ang return value
 end;
 $$;
 
-create trigger trg_appointment_status_change
-  before insert or update of status on appointments
-  for each row execute function fn_appointment_status_change();
+create trigger trg_appointment_status_history
+  after insert or update of status on appointments
+  for each row execute function fn_appointment_status_history();
 
 -- ============================================================
 -- Available slots function — Doctor Availability + booking form
@@ -589,6 +612,7 @@ create or replace function fn_available_slots(
 returns table (slot_start time, slot_end time, is_available boolean)
 language sql
 stable
+set search_path = public   -- fixed search_path (Supabase linter); may table references
 as $$
   with avail as (
     select
@@ -904,21 +928,51 @@ $$;
 -- ============================================================
 
 -- ============================================================
+-- STORAGE SETUP (phase 2 — i-run SA PAG-IMPLEMENT ng avatar uploads)
+--   Private 'avatars' bucket para sa profile photos (patients/doctors/
+--   admins.photo_url). Buong design: docs/STORAGE_DESIGN.md ·
+--   cross-layer: docs/SECURITY_ALIGNMENT.md §K.
+--   Backend-only uploads (service_role) — walang client storage policy!
+--
+--   insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+--   values ('avatars', 'avatars', false, 1048576,
+--           array['image/jpeg','image/png','image/webp'])
+--   on conflict (id) do update set
+--     public = false, file_size_limit = 1048576,
+--     allowed_mime_types = array['image/jpeg','image/png','image/webp'];
+--
+--   Mga tala:
+--   - public = false (PRIVADO): ang mukha ay PII (RA 10173) — ang pag-access ay
+--     laging sa pamamagitan ng backend-signed URLs (TTL 5 min), hindi public URL.
+--   - BAWAL magdagdag ng storage.objects policy na nagbibigay kay anon/
+--     authenticated ng read/write sa 'avatars' sa phase 1 — ang backend
+--     service_role lang ang access path (katulad ng DB posture). Sa phase 2
+--     (kapag nag-Supabase Auth), doon pa lang gagawa ng owner-scoped policies.
+--   - file_size_limit/allowed_mime_types = ikalawang linya ng depensa; ang
+--     unang linya ay backend validation (magic-byte sniff, ≤1MB — §3 ng design).
+--   - Ang mga seed `randomuser.me` photo_url values ay demo-only at hindi
+--     inaayos ng migration — ang serializer rule ng backend (§5 ng design) ang
+--     gumagawa sa kanilang magpatuloy na gumana katabi ng `avatars/` paths.
+-- ============================================================
+
+-- ============================================================
+-- SEED DATA — fictional demo data ng buong app (public pages +
+-- ============================================================
 -- SEED DATA — fictional demo data ng buong app (public pages +
 -- Patient Portal + Admin Console + Doctor portal)
 --   - FICTIONAL lahat: pangalan, email, phone, address, atbp. — demo/test
 --     data lang (walang totoong pasyente, tugma sa "no real patient data"
 --     rule ng project)
 --   - Demo login credentials (pareho ng ipinapakita ng app sa login screens):
---       Patient : patient@medicacare.ph / patient123
---       Admin   : admin@medicacare.ph   / admin123
+--       Patient : mwawlasly@gmail.com / patient123
+--       Admin   : angelitotallod1234@gmail.com / admin123
 --       Doctor  : doctor@medicacare.ph  / doctor123
 --   - Password hashes: crypt() mula sa pgcrypto — hindi plain text
 --   - I-run KASAMA ng schema.sql sa bagong database lamang (hindi idempotent
 --     ang mga INSERT; i-run ulit = magdo-doble/mag-e-error)
 --   - Fixed UUID scheme para madaling i-reference ang seed rows:
 --       doctors      00000000-0000-4000-8000-0000000000<ord 01-18>
---       patients     10000000-0000-4000-8000-0000000000<ord 01-24>
+--       patients     10000000-0000-4000-8000-0000000000<ord 01-26>
 --       appointments 20000000-0000-4000-8000-0000000000<n>
 --       demo visits  30000000-0000-4000-8000-0000000000<n>
 --       admin        40000000-0000-4000-8000-000000000001
@@ -940,8 +994,9 @@ insert into specialties (name) values
 -- clinic_info singleton (HOSPITAL constants ng app — footer/Contact/Settings).
 -- hours: eksaktong tugma ng hardcoded schedule ng app (ClinicStatus pill +
 -- footer: Mon–Fri 8AM–5PM, Sat 9AM–1PM, Sun closed).
-insert into clinic_info (id, name, phone, email, address, hours) values
-  (1, 'MedicaCare', '+63 (2) 8567 4400', 'care@medicacare.ph',
+insert into clinic_info (id, name, short_name, tagline, phone, email, address, hours) values
+  (1, 'MedicaCare', 'MedicaCare', 'Compassionate care, backed by clinical excellence.',
+   '+63 (2) 8567 4400', 'care@medicacare.ph',
    '221 Rizal Avenue, Quezon City, Metro Manila',
    '{"mon":["08:00","17:00"],"tue":["08:00","17:00"],"wed":["08:00","17:00"],"thu":["08:00","17:00"],"fri":["08:00","17:00"],"sat":["09:00","13:00"],"sun":null}'::jsonb);
 
@@ -962,7 +1017,8 @@ select
   v.exp,
   v.fee,
   v.room,
-  v.gender::gender,
+  -- 'M'/'F' shorthand ng app registry → enum labels ('male'/'female')
+  (case v.gender when 'F' then 'female' else 'male' end)::gender,
   'https://randomuser.me/api/portraits/' ||
     (case when v.gender = 'F' then 'women' else 'men' end) || '/' ||
     ((v.ord * 5) % 99)::text || '.jpg'
@@ -987,8 +1043,9 @@ from (values
   (18, 'Dr. Fernando Zaragoza',             'Psychiatry',        'busy',      19, 2000.00, 'Mental Health • Rm 604',   'M')
 ) as v(ord, full_name, specialty, status, exp, fee, room, gender);
 
--- Patients (24 — PATIENTS registry ng app). p1 = demo patient account:
--- ang patients.email ang login identity kaya 'patient@medicacare.ph' ang
+-- Patients (26 — PATIENTS registry ng app + 2 story authors na pinalitan ang
+-- fictional PROTOTYPE_STORIES sa DB). p1 = demo patient account:
+-- ang patients.email ang login identity kaya 'mwawlasly@gmail.com' ang
 -- naka-seed dito (ang gmail sa registry ay contact email lang sa prototype).
 -- age: galing sa app registry — derive ng date_of_birth (2026 - age,
 -- placeholder na June 15) para may ma-compute na age sa admin tables.
@@ -1005,7 +1062,7 @@ select
   v.email,
   v.phone,
   extensions.crypt('patient123', extensions.gen_salt('bf')),  -- demo hash; sa totoong wiring, account creation ang magse-set
-  v.gender::gender,
+  (case v.gender when 'F' then 'female' else 'male' end)::gender,
   case when v.ord = 1 then date '1991-04-12' else make_date(2026 - v.age, 6, 15) end,
   case when v.ord = 1 then '18 Sampaguita St., Barangay San Antonio, Quezon City' end,
   case when v.ord = 1 then 'Maria Bautista • +63 918 445 2201' end,
@@ -1017,7 +1074,7 @@ select
   v.last_visit,
   v.joined::timestamptz
 from (values
-  (1,  'Juan Miguel Bautista',                'patient@medicacare.ph',       '+63 917 234 5678', 'M', 34, date '2024-08-14', date '2026-08-22'),
+  (1,  'Juan Miguel Bautista',                'mwawlasly@gmail.com',         '+63 917 234 5678', 'M', 34, date '2024-08-14', date '2026-08-22'),
   (2,  'Maria Kristina Del Rosario-Fernandez','mk.fernandez@outlook.com',    '+63 918 445 1120', 'F', 29, date '2025-01-03', date '2026-09-01'),
   (3,  'Jose Emmanuel Villanueva',            'jose.villanueva@yahoo.com',   '+63 917 998 2345', 'M', 52, date '2023-06-19', date '2026-07-30'),
   (4,  'Sofia Andrea Ramos',                  'sofia.ramos@gmail.com',       '+63 916 210 8877', 'F', 41, date '2024-11-22', date '2026-08-14'),
@@ -1039,7 +1096,7 @@ select
   ('10000000-0000-4000-8000-' || lpad(v.ord::text, 12, '0'))::uuid,
   v.full_name, v.email, v.phone,
   extensions.crypt('patient123', extensions.gen_salt('bf')),
-  v.gender::gender,
+  (case v.gender when 'F' then 'female' else 'male' end)::gender,
   make_date(2026 - v.age, 6, 15),
   'https://randomuser.me/api/portraits/' ||
     (case when v.gender = 'F' then 'women' else 'men' end) || '/' ||
@@ -1058,13 +1115,15 @@ from (values
   (21, 'Paolo Cesar Fajardo',                'paolo.fajardo@gmail.com',    '+63 917 990 3345', 'M', 26, date '2026-03-04', null),
   (22, 'Trinidad Amor Concepcion',           'trinidad.c@gmail.com',       '+63 918 662 8890', 'F', 58, date '2022-11-09', date '2026-06-30'),
   (23, 'Marcos Julian Lozano',               'marcos.lozano@gmail.com',    '+63 917 445 9987', 'M', 37, date '2024-06-24', date '2026-08-12'),
-  (24, 'Kristine Joy Balagtas',              'kristine.balagtas@gmail.com','+63 928 335 7723', 'F', 34, date '2025-02-17', date '2026-08-26')
+  (24, 'Kristine Joy Balagtas',              'kristine.balagtas@gmail.com','+63 928 335 7723', 'F', 34, date '2025-02-17', date '2026-08-26'),
+  (25, 'Marco Antonio Tolentino',            'marco.tolentino@gmail.com',  '+63 917 550 2314', 'M', 31, date '2025-06-20', date '2026-08-27'),
+  (26, 'Andrea Lopez',                       'andrea.lopez@gmail.com',     '+63 928 610 7745', 'F', 27, date '2025-11-05', date '2026-09-02')
 ) as v(ord, full_name, email, phone, gender, age, joined, last_visit);
 
 -- Admin (CURRENT_ADMIN ng app; login email = ADMIN_CREDENTIALS)
 insert into admins (id, full_name, email, password_hash, role, photo_url) values
   ('40000000-0000-4000-8000-000000000001'::uuid, 'Dr. Helena Cruz-Ilagan',
-   'admin@medicacare.ph', extensions.crypt('admin123', extensions.gen_salt('bf')),
+   'angelitotallod1234@gmail.com', extensions.crypt('admin123', extensions.gen_salt('bf')),
    'Administrator', 'https://randomuser.me/api/portraits/women/44.jpg');
 
 -- Doctor portal account (DOCTOR_CREDENTIALS ng app — d1 ang may access)
@@ -1393,9 +1452,11 @@ values
    'Hi Juan! Your ECG results are ready — you can view them under Medical records in your portal, or pick up a printed copy at the Records section, Ground Floor.',
    '2026-09-11'::timestamptz);
 
--- Patient stories (SEED_TESTIMONIALS ng app — 2 pending + 3 approved;
--- ang mga approved ay lalabas sa public "What patients say" carousel —
--- tatlong slides para lumabas ang left/right arrows at ang auto-rotate)
+-- Patient stories (SEED_TESTIMONIALS + PROTOTYPE_STORIES ng app — 2 pending
+-- + 6 approved; ang mga approved ay lalabas sa public "What patients say"
+-- carousel — sapat na slides para lumabas ang left/right arrows at ang
+-- auto-rotate. Ang huling tatlo ay ang mga fictional prototype stories,
+-- naka-preserba dito kapag inalis na ang demo data sa frontend)
 insert into patient_stories (patient_id, display_name, quote, status, created_at, reviewed_at, reviewed_by)
 values
   (('10000000-0000-4000-8000-000000000002')::uuid, 'Kristina F.',
@@ -1415,6 +1476,18 @@ values
   (('10000000-0000-4000-8000-000000000011')::uuid, 'Miguel T.',
    'Moving my father''s follow-up took one tap, and the confirmation arrived instantly — no more calling just to change a schedule.',
    'approved', '2026-09-09'::timestamptz, '2026-09-10'::timestamptz,
+   ('40000000-0000-4000-8000-000000000001')::uuid),
+  (('10000000-0000-4000-8000-000000000004')::uuid, 'Sofia R.',
+   'Booking my cardiology follow-up used to take a whole afternoon of phone calls. Now I do it in two taps before work.',
+   'approved', '2026-09-05'::timestamptz, '2026-09-06'::timestamptz,
+   ('40000000-0000-4000-8000-000000000001')::uuid),
+  (('10000000-0000-4000-8000-000000000025')::uuid, 'Marco T.',
+   'I booked my son''s pediatric check-up after my night shift and had a confirmation before I even got home.',
+   'approved', '2026-09-06'::timestamptz, '2026-09-07'::timestamptz,
+   ('40000000-0000-4000-8000-000000000001')::uuid),
+  (('10000000-0000-4000-8000-000000000026')::uuid, 'Andrea L.',
+   'Rescheduling used to mean three phone calls and crossing my fingers. Now it''s two taps and done.',
+   'approved', '2026-09-07'::timestamptz, '2026-09-08'::timestamptz,
    ('40000000-0000-4000-8000-000000000001')::uuid);
 
 -- Activity log (SEED_ACTIVITY ng app — timestamps relative sa run time,

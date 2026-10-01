@@ -1,0 +1,545 @@
+# MedicaCare — Integration Roadmap (Frontend ↔ Backend ↔ Database)
+
+> **Status:** LIVE reference — Phase 0 ✅ DONE (2026-10-01). Itong doc ang tala ng
+> order ng paggawa para ma-wire ang buong stack nang maayos at secure.
+> **Paano gamitin:** trabahuhin ang mga phase sa order. Bawat phase ay may
+> **DB / Backend / Frontend / Security / Acceptance** sections — i-checklist habang
+> tinatapos. Huwag laktawan ang security section ng bawat phase.
+
+**Companion docs (aligned sa roadmap na ito):**
+
+| Doc | Gamit |
+| --- | --- |
+| `docs/BACKEND_ARCHITECTURE.md` | Module structure, layer rules, feature → module → table mapping |
+| `docs/BACKEND_SECURITY_AUDIT.md` | Per-module security checklist (OWASP API Top 10 + ASVS) — basahin bago mag-code |
+| `docs/DATABASE_SECURITY_AUDIT.md` | Schema security audit (21 tables, RLS playbook) |
+| `docs/FRONTEND_SECURITY_AUDIT.md` | Client-side checklist (XSS, token storage, input handling) |
+| `docs/ENCRYPTION_DESIGN.md` | TIER 1 [ENC] fields / TIER 2 blind index |
+| `docs/STORAGE_DESIGN.md` | Avatars bucket + signed URLs — Phase 7 |
+| `docs/SECURITY_ALIGNMENT.md` | Cross-layer alignment (§H sessions, §J realtime) |
+| `database/schema.sql` | Singleton source of truth ng schema (naka-apply na sa Supabase) |
+
+---
+
+## Phase 0 — Baseline ✅ DONE
+
+- **Backend boot chain LIVE:** `config/env.js` (fail-fast validation), `config/db.js`
+  (Supabase singleton), `config/cors.js` (strict allowlist), `config/logger.js` +
+  `middleware/requestLogger.js`, `middleware/rateLimiter.js` (`apiLimiter` 300/15min +
+  `authLimiter` 10/15min reserved), `middleware/errorHandler.js` + `notFound.js`,
+  `shared/utils/` (ApiError, apiResponse, asyncHandler), `app.js` pipeline
+  (helmet → CORS → body 1mb → log → limiter → routes), `server.js` (graceful shutdown).
+- **Verified live:** `GET /api/health` → `200 {status:"ok", db:"ok"}` — Supabase
+  reachable at naka-apply na ang schema (`specialties` table ang sumasagot).
+- **Secrets:** real values nasa `backend/.env` (gitignored); `.env.example`
+  placeholders lang; root `.gitignore` nag-iwas sa `.vite/` junk.
+- **Frontend:** KUMPLETO ang UI sa lahat ng pages (public / patient / doctor /
+  admin), hash routing na may route guards (`App.jsx`), store.jsx
+  (localStorage-based sessions), `data.js` placeholders — **walang API calls pa**.
+- **Tests/lint:** `npm run lint` = 0 errors; module tests ay stubs pa.
+
+---
+
+## Phase Order at a Glance
+
+| # | Phase | Result |
+| --- | --- | --- |
+| 1 | Shared plumbing (API client + token session + `refresh_tokens`) | Nag-uusap na ang browser at API |
+| 2 | **Auth module** (3 account sources) | Register/login/refresh/logout, role guards |
+| 3 | Public content + directory | Landing/Doctors/Services/Contact — live data |
+| 4 | Patient portal core (profile + appointments) | Booking end-to-end |
+| 5 | Doctor portal | Schedule / complete-visit / notes / feedback |
+| 6 | Admin console | Full CRUD + reports + audit trail |
+| 7 | Storage (avatars) | Signed uploads, private bucket |
+| 8 | Email + reminders (Brevo + cron) | Transactional emails, auto-reminders |
+| 9 | Messaging + notifications (+ realtime) | Support loop, bell, live updates |
+| 10 | Hardening + deployment | Vercel prod, full audit pass |
+
+**Bakit ganito ang order (dependency logic):**
+1. **Auth una** — lahat ng susunod na module ay may `requireRole()`; walang
+   maitatayong secured endpoint nang walang session.
+2. **Public content kasunod** — walang auth requirement, mabilis na win,
+   at siyang nagpa-pattern ng "load data on mount" flow ng frontend.
+3. **Patient flow bago doctor** — ang booking ang puso ng app; dito lumalabas
+   ang slot logic (`fn_available_slots`) at PHI encryption.
+4. **Doctor bago admin** — mas maliit; pagkatapos nito kumpleto na ang
+   appointment lifecycle sa dalawang panig, kaya ang admin CRUD wave ay
+   mekanikal na (reuse ng established patterns).
+5. **Storage/email/realtime huli sa core** — bolt-on enhancements; hindi
+   sila hadlang sa main clinic flows.
+
+## Phase 1 — Shared Plumbing (session 1)
+
+**Goal:** may gumaganang API client sa frontend at maayos na session/token
+architecture bago pa ang unang secured endpoint.
+
+### DB
+- [ ] Gumawa + i-apply ang `database/migrations/001_refresh_tokens.sql`
+  (hiwalay sa `schema.sql` — backend-owned, hindi clinic domain, ayon sa
+  BACKEND_ARCHITECTURE §6.3):
+  `refresh_tokens(id uuid pk, account_kind text check in ('patient','admin','doctor'), account_id uuid, token_hash text, expires_at timestamptz, revoked_at timestamptz, created_at timestamptz default now())`
+  + index sa `account_id` at `expires_at` (para sa cleanup sweep).
+- [ ] I-update ang `database/README.md` na may tala sa migration file.
+
+### Backend
+- [ ] `shared/utils/crypto.js` — gawin totoong code: HMAC-SHA256 token hashing
+  (para sa refresh tokens) + AES-256-GCM encrypt/decrypt (para sa TIER 1 [ENC]
+  fields, `docs/ENCRYPTION_DESIGN.md`) gamit ang `config.encryptionKey`.
+  Kailangan na ito ng auth at muling gagamitin sa phases 4–5.
+- [ ] `middleware/validate.js` — zod validation middleware (body/query/params
+  → 400 na may safe `details`; integration ng zod schemas sa request chain).
+
+### Frontend
+- [ ] **Bago:** `frontend/src/shared/api.js` — fetch wrapper:
+  - base URL mula sa `import.meta.env.VITE_API_BASE_URL`;
+  - i-unwrap ang `{success, data, meta}` envelope; error ay may `{status, message, code}`;
+  - awtomatikong mag-attach ng `Authorization: Bearer <accessToken>`;
+  - **401 → tahimik na refresh → isang retry**; kapag nabigo pa rin, logout;
+  - network error → toast (`useStore().pushToast`).
+- [ ] **Token storage decision (FRONTEND_SECURITY_AUDIT):**
+  - **Access token: sa memory lang** (hindi localStorage — XSS-stealable).
+    Nawawala sa refresh; okay lang dahil may silent refresh.
+  - **Refresh token: httpOnly cookie** (`/api/auth/refresh` path scope,
+    `SameSite=Lax`, `Secure` sa prod). Same-site ang localhost:5173 ↔
+    localhost:3000 (ibang port lang) kaya gumagana ang Lax + `credentials: true`
+    na naka-set na sa `config/cors.js`.
+- [ ] `store.jsx` — i-adapter ang sessions (`patientSession` / `adminSession` /
+  `doctorSession`) → profile mula sa API response; token persistence sa
+  localStorage ay tinatanggal (profile cache lang ang mananatili).
+
+### Security checklist
+- [ ] Access TTL 15m / refresh 7d (values na sa `.env`); **refresh rotation**
+  sa bawat refresh (luma → revoked); **reuse detection** (revoked token reused →
+  i-revoke lahat ng sessions ng account).
+- [ ] Bcrypt cost ≥ 10 (BACKEND_SECURITY_AUDIT V2.4).
+
+### Acceptance
+- [ ] Mula sa browser console, `api.js` fetch sa `/api/health` ay tama ang
+  envelope + CORS pasok.
+- [ ] Ang `refresh_tokens` table ay nage-exist sa Supabase.
+
+---
+
+## Phase 2 — Auth Module 🔑 (una sa modules)
+
+**Goal:** tatlong account source (`patients` self-register, `admins`,
+`doctor_accounts` admin-issued) — iisang JWT flow. Role claim ay derived sa
+kung aling account source ang tumugma (BACKEND_ARCHITECTURE §6.1).
+
+### Backend (`modules/auth/*`)
+- [ ] `auth.validation.js` — zod: register (full_name, email, phone, password
+  ≥8 chars na may strength rule), login, forgot/reset password.
+- [ ] `auth.repository.js` — lookup per account source (identity column ayon sa
+  `schema.sql`), insert ng patient, token hash CRUD sa `refresh_tokens`.
+- [ ] `auth.service.js` — bcrypt compare (timing-safe), JWT issue
+  (`sub` = account id, `role` = patient|admin|doctor, `exp` mula sa env),
+  refresh rotate + reuse detection, logout revoke.
+- [ ] `auth.middleware.js` — `requireAuth` (JWT verify) + `requireRole(...)`.
+- [ ] `auth.controller.js` + `auth.routes.js` — mount **`authLimiter`** sa lahat
+  ng credential endpoints (register/login/refresh).
+- [ ] Error semantics: **generic na "Invalid email or password"** — hindi
+  pwedeng manghula ang attacker kung alin ang mali (ASVS V2.5).
+- [ ] Forgot password: token generation na ang gawin ngayon; ang email send ay
+  ia-attach sa Phase 8 (Brevo).
+
+### Frontend
+- [ ] `Login.jsx`, `Register.jsx` → API; **i-retire ang localStorage account
+  creation** (`nmc.users`) at i-purge ang legacy flow.
+- [ ] `AdminLogin.jsx` + `DoctorLogin.jsx` → parehong API, magkaibang source.
+- [ ] I-verify ang mga route guards sa `App.jsx` — ang role source ay ang
+  bagong API session (hindi na localStorage demo identity).
+- [ ] `ForgotPassword.jsx` — UI na; i-wire pagdating ng Phase 8.
+
+### Security checklist
+- [ ] Passwords: never in logs, never sa response (kahit hash).
+- [ ] Rate limit: 429 sa brute-force (i-log — V16.3).
+- [ ] Audit: auth events (login success/fail, register, logout) → `activity_log`
+  (V9) — gagamitin ang activity module pattern.
+- [ ] Token values: never logged (requestLogger skip headers na by design).
+
+### Acceptance
+- [ ] Register → login → redirect sa patient portal; reload → silent refresh
+  ay nagpapatuloy ng session.
+- [ ] Admin at doctor login → tama ang redirect at role.
+- [ ] Wrong password ×11 → 429.
+- [ ] `npm test` — `tests/auth.test.js` tumatakbo (register/login/refresh/
+  rotate/reuse-revoke/logout/403 role guard).
+
+---
+
+## Phase 3 — Public Content + Directory (walang login)
+
+**Goal:** ang lahat ng public pages ay nabubuhay na mula sa DB.
+
+### Backend
+- [ ] `modules/settings` — **GET public** clinic info (`clinic_info` +
+  `app_settings` public subset; ang admin write ay nasa Phase 6).
+- [ ] `modules/doctors` — public directory: list + filter by specialty +
+  search; rating average galing sa `v_doctor_rating_averages` (laging may
+  review count); specialties lookup.
+- [ ] `modules/stories` — approved testimonials lang (`status='approved'`).
+- [ ] `modules/contact` — **POST** submission; i-encrypt ang [ENC] fields
+  (`contact_messages.name/email/message`) via `crypto.js`.
+
+### Frontend
+- [ ] `Landing.jsx` — hero, stats, featured doctors, care finder ← settings/doctors API.
+- [ ] `DoctorsPage.jsx` — directory + specialty filter ← doctors API.
+- [ ] `ServicesPage.jsx`, `AboutPage.jsx` ← settings API (clinic identity).
+- [ ] `ContactPage.jsx` — form → POST; success toast.
+- [ ] `data.js` — ang `HOSPITAL`/`SPECIALTIES`/`DOCTORS` constants ay
+  gawing hydration targets (store.clinic ← API), hindi hardcoded.
+
+### Security checklist
+- [ ] Public endpoints: read-only, walang PII leakage (TIER 3 plaintext lang —
+  ENCRYPTION_DESIGN §1).
+- [ ] Contact POST: zod validation + rate limit + [ENC] encryption bago i-save.
+- [ ] XSS: React default escaping; **bawal `dangerouslySetInnerHTML`** sa
+  anumang DB-sourced text (FRONTEND_SECURITY_AUDIT).
+
+### Acceptance
+- [ ] Landing + Doctors page nagre-render mula sa totoong DB rows.
+- [ ] Contact submission lumilitaw sa DB (encrypted fields) — i-verify sa
+  Supabase table editor na ciphertext ang nasa [ENC] columns.
+
+---
+
+## Phase 4 — Patient Portal Core (profile + appointments)
+
+**Goal:** booking end-to-end — ang pinaka-critical na clinic path. Dito
+inaaktibo ang [ENC] PHI fields at ang slot logic.
+
+### Backend
+- [ ] `modules/patients` — GET/PUT own profile; **[ENC]** fields
+  (`date_of_birth`, `blood_type`, `allergies`, `address`, `emergency_contact`)
+  i-encrypt on write / i-decrypt on read (`crypto.js`); `phone_search` blind
+  index (TIER 2) kung kailangan ng equality search.
+- [ ] `modules/appointments` — create (slots mula sa
+  `fn_available_slots(doctor_id, date, duration)`), reschedule
+  (`p_exclude_appt_id` — hindi kino-consider na taken ang sariling slot),
+  cancel, list own; proxy booking (`booked_for` / family members);
+  `auto_confirm_appointments` pref mula sa `app_settings`; status transitions
+  valid paths lang; reference code (`AP-000123`) sa confirmation.
+- [ ] `modules/ratings` — submit (one per completed appointment —
+  `UNIQUE(appointment_id)` DB guard).
+
+### Frontend
+- [ ] `Profile.jsx` — profile CRUD + toggles (`email_reminders`,
+  `portal_notifications`) + family members (`patient_family_members`).
+- [ ] `DoctorListing.jsx` → `DoctorAvailability.jsx` → `BookAppointment.jsx` →
+  `BookingConfirmation.jsx` — full booking flow.
+- [ ] `AppointmentDetails/Status/History.jsx` — timeline
+  (`appointment_status_history`), reschedule, cancel, .ics download.
+- [ ] Rating modal pagkatapos ng completed visit.
+
+### Security checklist (pinaka-maraming BOLA surface — API1)
+- [ ] **LAHAT** ng queries ay naka-scope: `patient_id = JWT.sub` sa WHERE —
+  hindi trusted mula sa body/param (BOLA #1).
+- [ ] Slot race: re-check sa service + `uq_appointments_active_slot`
+  partial unique index ang DB backstop; i-handle ang unique violation nang
+  graceful (409, hindi 500).
+- [ ] Status transitions: hindi pwedeng i-cancel ng patient ang completed;
+  hindi pwedeng baguhin ng iba.
+- [ ] [ENC] fields: never in logs; decrypt lang kung owner ang requester.
+- [ ] Reschedule: date future + within clinic hours (V5.2/V11).
+
+### Acceptance
+- [ ] Book → visible agad sa history + status timeline; reschedule/cancel
+  gumagana; double-booking attempt → 409.
+- [ ] Patient A HINDI makikita ang appointment ni Patient B (404/403) —
+  i-test gamit ang dalawang account.
+- [ ] `npm test` — `tests/appointments.test.js` (conflict, race, ownership).
+
+---
+
+## Phase 5 — Doctor Portal
+
+**Goal:** kumpleto ang appointment lifecycle sa doctor side (schedule →
+complete visit / no-show → notes → records → feedback).
+
+### Backend
+- [ ] `modules/doctors` — own schedule (weekly availability editor sa
+  `doctor_weekly_availability`), own profile view; portal-access grant /
+  reset / revoke ng admin ay nasa Phase 6 (bcrypt hashing sa
+  `doctor.service`).
+- [ ] `modules/appointments` (doctor-scoped) — today/week views,
+  complete visit (gumagawa ng `medical_records` row) + no-show status.
+- [ ] `modules/records` — write `medical_records` / `lab_results` /
+  `medications` (LAHAT may [ENC] fields — schema registry); doctor-scoped
+  read ng pasyenteng na-attendan niya.
+- [ ] `modules/ratings` (doctor view) — `visit_ratings` ng sariling visits +
+  `v_doctor_rating_averages`.
+
+### Frontend
+- [ ] `DoctorDashboard.jsx` — today's schedule, complete visit / no-show.
+- [ ] `DoctorWeekView.jsx` + `WeekGrid.jsx` — week view.
+- [ ] `CompleteVisitModal.jsx` + `VisitNotesModal.jsx` — notes + records.
+- [ ] `DoctorPatients.jsx` + `PatientHistoryModal.jsx` — visit history +
+  amended notes.
+- [ ] `DoctorFeedback.jsx` — ratings page.
+
+### Security checklist
+- [ ] Doctor sees OWN appointments/patients ONLY (`doctor_id = JWT.sub`).
+- [ ] Revoked `doctor_accounts` → login fail + existing tokens invalidated
+  (revoke refresh rows; access token mawawala in ≤15m).
+- [ ] [ENC] sa lahat ng records fields; doctor lang ang may access sa
+  pasyenteng na-attendan niya (hindi buong directory).
+
+### Acceptance
+- [ ] Complete visit → `medical_records` row + status='completed' + rating
+  prompt available sa patient.
+- [ ] No-show → slot napapalaya (hindi naka-block sa
+  `uq_appointments_active_slot`).
+- [ ] Doctor B hindi makikita ang schedule/pasyente ni Doctor A.
+- [ ] `npm test` — `tests/doctors.test.js`, `tests/records.test.js`,
+  `tests/ratings.test.js`.
+
+---
+
+## Phase 6 — Admin Console
+
+**Goal:** full management + audit trail. Pagdating dito, ang mga patterns
+(auth middleware, envelope, validation, [ENC]) ay established na — mekanikal
+na ang CRUD wave.
+
+### Backend
+- [ ] `modules/patients` (admin) — list/add/edit/delete + registry.
+- [ ] `modules/doctors` (admin) — CRUD + availability editor +
+  **portal access** (grant/reset/revoke → `doctor_accounts`, bcrypt).
+- [ ] `modules/appointments` (admin) — create/edit/status/delete/
+  complete-visit; **bawat action ay may `activity_log` write** (V9).
+- [ ] `modules/records` (admin) — labs & medications encoding.
+- [ ] `modules/stories` (admin) — moderation (approve/reject/unpublish).
+- [ ] `modules/messages` — support tickets + reply loop.
+- [ ] `modules/contact` (admin) — list + mark-handled.
+- [ ] `modules/settings` (admin) — clinic info + appointment prefs write
+  (auto-confirm toggle dito makakaapekto sa Phase 4 behavior).
+- [ ] `modules/activity` — audit trail read (filterable, paginated).
+- [ ] `modules/reports` — stats, per-specialty breakdown, busiest doctors,
+  CSV export.
+- [ ] `modules/notifications` — generate notifications sa status changes.
+
+### Frontend (`frontend/src/admin/*`)
+- [ ] `AdminDashboard.jsx`, `PatientsMgmt.jsx` (+ `PatientFormModal`,
+  `PatientRecordsModal`), `DoctorsMgmt.jsx` (+ `DoctorFormModal` —
+  portal access fields), `AppointmentsMgmt.jsx` (+ `AppointmentModals`),
+  `StoriesMgmt.jsx`, `TicketsMgmt.jsx`, `AdminSettings.jsx`,
+  `AdminActivity.jsx`, `AdminReports.jsx` (+ `charts.jsx`).
+
+### Security checklist
+- [ ] `requireRole('admin')` sa LAHAT ng admin endpoints (single mount
+  point sa `routes/index.js`).
+- [ ] Audit trail sa lahat ng mutating actions (sino, ano, kailan — V9).
+- [ ] CSV export: formula-injection guard (`=`, `+`, `-`, `@` prefix sa cells).
+- [ ] Delete actions: confirm modal + soft patterns kung saan applicable.
+
+### Acceptance
+- [ ] Buong admin console gumagana laban sa totoong data.
+- [ ] Activity page nakikita ang bawat admin action na ginawa mo sa test run.
+- [ ] `npm test` — `tests/patients/settings/stories/messages/notifications/
+  contact.test.js`.
+
+---
+
+## Phase 7 — Storage (Avatars)
+
+**Goal:** patient/doctor photos — ayon sa `docs/STORAGE_DESIGN.md`
+(STORAGE SETUP section sa `database/schema.sql`).
+
+### DB
+- [ ] I-apply ang storage buckets setup: **private** `avatars` bucket
+  (hindi public — signed URLs lang ang access).
+
+### Backend
+- [ ] Upload route: **≤1MB file, base64 JSON** (route-specific `express.json`
+  limit ~3mb — encoded overhead ~1.4x); validate MIME (png/jpeg/webp) +
+  magic bytes, hindi lang extension.
+- [ ] Upload via `supabase.storage` client (bundled na sa `config/db.js` —
+  walang bagong dependency); overwrite per account path
+  (`avatars/{role}/{account_id}.png`).
+- [ ] Read: backend-signed URL, **TTL 5 min** — hindi public URL.
+
+### Frontend
+- [ ] `Profile.jsx` — change photo (preview + upload).
+- [ ] `DoctorFormModal.jsx` — doctor photo.
+
+### Security checklist
+- [ ] Private bucket: walang direct client access (service-role writes +
+  signed URLs only — STORAGE_DESIGN).
+- [ ] Size/type validation sa backend (hindi trusted ang client claim).
+- [ ] Ang signed URL ay never cached beyond TTL sa frontend.
+
+### Acceptance
+- [ ] Upload → photo nagre-render sa profile/header; direct bucket URL
+  (walang signature) → denied.
+
+---
+
+## Phase 8 — Email + Reminders (Brevo)
+
+**Goal:** transactional emails — walang SDK, Node 18 built-in `fetch` laban sa
+Brevo v3 REST API (desisyon sa BACKEND_ARCHITECTURE dependency notes).
+
+### Backend
+- [ ] `config/brevo.js` — client singleton: API key mula sa env
+  (xkeysib-), verified sender, **outbound HTTPS with request timeout**.
+- [ ] `shared/services/email.service.js` — **best-effort**: ang email failure
+  ay HINDI hahadlang sa main API request (i-log lang).
+- [ ] I-wire ang 4 templates (naka-scaffold na sa `shared/templates/emails/`):
+  appointmentConfirmation, appointmentReminder, appointmentStatusUpdate,
+  contactAcknowledgment.
+- [ ] **Forgot-password flow kumpleto** (Phase 2 token + email send + reset
+  endpoint; single-use token, short TTL, revoke pagkatapos gamitin).
+- [ ] `jobs/appointmentReminder.job.js` — cron: mga appointment bukas →
+  reminder (respetuhin ang `patients.email_reminders` toggle); idempotent
+  (hindi paulit-ulit na nagsesend).
+
+### Frontend
+- [ ] `ForgotPassword.jsx` — i-wire na (request reset → email → reset form).
+
+### Security checklist
+- [ ] API key never logged; email failure ay log lang (hindi user-visible
+  stack trace).
+- [ ] Reset token: hashed sa DB, single-use, ≤1h TTL, revoke-all sa reset.
+- [ ] Sender identity: verified sa Brevo (Senders, domains, IPs).
+
+### Acceptance
+- [ ] Book → confirmation email; status change → update email; contact →
+  acknowledgment.
+- [ ] Forgot password: buong loop gumagana (request → email link → reset →
+  login gamit ang bagong password).
+
+---
+
+## Phase 9 — Messaging + Notifications (+ Realtime)
+
+**Goal:** support loop at notification bell; realtime bilang enhancement.
+
+### Backend
+- [ ] `modules/messages` — two-way thread (`support_tickets` +
+  `support_ticket_messages`; body ay [ENC]).
+- [ ] `modules/notifications` — unread count, mark-all-read, list.
+- [ ] **Realtime (SECURITY_ALIGNMENT §J):** i-uncomment ang
+  `SUPABASE_SIGNING_PRIVATE_KEY` sa `.env` (Settings → JWT Keys → export
+  ES256 private key) → `GET /api/realtime/token` — nagmi-mint ng short-TTL
+  Supabase realtime token per authenticated user. **Bawal anon/public
+  channel** — authenticated token lang.
+- [ ] Poll fallback: kung realtime off, 30s polling sa notifications.
+
+### Frontend
+- [ ] `PatientMessages.jsx` + `TicketsMgmt.jsx` (admin) — thread UI.
+- [ ] Notification bell (topbar) — unread badge, mark-all-read.
+- [ ] Realtime subscribe sa notifications channel gamit ang minted token.
+
+### Security checklist
+- [ ] Ticket body [ENC]; access: patient = own tickets, admin = all.
+- [ ] Realtime token: short TTL, per-user, hindi anon (§J).
+
+### Acceptance
+- [ ] Patient nag-message → admin nakakita → admin nag-reply → patient
+  nakatanggap ng notification (+ realtime kung enabled).
+- [ ] `npm test` — `tests/messages.test.js`, `tests/notifications.test.js`.
+
+---
+
+## Phase 10 — Hardening + Deployment
+
+**Goal:** production-ready — security, monitoring, deployment.
+
+### Checklist
+- [ ] `npm audit --omit=dev` = **0** sa dalawang proyekto (pre-deploy gate).
+- [ ] Rate limits review per endpoint class (API4); helmet CSP review.
+- [ ] Structured logging / error monitoring; request logs sa persistent store
+  sa production (V16.2/V16.4).
+- [ ] **Full security audit pass** — patakbuhin ang lahat ng checklist sa
+  BACKEND / DATABASE / FRONTEND_SECURITY_AUDIT.md; i-mark ang bawat item.
+- [ ] **Vercel deploy:** backend (serverless adapter — hiwalay na maliit na
+  entry file, walang `listen`) + frontend (static `dist/`); env vars sa
+  **Vercel dashboard** (hindi sa commit); `CORS_ORIGINS` → prod domain;
+  `VITE_API_BASE_URL` → prod API URL.
+- [ ] Supabase prod hygiene: PITR/backup enable + isang restore drill;
+  service key rotation policy.
+- [ ] Monitoring: `/api/health` sa uptime checker; alerting sa 5xx spikes.
+- [ ] E2E manual walkthrough sa prod build: register → book → doctor
+  completes → rate → admin reports.
+
+### Acceptance
+- [ ] Live URL gumagana end-to-end; audit checklists lahat ✓; backup +
+  restore na-verify.
+
+---
+
+## Cross-Cutting Rules (sa LAHAT ng phases)
+
+1. **Validation** — zod sa lahat ng input (body/query/params) via
+   `middleware/validate.js`; never trust ang frontend (API3).
+2. **Authorization** — `requireRole()` + service-level scoping; ownership
+   check sa query level (`WHERE patient_id = JWT.sub`), hindi sa client data
+   (API1/BOLA). RLS mananatiling commented — service-role ang path (§6.2).
+3. **Errors** — generic message sa client; stack/details sa logs lang;
+   `asyncHandler` sa lahat ng async routes (V16.5).
+4. **Logs** — walang secrets, tokens, o PHI (V16.2/V16.4).
+5. **Encryption** — TIER 1 [ENC] via `crypto.js` (AES-256-GCM); blind index
+   (TIER 2) sa equality search; password = bcrypt hash lang (hindi ENC).
+6. **API shape** — `{success, data, meta}` envelope sa lahat ng responses;
+   pag nagbago ang contract, i-update ang zod schemas + `data.js` targets.
+7. **Schema discipline** — `database/schema.sql` ang singleton source of
+   truth; incremental changes = migrations folder + i-sync sa schema.sql.
+8. **Tests** — bawat module may `tests/<module>.test.js` (`node --test`);
+   `npm run lint` = 0 errors bago ituring na tapos ang phase.
+9. **Docs** — pag may nabagong env var / endpoint / flow, i-update ang
+   relevant doc sa alignment table sa ibaba.
+
+---
+
+## Alignment Map — Phase → Existing Files
+
+| Phase | Backend files | DB | Frontend files | Doc refs |
+| --- | --- | --- | --- | --- |
+| 1 | `shared/utils/crypto.js`, `middleware/validate.js` | `migrations/001_refresh_tokens.sql` (bago) | `shared/api.js` (bago), `store.jsx`, `auth.jsx` | ARCH §3, §6.3; SEC_ALIGN §H |
+| 2 | `modules/auth/*`, `tests/auth.test.js` | `patients`/`admins`/`doctor_accounts` | `Login/Register/AdminLogin/DoctorLogin.jsx`, `App.jsx` guards | BACKEND_AUDIT V2/V3 |
+| 3 | `settings`, `doctors`, `stories`, `contact` modules | `clinic_info`, `app_settings`, `doctors`, `patient_stories`, `contact_messages` | `Landing`, `DoctorsPage`, `ServicesPage`, `AboutPage`, `ContactPage`, `data.js` | ARCH §5 mapping |
+| 4 | `patients`, `appointments`, `ratings` modules | `patients`, `appointments`, `fn_available_slots`, `uq_appointments_active_slot`, `patient_family_members` | `Profile`, `DoctorListing/Availability`, `BookAppointment`, `Appointment*`, `BookingConfirmation` | ENCRYPTION_DESIGN; BACKEND_AUDIT §appointments |
+| 5 | `doctors` (doctor), `appointments` (doctor), `records`, `ratings` | `doctor_weekly_availability`, `medical_records`, `lab_results`, `medications`, `visit_ratings` | `doctor/*` (lahat) | BACKEND_AUDIT V5.2/V11 |
+| 6 | admin sides ng `patients/doctors/appointments/records`, `stories`, `messages`, `contact`, `settings`, `activity`, `reports`, `notifications` | `activity_log` + lahat ng tables | `admin/*` (lahat) | ARCH §5 Admin Console |
+| 7 | upload route (patients/doctors) | `avatars` bucket (STORAGE SETUP) | `Profile.jsx`, `DoctorFormModal.jsx` | STORAGE_DESIGN |
+| 8 | `config/brevo.js`, `email.service.js`, `jobs/*`, `templates/emails/*` | — | `ForgotPassword.jsx` | ARCH dependency notes |
+| 9 | `messages`, `notifications`, realtime endpoint | `support_tickets(+_messages)`, `notifications` | `PatientMessages.jsx`, bell (topbar) | SEC_ALIGN §J |
+| 10 | prod adapter, logging | backup/PITR | `dist/` deploy | lahat ng `*AUDIT*.md` |
+
+---
+
+## Verification Commands (bawat phase)
+
+```bash
+# Backend
+cd backend
+npm run dev          # nodemon boot — dapat "[server] MedicaCare backend listening"
+npm run lint         # 0 errors ang barahan
+npm test             # node --test — module tests ng phase
+npm audit --omit=dev # dapat 0
+
+# Frontend
+cd frontend
+npm run dev          # 5173 — i-test ang wired pages laban sa backend
+npm run build        # dapat clean
+
+# API smoke (halimbawa)
+curl http://localhost:3000/api/health
+```
+
+**Definition of done per phase:** lahat ng checkbox ✓ → lint/test green →
+manual walkthrough ng acceptance criteria → i-update ang Changelog sa ibaba.
+
+---
+
+## Changelog
+
+| Date | Progress |
+| --- | --- |
+| 2026-10-01 | Phase 0 ✅ — boot chain live, health 200 (db:ok), secrets sa `.env`, lint clean. Roadmap nilikha. |
+
+
+
+
+
+

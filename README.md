@@ -65,8 +65,8 @@ node scripts/security-checks.mjs
 
 | Role | Login page | Email | Password |
 | --- | --- | --- | --- |
-| Patient | `#/login` (public) | `patient@medicacare.ph` | `patient123` |
-| Admin / Staff | `#/admin/login` (staff console, **walang link sa public site**) | `admin@medicacare.ph` | `admin123` |
+| Patient | `#/login` (public) | `mwawlasly@gmail.com` | `patient123` |
+| Admin / Staff | `#/admin/login` (staff console, **walang link sa public site**) | `angelitotallod1234@gmail.com` | `admin123` |
 
 Kahit anong hindi naka-register na credentials ay magti-trigger ng error state ("No account found" o maling password). Ang mga bagong account mula sa Register page ay naka-save sa `localStorage` (`nmc.users`) at pwede nang i-log in.
 

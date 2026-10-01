@@ -15,6 +15,10 @@
 > gagamit ng Node 18 built-in `fetch` laban sa Brevo REST API sa `config/brevo.js`
 > (mas maliit, walang vulnerable transitive deps). `npm audit --omit=dev` = 0
 > vulnerabilities sa install time.
+> **Storage: walang bagong dependency** — ang `@supabase/supabase-js` client sa
+> `config/db.js` (storage-js bundled na) ang gagamitin sa avatar uploads;
+> private `avatars` bucket + backend-signed URLs (TTL 5 min) — buong design:
+> `docs/STORAGE_DESIGN.md` · schema playbook: `database/schema.sql` (STORAGE SETUP).
 
 ---
 
@@ -65,7 +69,9 @@ backend/
 │   │   └── auth.middleware.js       # requireAuth (verify JWT), requireRole('patient'|'admin'|'doctor')
 │   │
 │   ├── patients/                    # Profile + health summary + family members (proxy booking)
-│   │   ├── patient.routes.js        # GET/PATCH /api/patients/me · photo_url update · CRUD ng
+│   │   ├── patient.routes.js        # GET/PATCH /api/patients/me · photo_url update · avatar upload
+│   │   │                            #   (POST /me/photo, base64 JSON — docs/STORAGE_DESIGN.md) ·
+│   │   │                            #   POST /:id/photo (admin) · CRUD ng
 │   │   │                            #   /api/patients/me/family-members · admin registry list/create
 │   │   ├── patient.controller.js
 │   │   ├── patient.service.js       # Health summary assembly (dob-derived age, blood type, allergies)
@@ -74,7 +80,8 @@ backend/
 │   │
 │   ├── doctors/                     # Directory + profiles + weekly availability + portal access
 │   │   ├── doctor.routes.js         # GET /api/doctors (+ specialties lookup) · admin CRUD ·
-│   │   │                            #   availability PUT · portal access grant/reset/revoke (admin only)
+│   │   │                            #   availability PUT · POST /:id/photo (admin avatar upload —
+│   │   │                            #   docs/STORAGE_DESIGN.md) · portal access grant/reset/revoke (admin only)
 │   │   ├── doctor.controller.js
 │   │   ├── doctor.service.js        # Availability normalization; on-leave guards (hidden sa booking);
 │   │   │                            #   admin-issued credentials (bcrypt hash bago i-save)
